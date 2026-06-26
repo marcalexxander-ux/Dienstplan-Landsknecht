@@ -304,3 +304,19 @@ tr.dragOver{outline:3px solid var(--green)}
 
 /* v5.2.11 CSV Button deutlicher */
 #exportMinijobCsv{background:#475569!important;color:white!important}
+
+/* v5.2.12 Minijob Center Dienstplan-Verknüpfung */
+.miniInfo{
+  background:#ecfdf5;
+  border:1px solid #a7f3d0;
+  color:#064e3b;
+  padding:10px 12px;
+  border-radius:12px;
+  margin:10px 0 12px;
+  font-size:13px;
+  line-height:1.45;
+}
+#exportMinijobCsv{
+  background:#475569!important;
+  color:white!important;
+}

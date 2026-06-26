@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.12 SQL Update
+-- Kein SQL nötig.
+-- Minijob-Center berechnet aus der Tabelle schedules / Dienstplan.

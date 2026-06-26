@@ -616,6 +616,20 @@ async function createNotification(title,body){if(isManagement())await sb.from("n
 
 
 
+
+const MINIJOB_DEPARTMENTS=["Minijob Service","Minijob Bar","Minijob Küche"];
+
+function scheduleHoursForMinijobEntry(entry){
+  if(!entry || entry.status!=="arbeit" || !entry.start_time || !entry.end_time) return 0;
+  const start=String(entry.start_time).slice(0,5);
+  const end=String(entry.end_time).slice(0,5);
+  return hoursBetween(start,end,0);
+}
+
+function minijobCenterEmployeeFilter(p){
+  return MINIJOB_DEPARTMENTS.includes(p.department) && p.active!==false;
+}
+
 function exportMinijobCsv(){
   if(!lastMinijobRows.length){
     alert("Bitte zuerst Minijob-Center laden.");
@@ -650,6 +664,7 @@ function plannedHoursFromSchedule(s){
 
 async function loadMinijobCenter(){
   if(!$("minijobCenterList") || !isManagement()) return;
+
   const month=$("minijobMonth")?.value || monthISO();
   const limit=Number($("minijobLimit")?.value || 603);
   const from=firstOfMonthISO(month);
@@ -661,34 +676,68 @@ async function loadMinijobCenter(){
     .lte("work_date",to);
 
   if(error){
-    $("minijobCenterList").innerHTML=`<div class="entry"><b>Fehler:</b><br>${escapeHtml(error.message)}</div>`;
+    $("minijobCenterList").innerHTML=`<div class="entry"><b>Fehler beim Laden des Dienstplans:</b><br>${escapeHtml(error.message)}</div>`;
     return;
   }
 
   const minijobbers=profiles
-    .filter(p => ["Minijob Service","Minijob Bar","Minijob Küche"].includes(p.department) && p.active!==false)
-    .sort((a,b)=>(Number(a.sort_order??9999)-Number(b.sort_order??9999)) || String(a.last_name||"").localeCompare(String(b.last_name||"")));
+    .filter(minijobCenterEmployeeFilter)
+    .sort((a,b)=>
+      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
 
   const totals={};
-  (data||[]).forEach(s=>{
-    totals[s.profile_id] ||= {hours:0,count:0};
-    totals[s.profile_id].hours += plannedHoursFromSchedule(s);
-    if(s.status==="arbeit") totals[s.profile_id].count += 1;
+  (data||[]).forEach(entry=>{
+    totals[entry.profile_id] ||= {hours:0,count:0};
+    const h=scheduleHoursForMinijobEntry(entry);
+    totals[entry.profile_id].hours += h;
+    if(h>0) totals[entry.profile_id].count += 1;
   });
 
   lastMinijobRows=[];
-  let html='<div class="grid"><table><thead><tr><th>Mitarbeiter</th><th>Bereich</th><th>Std.-Lohn</th><th>Geplante Std.</th><th>Geplanter Verdienst</th><th>Restbetrag</th><th>Reststunden</th><th>Status</th></tr></thead><tbody>';
+
+  let html=`
+    <div class="miniInfo">
+      Quelle: <b>Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
+      Berücksichtigt werden nur: <b>Minijob Service</b>, <b>Minijob Bar</b>, <b>Minijob Küche</b>. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.
+    </div>
+    <div class="grid"><table>
+      <thead>
+        <tr>
+          <th>Mitarbeiter</th>
+          <th>Bereich</th>
+          <th>Std.-Lohn</th>
+          <th>Schichten</th>
+          <th>Geplante Std.</th>
+          <th>Geplanter Verdienst</th>
+          <th>Restbetrag</th>
+          <th>Reststunden</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
   minijobbers.forEach(p=>{
     const hours=totals[p.id]?.hours || 0;
+    const count=totals[p.id]?.count || 0;
     const rate=Number(p.hourly_rate||0);
     const earned=hours*rate;
     const rest=Math.max(0,limit-earned);
     const restHours=rate>0 ? rest/rate : 0;
+
     let status="OK";
     let statusLabel="🟢 OK";
     let cls="miniOk";
-    if(limit>0 && earned>=limit){status="Grenze erreicht";statusLabel="🔴 Grenze erreicht";cls="miniStop"}
-    else if(limit>0 && earned>=limit*0.85){status="Achtung";statusLabel="🟡 Achtung";cls="miniWarn"}
+    if(limit>0 && earned>=limit){
+      status="Grenze erreicht";
+      statusLabel="🔴 Grenze erreicht";
+      cls="miniStop";
+    }else if(limit>0 && earned>=limit*0.85){
+      status="Achtung";
+      statusLabel="🟡 Achtung";
+      cls="miniWarn";
+    }
 
     lastMinijobRows.push({
       name:`${p.first_name||""} ${p.last_name||""}`.trim(),
@@ -705,6 +754,7 @@ async function loadMinijobCenter(){
       <td><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b></td>
       <td>${deptBadge(p.department)}</td>
       <td>${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td>${count}</td>
       <td>${euroHours(hours)}</td>
       <td><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></td>
       <td>${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
@@ -712,8 +762,13 @@ async function loadMinijobCenter(){
       <td><span class="${cls}">${statusLabel}</span></td>
     </tr>`;
   });
+
   html+='</tbody></table></div>';
-  if(!minijobbers.length) html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
+
+  if(!minijobbers.length){
+    html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
+  }
+
   $("minijobCenterList").innerHTML=html;
 }
 
