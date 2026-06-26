@@ -693,11 +693,31 @@ async function createNotification(title,body){if(isManagement())await sb.from("n
 
 const MINIJOB_DEPARTMENTS=["Minijob Service","Minijob Bar","Minijob Küche"];
 
+
 function scheduleHoursForMinijobEntry(entry){
-  if(!entry || entry.status!=="arbeit" || !entry.start_time || !entry.end_time) return 0;
-  const start=String(entry.start_time).slice(0,5);
-  const end=String(entry.end_time).slice(0,5);
-  return hoursBetween(start,end,0);
+  if(!entry || entry.status !== "arbeit") return 0;
+
+  const start = String(entry.start_time).slice(0,5);
+  const end = String(entry.end_time).slice(0,5);
+
+  let [sh, sm] = start.split(":").map(Number);
+  let [eh, em] = end.split(":").map(Number);
+
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+
+  if(endMin < startMin){
+    endMin += 24 * 60;
+  }
+
+  let minutes = endMin - startMin;
+
+  // Ab 4 Stunden automatisch 30 Minuten Pause
+  if(minutes >= 240){
+    minutes -= 30;
+  }
+
+  return minutes / 60;
 }
 
 function minijobCenterEmployeeFilter(p){
