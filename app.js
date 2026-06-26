@@ -632,7 +632,7 @@ function minijobCenterEmployeeFilter(p){
 
 function exportMinijobCsv(){
   if(!lastMinijobRows.length){
-    alert("Bitte zuerst Minijob-Center laden.");
+    alert("Bitte zuerst Minijob-Center neu berechnen.");
     return;
   }
   const rows=[
@@ -670,6 +670,8 @@ async function loadMinijobCenter(){
   const from=firstOfMonthISO(month);
   const to=month+"-"+String(lastDayOfMonth(month)).padStart(2,"0");
 
+  $("minijobCenterList").innerHTML='<div class="entry">Minijob-Center wird aus dem Dienstplan neu berechnet...</div>';
+
   const {data,error}=await sb.from("schedules")
     .select("*")
     .gte("work_date",from)
@@ -699,8 +701,9 @@ async function loadMinijobCenter(){
 
   let html=`
     <div class="miniInfo">
-      Quelle: <b>Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
-      Berücksichtigt werden nur: <b>Minijob Service</b>, <b>Minijob Bar</b>, <b>Minijob Küche</b>. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.
+      <b>Quelle: Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
+      Berücksichtigt werden nur: <b>Minijob Service</b>, <b>Minijob Bar</b>, <b>Minijob Küche</b>. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.<br>
+      Letzte Berechnung: <b>${new Date().toLocaleString("de-DE")}</b>
     </div>
     <div class="grid"><table>
       <thead>

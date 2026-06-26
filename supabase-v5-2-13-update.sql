@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.13 SQL Update
+-- Kein SQL nötig.
+-- Minijob-Center wird über Button direkt aus dem Dienstplan neu berechnet.
