@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2 STABIL
+-- Kein SQL notwendig.
+-- Diese Datei nicht ausführen.

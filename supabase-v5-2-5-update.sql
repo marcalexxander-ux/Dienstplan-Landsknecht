@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.5 SQL Update
+-- Kein SQL nötig.
+-- Diese Version korrigiert nur Farben/Tagesinfo-Anzeige im Frontend.

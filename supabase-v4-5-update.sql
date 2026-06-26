@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v4.5 SQL Update
+-- Kein Datenbankumbau nötig.
+-- Diese Version stabilisiert nur die Urlaubsliste in app.js.

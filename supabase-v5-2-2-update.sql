@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.2 SQL Update
+-- Kein Datenbankumbau nötig.
+-- Diese Version ändert nur Farben/Optik.

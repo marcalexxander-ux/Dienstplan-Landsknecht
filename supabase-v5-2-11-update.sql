@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.11 SQL Update
+-- Kein SQL nötig.
+-- Minijob-Center rechnet jetzt aus dem Dienstplan statt aus der Zeiterfassung.

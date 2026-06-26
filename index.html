@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dienstplan Landsknecht</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img src="logo.jpeg" alt="Landsknecht Logo">
+    <div>
+      <h1>Dienstplan Landsknecht</h1>
+      <p>Restaurant Landsknecht</p>
+    </div>
+  </div>
+  <div class="header-empty"></div>
+</header>
+
+<div id="printHeader" class="printHeader">
+  <img src="logo.jpeg" alt="Landsknecht Logo">
+  <div>
+    <h1 id="printTitle">Dienstplan Landsknecht</h1>
+    <p id="printSubtitle">Restaurant Landsknecht</p>
+  </div>
+</div>
+<main>
+  <section id="setupNotice" class="card warn hidden">
+    <h2>Einrichtung erforderlich</h2>
+    <p>Bitte in <b>config.js</b> die Supabase URL und den Publishable Key eintragen.</p>
+  </section>
+
+  <section id="authView" class="card login">
+    <h2>Login</h2>
+    <label>E-Mail</label>
+    <input id="email" type="email" placeholder="name@beispiel.de">
+    <label>Passwort</label>
+    <input id="password" type="password" placeholder="Passwort">
+    <div class="buttonRow">
+      <button id="loginBtn">Einloggen</button>
+      <button id="registerBtn" class="secondary">Mitarbeiter registrieren</button>
+    </div>
+  </section>
+
+  <section id="appView" class="hidden layout">
+    <aside class="sidebar">
+      <button data-tab="dashboard" class="active">🏠 Heute</button>
+      <button data-tab="planService">🍽️ Dienstplan Service</button>
+      <button data-tab="planKitchen">🍳 Dienstplan Küche</button>
+      <button data-tab="month">🗓️ Monatsübersicht</button>
+      <button data-tab="infos">📢 Tagesinfos</button>
+      <button data-tab="vacation">🏝️ Urlaub</button>
+      <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
+      <button data-tab="time" class="managementOnly">⏱️ Zeiterfassung</button>
+      <button data-tab="summary" class="managementOnly">📊 Auswertung</button>
+      <button data-tab="minijobCenter" class="managementOnly">💶 Minijob-Center</button>
+      <div class="spacer"></div>
+      <button id="logoutBtn" class="logout">↩ Abmelden</button>
+    </aside>
+
+    <section class="content">
+      <section id="planService" class="tabPage card">
+        <div class="sectionHeader">
+          <div>
+            <h2>Dienstplan Service</h2>
+            <p class="subline">Restaurantleitung, Service, Minijob Service, Bar, Minijob Bar</p>
+          </div>
+          <div class="navButtons">
+            <button id="servicePdfBtn" class="secondary managementOnly">📄 PDF Service</button>
+            <button id="serviceAddStaffBtn" class="secondary managementOnly">➕ Mitarbeiter erstellen</button>
+            <button id="prevWeekService" class="secondary">← Vorwoche</button>
+            <input id="weekStartService" type="date">
+            <button id="nextWeekService" class="secondary">Nächste Woche →</button>
+          </div>
+        </div>
+        <div id="planGridService"></div>
+      </section>
+
+      <section id="planKitchen" class="tabPage card hidden">
+        <div class="sectionHeader">
+          <div>
+            <h2>Dienstplan Küche</h2>
+            <p class="subline">Küche, Spüler, Reinigung</p>
+          </div>
+          <div class="navButtons">
+            <button id="kitchenPdfBtn" class="secondary managementOnly">📄 PDF Küche</button>
+            <button id="kitchenAddStaffBtn" class="secondary managementOnly">➕ Mitarbeiter erstellen</button>
+            <button id="prevWeekKitchen" class="secondary">← Vorwoche</button>
+            <input id="weekStartKitchen" type="date">
+            <button id="nextWeekKitchen" class="secondary">Nächste Woche →</button>
+          </div>
+        </div>
+        <div id="planGridKitchen"></div>
+      </section>
+
+      <section id="month" class="tabPage card hidden">
+        <div class="sectionHeader">
+          <h2>Monatsübersicht</h2>
+          <div class="navButtons">
+            <button id="monthPdfBtn" class="secondary managementOnly">📄 PDF erstellen</button>
+            <button id="prevMonth" class="secondary">← Vormonat</button>
+            <input id="monthSelect" type="month">
+            <button id="nextMonth" class="secondary">Nächster Monat →</button>
+          </div>
+        </div>
+        <div id="monthGrid"></div>
+      </section>
+
+      <section id="infos" class="tabPage card hidden">
+        <h2>Tagesinfos</h2>
+        <div class="managementOnly formBox">
+          <label>Datum</label>
+          <input id="infoDate" type="date">
+          <label>Info</label>
+          <textarea id="infoText" placeholder="z. B. geschlossene Gesellschaft, Terrasse öffnen, neue Karte..."></textarea>
+          <div class="buttonRow">
+            <button id="saveInfo">Info speichern</button>
+            <button id="deleteInfo" class="danger">Info löschen</button>
+          </div>
+        </div>
+        <div id="infoList"></div>
+      </section>
+
+      <section id="vacation" class="tabPage card hidden">
+        <h2>Urlaub</h2>
+
+        <div class="managementOnly vacationAdmin">
+          <div class="sectionHeader">
+            <div>
+              <h3>Urlaubskalender Geschäftsführung</h3>
+              <p class="subline">Mitarbeiter auswählen und Urlaub direkt eintragen. Im Kalender siehst du Überschneidungen.</p>
+            </div>
+            <div class="navButtons">
+              <button id="prevVacMonth" class="secondary">← Vormonat</button>
+              <input id="vacMonthSelect" type="month">
+              <button id="nextVacMonth" class="secondary">Nächster Monat →</button>
+            </div>
+          </div>
+
+          <div class="vacationGrid">
+            <div class="card compact">
+              <h3>Mitarbeiter</h3>
+              <select id="vacAdminProfile"></select>
+              <div class="formGrid">
+                <div><label>Von</label><input id="vacAdminFrom" type="date"></div>
+                <div><label>Bis</label><input id="vacAdminTo" type="date"></div>
+              </div>
+              <label>Notiz</label>
+              <input id="vacAdminNote" placeholder="Optional">
+              <button id="addVacationAdmin">Urlaub eintragen</button>
+              <div id="vacOverlapInfo" class="overlapBox"></div>
+            </div>
+            <div>
+              <div id="vacCalendar"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="employeeVacationBox">
+          <h3>Urlaub beantragen</h3>
+          <div class="formGrid">
+            <div><label>Von</label><input id="vacFrom" type="date"></div>
+            <div><label>Bis</label><input id="vacTo" type="date"></div>
+          </div>
+          <label>Notiz</label>
+          <input id="vacNote" placeholder="Optional">
+          <button id="requestVacation">Urlaub beantragen</button>
+        </div>
+
+        <h3>Urlaubsliste</h3>
+        <div id="vacList"></div>
+      </section>
+
+      <section id="staff" class="tabPage card hidden">
+        <div class="sectionHeader">
+          <h2>Mitarbeiterverwaltung</h2>
+          <button id="newStaffBtn" class="secondary">➕ Mitarbeiter erstellen</button>
+        </div>
+        <div class="formGrid">
+          <div><label>Vorname</label><input id="staffFirstName"></div>
+          <div><label>Nachname</label><input id="staffLastName"></div>
+          <div><label>E-Mail</label><input id="staffEmail" type="email"></div>
+          <div><label>Telefonnummer</label><input id="staffPhone"></div>
+          <div>
+            <label>Rolle</label>
+            <select id="staffRole">
+              <option value="employee">Mitarbeiter</option>
+              <option value="management">Geschäftsführung</option>
+            </select>
+          </div>
+          <div>
+            <label>Bereich</label>
+            <select id="staffDepartment">
+              <option>Restaurantleitung</option>
+              <option>Service</option>
+              <option>Minijob Service</option>
+              <option>Bar</option>
+              <option>Minijob Bar</option>
+              <option>Küche</option>
+              <option>Minijob Küche</option>
+              <option>Reinigung</option>
+              <option>Spüler</option>
+            </select>
+          </div>
+          <div>
+            <label>Vertragsart</label>
+            <select id="staffContractType">
+              <option value="minijob">Minijob</option>
+              <option value="teilzeit">Teilzeit</option>
+              <option value="vollzeit">Vollzeit</option>
+              <option value="geschaeftsfuehrung">Geschäftsführung</option>
+            </select>
+          </div>
+          <div>
+            <label>Stundenlohn €</label>
+            <input id="staffHourlyRate" type="number" min="0" step="0.01" placeholder="z. B. 14.50">
+          </div>
+          <label class="checkLine">
+            <input id="staffPlannable" type="checkbox" checked>
+            Im Dienstplan einplanen
+          </label>
+        </div>
+        <input id="editingStaffId" type="hidden">
+        <div class="buttonRow">
+          <button id="saveStaff">Mitarbeiter speichern</button>
+          <button id="clearStaff" class="secondary">Felder leeren</button>
+        </div>
+        <div id="staffList"></div>
+      </section>
+
+      <section id="time" class="tabPage card hidden">
+        <h2>Zeiterfassung</h2>
+        <label>Mitarbeiter</label>
+        <select id="timeProfile"></select>
+        <div class="formGrid">
+          <div><label>Datum</label><input id="timeDate" type="date"></div>
+          <div><label>Beginn</label><input id="timeStart" type="time"></div>
+          <div><label>Ende</label><input id="timeEnd" type="time"></div>
+          <div><label>Pause Minuten</label><input id="timeBreak" type="number" min="0" value="0"></div>
+        </div>
+        <button id="saveTime">Zeit speichern</button>
+        <div id="timeList"></div>
+      </section>
+
+      <section id="summary" class="tabPage card hidden">
+        <h2>Stundenauswertung</h2>
+        <div class="formGrid">
+          <div><label>Von</label><input id="sumFrom" type="date"></div>
+          <div><label>Bis</label><input id="sumTo" type="date"></div>
+        </div>
+        <div class="buttonRow">
+          <button id="loadSummary">Auswertung laden</button>
+          <button id="exportCsv" class="secondary">CSV exportieren</button>
+        </div>
+        <div id="summaryList"></div>
+      </section>
+      <section id="minijobCenter" class="tabPage card hidden">
+        <div class="sectionHeader">
+          <div>
+            <h2>Minijob-Center</h2>
+            <p class="subline">Stunden, Stundenlohn, Verdienst und Restbetrag pro Monat.</p>
+          </div>
+          <div class="navButtons">
+            <input id="minijobMonth" type="month">
+            <input id="minijobLimit" type="number" min="0" step="0.01" value="603" title="Monatsgrenze in Euro">
+            <button id="loadMinijobCenter" class="secondary">Laden</button>
+            <button id="exportMinijobCsv" class="secondary">CSV exportieren</button>
+          </div>
+        </div>
+        <p class="subline">Die Monatsgrenze ist frei änderbar. Grundlage sind gespeicherte Zeiteinträge.</p>
+        <div id="minijobCenterList"></div>
+      </section>
+
+    </section>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

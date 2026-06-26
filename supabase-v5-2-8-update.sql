@@ -1,0 +1,4 @@
+-- Dienstplan Landsknecht v5.2.8 SQL Update
+-- Kein SQL nötig.
+-- Diese Version filtert das Minijob-Center nur auf:
+-- Minijob Service und Minijob Bar.

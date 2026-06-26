@@ -1,0 +1,306 @@
+:root{
+  --green:#004634;
+  --green2:#00614a;
+  --gold:#8a650f;
+  --bg:#f6f7f5;
+  --card:#ffffff;
+  --text:#17211d;
+  --muted:#6b7280;
+  --border:#d7ddd9;
+  --blue:#dbeafe;
+  --blueText:#00348f;
+  --yellow:#fff0bd;
+  --orange:#ffd7b8;
+  --red:#fee2e2;
+  --gray:#f0f0f0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.topbar{height:122px;background:white;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:18px 28px;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.brand{display:flex;align-items:center;gap:18px}
+.brand img{width:82px;height:82px;object-fit:contain;border-radius:50%}
+.brand h1{margin:0;color:var(--green);font-size:36px;line-height:1.05;font-family:Georgia,serif}
+.brand p{margin:8px 0 0;color:var(--gold);font-size:20px}
+.header-empty{width:240px;height:54px;border:1px solid transparent;border-radius:12px}
+main{max-width:1500px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.warn{background:#fff7ed}.hidden{display:none!important}
+.login{max-width:440px;margin:70px auto}
+.layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 122px)}
+.sidebar{background:linear-gradient(160deg,var(--green),#002f24);padding:18px 12px;display:flex;flex-direction:column;gap:8px}
+.sidebar button{width:100%;text-align:left;border:0;background:transparent;color:white;padding:14px 16px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
+.sidebar button.active{background:rgba(255,255,255,.16)}
+.sidebar .logout{margin-top:auto}
+.content{padding:20px}
+h2{margin:0 0 16px;font-size:26px}
+label{display:block;margin-top:12px;font-weight:700}
+input,select,textarea{width:100%;padding:11px 12px;margin-top:6px;border:1px solid var(--border);border-radius:9px;background:white;font-size:15px}
+textarea{min-height:90px;resize:vertical}
+button{border:0;background:var(--green);color:white;padding:11px 14px;border-radius:9px;font-weight:800;cursor:pointer}
+button.secondary{background:#31413b}
+button.danger{background:#b91c1c}
+button.ok{background:#15803d}
+.buttonRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.sectionHeader{display:flex;align-items:end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.navButtons{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.navButtons input{width:auto;min-width:160px;margin-top:0}
+.formGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.checkLine{display:flex;align-items:center;gap:10px;margin-top:28px}
+.checkLine input{width:auto;margin:0}
+.grid{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:950px}
+th,td{border:1px solid var(--border);padding:9px;text-align:center;vertical-align:middle}
+th{background:#fafafa}
+td:first-child,th:first-child{text-align:left;font-weight:800;min-width:170px}
+.entry{border:1px solid var(--border);background:#fafafa;border-radius:10px;padding:12px;margin:10px 0}
+.small{font-size:12px;color:var(--muted)}
+.dayInfo,.monthInfo{background:#e9f7f2;color:var(--green);border-radius:8px;padding:7px;margin-top:6px;text-align:left;font-size:13px;white-space:pre-wrap}
+.shift{display:block;border-radius:8px;padding:8px 6px;font-weight:800}
+.workMorning{background:#d8f3d8;color:#053b17}
+.workEvening{background:var(--blue);color:var(--blueText)}
+.workLate{background:#eadcff;color:#3b0764}
+.workShort{background:var(--yellow);color:#6b4e00}
+.workLong{background:var(--orange);color:#7c2d12}
+.free{background:var(--gray);color:#222}
+.vac{background:#ffedd5;color:#9a3412}
+.sick{background:var(--red);color:#991b1b}
+.monthTable{min-width:1000px}
+.monthCell{text-align:left;font-size:13px;min-width:140px;vertical-align:top}
+.monthDate{font-weight:900;margin-bottom:4px}
+.monthShift{border-top:1px solid #e5e7eb;margin-top:5px;padding-top:5px}
+.staffActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.formBox{margin-bottom:18px}
+
+@media(max-width:900px){
+  .topbar{height:auto;padding:14px}
+  .brand img{width:58px;height:58px}
+  .brand h1{font-size:24px}
+  .brand p{font-size:15px}
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:sticky;top:0;z-index:2;display:grid;grid-template-columns:repeat(2,1fr)}
+  .sidebar .spacer{display:none}
+  .content{padding:10px}
+  .formGrid{grid-template-columns:1fr}
+  .navButtons input{width:100%}
+}
+
+.subline{margin:0;color:var(--muted)}
+.deptBadge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;font-weight:800;margin-top:4px}
+.dept-Service,.dept-Restaurantleitung{background:#e8f5e9;color:#14532d}
+.dept-Bar{background:#e0f2fe;color:#075985}
+.dept-MinijobBar,.dept-MinijobService{background:#fef3c7;color:#7c2d12}
+.dept-Küche,.dept-Spüler{background:#fff7ed;color:#9a3412}
+.dept-Reinigung{background:#f1f5f9;color:#334155}
+td.workMorning,td.workEvening,td.workLate,td.workShort,td.workLong,td.free,td.vac,td.sick{background:transparent}
+td.workMorning input{background:#d8f3d8;color:#053b17;font-weight:800}
+td.workEvening input{background:#dbeafe;color:#00348f;font-weight:800}
+td.workLate input{background:#eadcff;color:#3b0764;font-weight:800}
+td.workShort input{background:#fff0bd;color:#6b4e00;font-weight:800}
+td.workLong input{background:#ffd7b8;color:#7c2d12;font-weight:800}
+td.free input{background:#f0f0f0;color:#222;font-weight:800}
+td.vac input{background:#ffedd5;color:#9a3412;font-weight:800}
+td.sick input{background:#fee2e2;color:#991b1b;font-weight:800}
+@media print{
+  body{background:white}
+  .topbar,.sidebar,.navButtons button,.managementOnly,.buttonRow{display:none!important}
+  .layout{display:block}
+  .content{padding:0}
+  .card{box-shadow:none;border:0}
+  .tabPage.hidden{display:none!important}
+  table{font-size:11px;min-width:0}
+  input{border:0;padding:0}
+  th,td{padding:4px}
+}
+
+.orderControls{display:flex;gap:4px;margin-bottom:6px}
+.orderControls button{padding:5px 7px;border-radius:7px;font-size:12px;background:#e5e7eb;color:#111827}
+.orderControls button:hover{background:#d1d5db}
+.orderCellName{display:block}
+@media print{.orderControls{display:none!important}}
+
+.dragHandle{cursor:grab;font-size:18px;margin-right:6px;display:inline-block}
+tr.dragging{opacity:.45}
+tr.dragOver{outline:3px solid var(--green)}
+.orderHint{font-size:11px;color:var(--muted);margin-top:4px}
+.vacationGrid{display:grid;grid-template-columns:330px 1fr;gap:14px;margin-top:14px;margin-bottom:18px}
+.card.compact{padding:14px}
+.vacCalendarTable{min-width:900px}
+.vacCalendarTable th,.vacCalendarTable td{vertical-align:top;height:92px}
+.vacDay{font-weight:900;margin-bottom:5px}
+.vacPerson{display:block;background:#e9f7f2;color:var(--green);border-radius:6px;padding:3px 5px;margin:3px 0;font-size:12px;font-weight:800}
+.vacCount{display:inline-block;background:#ffedd5;color:#9a3412;border-radius:999px;padding:2px 7px;font-size:12px;font-weight:900;margin-left:4px}
+.overlapBox{margin-top:12px;background:#f9fafb;border:1px solid var(--border);border-radius:10px;padding:10px;font-size:14px}
+.employeeVacationBox{border-top:1px solid var(--border);padding-top:16px;margin-top:16px}
+@media(max-width:900px){.vacationGrid{grid-template-columns:1fr}.vacCalendarTable{min-width:760px}}
+
+/* v5.2.1 Drag & Drop */
+.orderControls{display:flex;gap:4px;margin-bottom:6px;align-items:center}
+.orderControls button{padding:5px 7px;border-radius:7px;font-size:12px;background:#e5e7eb;color:#111827}
+.orderControls button:hover{background:#d1d5db}
+.dragHandle{cursor:grab;font-size:18px;margin-right:4px;display:inline-block;user-select:none}
+tr.dragging{opacity:.45}
+tr.dragOver{outline:3px solid var(--green)}
+.orderCellName{display:block}
+.orderHint{font-size:11px;color:var(--muted);margin-top:4px}
+@media print{.orderControls,.orderHint{display:none!important}}
+
+/* v5.2.2 Dienstplan-Farben */
+.shiftMorning,.workMorning input,.shiftWork{
+  background:#dcfce7!important;
+  color:#14532d!important;
+  font-weight:900!important;
+}
+.shiftEvening,.workEvening input{
+  background:#dbeafe!important;
+  color:#1e3a8a!important;
+  font-weight:900!important;
+}
+.shiftLate,.workLate input{
+  background:#ede9fe!important;
+  color:#4c1d95!important;
+  font-weight:900!important;
+}
+.shiftShort,.workShort input{
+  background:#fef3c7!important;
+  color:#854d0e!important;
+  font-weight:900!important;
+}
+.shiftVacation,.vac input,.vac{
+  background:#ffedd5!important;
+  color:#9a3412!important;
+  font-weight:900!important;
+}
+.shiftSick,.sick input,.sick{
+  background:#fee2e2!important;
+  color:#991b1b!important;
+  font-weight:900!important;
+}
+.shiftFree,.free input,.free{
+  background:#f3f4f6!important;
+  color:#374151!important;
+  font-weight:900!important;
+}
+#planGridService input,#planGridKitchen input{
+  text-align:center;
+  border-radius:10px;
+  border:1px solid rgba(0,0,0,.08);
+  min-width:115px;
+}
+#planGridService td,#planGridKitchen td{
+  transition:background .15s ease, outline .15s ease;
+}
+#planGridService input:focus,#planGridKitchen input:focus{
+  outline:3px solid rgba(0,70,52,.22);
+  border-color:var(--green);
+}
+.planLegend{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:10px 0 12px;
+}
+.planLegend span{
+  border-radius:999px;
+  padding:5px 10px;
+  font-size:12px;
+  font-weight:900;
+}
+.legendMorning{background:#dcfce7;color:#14532d}
+.legendEvening{background:#dbeafe;color:#1e3a8a}
+.legendVacation{background:#ffedd5;color:#9a3412}
+.legendSick{background:#fee2e2;color:#991b1b}
+.legendFree{background:#f3f4f6;color:#374151}
+
+/* v5.2.3 PDF Pro */
+.printHeader{display:none}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  body{background:white!important;color:#111!important}
+  .topbar,.sidebar,.navButtons,.buttonRow,.managementOnly,.orderControls,.orderHint,.planLegend{display:none!important}
+  .printHeader{display:flex!important;align-items:center;gap:14px;margin-bottom:10px;border-bottom:2px solid #004634;padding-bottom:8px}
+  .printHeader img{width:58px;height:58px;object-fit:contain;border-radius:50%}
+  .printHeader h1{margin:0;color:#004634;font-family:Georgia,serif;font-size:24px}
+  .printHeader p{margin:4px 0 0;color:#8a650f;font-size:13px;font-weight:700}
+  main{max-width:none;margin:0;padding:0}
+  .layout{display:block;min-height:0}
+  .content{padding:0}
+  .card{box-shadow:none!important;border:0!important;padding:0!important}
+  .tabPage.hidden{display:none!important}
+  .sectionHeader{margin-bottom:6px}
+  .sectionHeader h2{font-size:18px;margin:0;color:#004634}
+  .subline{font-size:11px;margin:0 0 5px}
+  .grid{overflow:visible!important}
+  table{width:100%!important;min-width:0!important;border-collapse:collapse!important;font-size:10.5px;page-break-inside:auto}
+  th,td{border:1px solid #666!important;padding:4px!important;vertical-align:middle!important}
+  th{background:#e9f7f2!important;color:#004634!important;font-weight:900!important}
+  td:first-child,th:first-child{min-width:120px!important;width:145px!important}
+  input{border:0!important;background:transparent!important;padding:0!important;margin:0!important;text-align:center!important;font-size:10.5px!important;font-weight:900!important;width:100%!important}
+  .dayInfo,.monthInfo{font-size:9px!important;padding:3px!important;margin-top:3px!important;border:1px solid #cbd5e1}
+  .deptBadge{font-size:8.5px!important;padding:2px 5px!important;border:1px solid #ddd}
+  .small{font-size:8.5px!important;color:#333!important}
+  .shift{padding:3px!important;font-size:10px!important}
+  .entry{border:1px solid #999!important;padding:5px!important;margin:4px 0!important}
+}
+
+/* v5.2.4 Dashboard light */
+.dashboardGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.dashCard{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px}
+.dashCard h3{margin:0 0 10px;color:var(--green)}
+.dashBig{font-size:32px;font-weight:900;color:var(--green);line-height:1}
+.dashList{display:grid;grid-template-columns:1fr;gap:8px}
+.dashWorker{border:1px solid var(--border);border-radius:10px;padding:9px;background:#fafafa}
+.dashWorker b{color:#111827}
+.dashEmpty{color:var(--muted);font-style:italic}
+@media(max-width:1000px){.dashboardGrid{grid-template-columns:1fr}}
+@media print{#dashboard{display:none!important}}
+
+/* v5.2.5 Farb-Fix: direkt auf Eingabefelder */
+#planGridService input.shiftMorning,#planGridKitchen input.shiftMorning,
+#planGridService input.shiftWork,#planGridKitchen input.shiftWork{
+  background:#dcfce7!important;color:#14532d!important;border-color:#86efac!important;font-weight:900!important;
+}
+#planGridService input.shiftEvening,#planGridKitchen input.shiftEvening{
+  background:#dbeafe!important;color:#1e3a8a!important;border-color:#93c5fd!important;font-weight:900!important;
+}
+#planGridService input.shiftLate,#planGridKitchen input.shiftLate{
+  background:#ede9fe!important;color:#4c1d95!important;border-color:#c4b5fd!important;font-weight:900!important;
+}
+#planGridService input.shiftShort,#planGridKitchen input.shiftShort{
+  background:#fef3c7!important;color:#854d0e!important;border-color:#fcd34d!important;font-weight:900!important;
+}
+#planGridService input.shiftVacation,#planGridKitchen input.shiftVacation{
+  background:#ffedd5!important;color:#9a3412!important;border-color:#fdba74!important;font-weight:900!important;
+}
+#planGridService input.shiftSick,#planGridKitchen input.shiftSick{
+  background:#fee2e2!important;color:#991b1b!important;border-color:#fca5a5!important;font-weight:900!important;
+}
+#planGridService input.shiftFree,#planGridKitchen input.shiftFree{
+  background:#f3f4f6!important;color:#374151!important;border-color:#d1d5db!important;font-weight:900!important;
+}
+.dayInfo{
+  background:#e9f7f2!important;
+  border:1px solid #b7e4d5!important;
+  color:#004634!important;
+  font-weight:900!important;
+}
+
+/* v5.2.6 Mitarbeiterdaten */
+
+/* v5.2.7 Minijob-Center */
+#minijobLimit{max-width:150px}
+.miniOk,.miniWarn,.miniStop{display:inline-block;border-radius:999px;padding:4px 9px;font-weight:900;font-size:12px}
+.miniOk{background:#dcfce7;color:#14532d}
+.miniWarn{background:#fef3c7;color:#854d0e}
+.miniStop{background:#fee2e2;color:#991b1b}
+#minijobCenter table td,#minijobCenter table th{text-align:center}
+#minijobCenter table td:first-child,#minijobCenter table th:first-child{text-align:left}
+
+/* v5.2.9 Minijob Küche */
+.dept-MinijobKüche{background:#fef3c7;color:#7c2d12}
+.breakHint{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* v5.2.10 Minijob Export */
+#exportMinijobCsv{background:#475569}
+
+/* v5.2.11 CSV Button deutlicher */
+#exportMinijobCsv{background:#475569!important;color:white!important}

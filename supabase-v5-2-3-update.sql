@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.3 SQL Update
+-- Kein Datenbankumbau nötig.
+-- Diese Version verbessert nur PDF/Drucklayout.

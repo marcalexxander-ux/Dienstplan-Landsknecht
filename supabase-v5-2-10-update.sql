@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.10 SQL Update
+-- Kein SQL nötig.
+-- Diese Version ergänzt nur CSV-Export und Reststunden im Minijob-Center.

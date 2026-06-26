@@ -1,0 +1,3 @@
+-- Dienstplan Landsknecht v5.2.4 SQL Update
+-- Kein Datenbankumbau nötig.
+-- Diese Version ergänzt nur das Dashboard light.
