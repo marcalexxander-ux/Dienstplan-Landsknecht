@@ -379,335 +379,38 @@ tr.dragOver{outline:3px solid var(--green)}
   .miniProgress{width:150px}
 }
 
-
-/* v5.4.0 Smartphone-Fix global */
-html, body{
-  max-width:100%;
-  overflow-x:hidden;
+/* v5.5.1 Smartphone-Fix stabil */
+.mobileMenuToggle{display:none}
+@media(max-width:820px){
+  html,body{max-width:100%;overflow-x:hidden!important;font-size:15px!important}
+  *{box-sizing:border-box}
+  .mobileMenuToggle{display:block!important;position:sticky;top:0;z-index:9999;width:100%;min-height:52px;border-radius:0!important;background:#004634!important;color:white!important;font-weight:900;text-align:left;padding:12px 16px!important}
+  #appView,.layout,main,.content{width:100%!important;max-width:100%!important;margin:0!important;padding:0!important;overflow-x:hidden!important}
+  .sidebar,nav.sidebar{position:fixed!important;top:52px!important;left:0!important;bottom:0!important;width:min(86vw,320px)!important;z-index:9998!important;background:#004634!important;padding:12px!important;transform:translateX(-110%)!important;transition:.22s!important;overflow-y:auto!important;box-shadow:18px 0 40px rgba(0,0,0,.25)!important;display:flex!important;flex-direction:column!important;gap:8px!important}
+  .sidebar.mobileOpen,nav.sidebar.mobileOpen{transform:translateX(0)!important}
+  .sidebar button,nav.sidebar button{width:100%!important;min-height:48px!important;border-radius:14px!important;font-size:15px!important;text-align:left!important;white-space:normal!important}
+  .tabPage,.card,.panel,section{width:calc(100% - 16px)!important;max-width:calc(100% - 16px)!important;margin:8px!important;padding:12px!important;border-radius:18px!important;overflow:hidden!important}
+  h1{font-size:25px!important} h2{font-size:23px!important} h3{font-size:18px!important}
+  input,select,textarea,button{font-size:16px!important;min-height:44px!important;max-width:100%!important}
+  input,select,textarea{width:100%!important}
+  .sectionHeader,.buttonRow,.navButtons,.toolbar,.controls,.filterBar,.formGrid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;width:100%!important}
+  .sectionHeader>*,.buttonRow>*,.navButtons>*,.toolbar>*,.controls>*,.filterBar>*,.formGrid>*{width:100%!important}
+  .grid{width:100%!important;max-width:100%!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important}
+  #planGridService,#planGridKitchen,#monthGrid{overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;max-width:100%!important}
+  #planGridService table,#planGridKitchen table,#monthGrid table{min-width:760px!important;border-collapse:separate!important;border-spacing:0!important}
+  #planGridService th:first-child,#planGridService td:first-child,#planGridKitchen th:first-child,#planGridKitchen td:first-child{position:sticky!important;left:0!important;z-index:3!important;background:#fff!important;min-width:135px!important;max-width:135px!important;box-shadow:6px 0 12px rgba(15,23,42,.08)!important}
+  #planGridService th:first-child,#planGridKitchen th:first-child{background:#e9f7f2!important;z-index:4!important}
+  #planGridService input,#planGridKitchen input{min-width:96px!important;padding:7px!important;font-size:13px!important}
+  #minijobCenter table,#minijobCenter thead,#minijobCenter tbody,#minijobCenter th,#minijobCenter td,#minijobCenter tr{display:block!important;width:100%!important}
+  #minijobCenter thead{display:none!important}
+  #minijobCenter tr{margin:0 0 12px!important;padding:12px!important;background:#fff!important;border:1px solid #e2e8f0!important;border-radius:16px!important;box-shadow:0 6px 18px rgba(15,23,42,.08)!important}
+  #minijobCenter td{display:flex!important;justify-content:space-between!important;align-items:flex-start!important;gap:12px!important;padding:8px 0!important;border:none!important;border-bottom:1px solid #edf2f7!important;text-align:right!important;white-space:normal!important;word-break:break-word!important}
+  #minijobCenter td:last-child{border-bottom:none!important}
+  #minijobCenter td::before{content:attr(data-label);flex:0 0 42%;font-weight:800;color:#475569;text-align:left}
+  .miniStats,.dashboardGrid,.cards{display:grid!important;grid-template-columns:1fr!important;gap:10px!important}
 }
-
-*{
-  box-sizing:border-box;
-}
-
-@media (max-width: 820px){
-  html,body{
-    width:100%;
-    margin:0;
-    padding:0;
-    overflow-x:hidden!important;
-    font-size:15px;
-    -webkit-text-size-adjust:100%;
-  }
-
-  body{
-    background:#f8fafc;
-  }
-
-  header,
-  .topbar,
-  .appHeader{
-    padding:14px 12px!important;
-  }
-
-  header h1,
-  .brand h1,
-  h1{
-    font-size:26px!important;
-    line-height:1.1!important;
-    margin:0!important;
-  }
-
-  header p,
-  .brand p{
-    font-size:14px!important;
-    margin-top:4px!important;
-  }
-
-  .appShell,
-  .layout,
-  .container,
-  .main,
-  main,
-  #appView{
-    display:block!important;
-    width:100%!important;
-    max-width:100%!important;
-    margin:0!important;
-    padding:0!important;
-    overflow-x:hidden!important;
-  }
-
-  .sidebar{
-    position:relative!important;
-    top:auto!important;
-    left:auto!important;
-    width:100%!important;
-    max-width:100%!important;
-    min-height:auto!important;
-    height:auto!important;
-    padding:12px!important;
-    margin:0!important;
-    display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:8px!important;
-    border-radius:0 0 18px 18px!important;
-    background:#004634!important;
-    overflow:visible!important;
-  }
-
-  .sidebar button,
-  nav button{
-    width:100%!important;
-    min-height:44px!important;
-    height:auto!important;
-    margin:0!important;
-    padding:10px 8px!important;
-    border-radius:12px!important;
-    font-size:14px!important;
-    line-height:1.15!important;
-    white-space:normal!important;
-    text-align:left!important;
-    display:flex!important;
-    align-items:center!important;
-    justify-content:flex-start!important;
-    gap:6px!important;
-  }
-
-  .sidebar button.active,
-  nav button.active{
-    background:rgba(255,255,255,.16)!important;
-  }
-
-  .sidebar .logout,
-  #logoutBtn{
-    grid-column:1 / -1!important;
-  }
-
-  .tabPage,
-  section,
-  .card{
-    width:calc(100% - 16px)!important;
-    max-width:calc(100% - 16px)!important;
-    margin:8px!important;
-    padding:12px!important;
-    border-radius:16px!important;
-    overflow:hidden!important;
-  }
-
-  h2{
-    font-size:22px!important;
-    line-height:1.2!important;
-    margin:0 0 8px!important;
-  }
-
-  p,
-  .small{
-    font-size:13px!important;
-    line-height:1.35!important;
-  }
-
-  input,
-  select,
-  textarea,
-  button{
-    font-size:16px!important;
-    min-height:44px!important;
-    max-width:100%!important;
-  }
-
-  input,
-  select,
-  textarea{
-    width:100%!important;
-  }
-
-  .toolbar,
-  .actions,
-  .controls,
-  .filterBar,
-  .formRow{
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    gap:8px!important;
-    width:100%!important;
-  }
-
-  .toolbar button,
-  .actions button,
-  .controls button,
-  .filterBar button{
-    width:100%!important;
-  }
-
-  .grid{
-    width:100%!important;
-    max-width:100%!important;
-    overflow-x:auto!important;
-    -webkit-overflow-scrolling:touch;
-  }
-
-  table{
-    font-size:14px!important;
-  }
-
-  /* Minijob center mobile cards */
-  #minijobCenter{
-    overflow:hidden!important;
-  }
-
-  #minijobCenter .toolbar,
-  #minijobCenter .controls{
-    display:grid!important;
-    grid-template-columns:1fr!important;
-    gap:8px!important;
-  }
-
-  #minijobCenter input,
-  #minijobCenter button{
-    width:100%!important;
-  }
-
-  .miniInfo,
-  .miniInfoPro{
-    font-size:13px!important;
-    line-height:1.35!important;
-    padding:10px!important;
-    border-radius:12px!important;
-    margin:10px 0!important;
-    word-break:break-word!important;
-  }
-
-  .miniStats{
-    display:grid!important;
-    grid-template-columns:1fr 1fr!important;
-    gap:8px!important;
-    margin:10px 0!important;
-  }
-
-  .miniStatCard{
-    padding:10px!important;
-    border-radius:14px!important;
-  }
-
-  .miniStatCard span{
-    font-size:11px!important;
-  }
-
-  .miniStatCard b{
-    font-size:17px!important;
-  }
-
-  .miniJobGrid{
-    overflow-x:visible!important;
-  }
-
-  .miniJobTable,
-  .miniJobTable thead,
-  .miniJobTable tbody,
-  .miniJobTable th,
-  .miniJobTable td,
-  .miniJobTable tr{
-    display:block!important;
-    width:100%!important;
-  }
-
-  .miniJobTable thead{
-    display:none!important;
-  }
-
-  .miniJobTable tr{
-    margin:0 0 12px!important;
-    padding:10px!important;
-    background:#fff!important;
-    border:1px solid #e2e8f0!important;
-    border-radius:16px!important;
-    box-shadow:0 6px 18px rgba(15,23,42,.08)!important;
-  }
-
-  .miniJobTable td{
-    display:flex!important;
-    align-items:flex-start!important;
-    justify-content:space-between!important;
-    gap:12px!important;
-    padding:8px 0!important;
-    border:none!important;
-    border-bottom:1px solid #edf2f7!important;
-    text-align:right!important;
-    white-space:normal!important;
-    word-break:break-word!important;
-  }
-
-  .miniJobTable td:last-child{
-    border-bottom:none!important;
-  }
-
-  .miniJobTable td::before{
-    content:attr(data-label);
-    flex:0 0 42%;
-    font-weight:700;
-    color:#475569;
-    text-align:left;
-  }
-
-  .miniProgress{
-    width:150px!important;
-    min-width:150px!important;
-    height:10px!important;
-  }
-
-  .miniProgressText{
-    white-space:normal!important;
-    font-size:11px!important;
-  }
-
-  /* Dienstplan tables remain horizontally scrollable */
-  #planGridService,
-  #planGridKitchen,
-  #monthGrid{
-    overflow-x:auto!important;
-    -webkit-overflow-scrolling:touch!important;
-  }
-
-  #planGridService table,
-  #planGridKitchen table,
-  #monthGrid table{
-    min-width:760px!important;
-  }
-
-  #planGridService input,
-  #planGridKitchen input{
-    min-width:92px!important;
-    font-size:13px!important;
-    padding:6px!important;
-  }
-
-  .orderControls{
-    display:flex!important;
-    gap:4px!important;
-    flex-wrap:wrap!important;
-  }
-
-  .orderControls button{
-    min-height:28px!important;
-    width:auto!important;
-    padding:2px 6px!important;
-    font-size:12px!important;
-  }
-}
-
-@media (max-width: 430px){
-  .miniStats{
-    grid-template-columns:1fr!important;
-  }
-
-  .sidebar{
-    grid-template-columns:1fr!important;
-  }
-
-  header h1,
-  .brand h1,
-  h1{
-    font-size:23px!important;
-  }
+@media(max-width:430px){
+  .tabPage,.card,.panel,section{width:calc(100% - 10px)!important;max-width:calc(100% - 10px)!important;margin:5px!important;padding:10px!important}
+  #planGridService th:first-child,#planGridService td:first-child,#planGridKitchen th:first-child,#planGridKitchen td:first-child{min-width:124px!important;max-width:124px!important;font-size:12px!important}
+  .orderHint{display:none!important}
 }

@@ -1,4 +1,4 @@
-const APP_VERSION="v5.4.0";
+const APP_VERSION="v5.3.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -896,7 +896,22 @@ async function loadMinijobCenter(){
 
   html+='</tbody></table></div>';
   if(!minijobbers.length) html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
-  $("minijobCenterList").innerHTML=html;
+  $("minijobCenterList").innerHTML=html;applyMobileTableLabels();
 }
 
+
+function setupMobileNavigation(){
+  const btn=document.getElementById("mobileMenuToggle");
+  const sidebar=document.querySelector(".sidebar")||document.querySelector("nav");
+  if(!btn||!sidebar)return;
+  btn.onclick=()=>sidebar.classList.toggle("mobileOpen");
+  sidebar.querySelectorAll("button,[data-tab]").forEach(el=>el.addEventListener("click",()=>sidebar.classList.remove("mobileOpen")));
+}
+function applyMobileTableLabels(){
+  document.querySelectorAll("#minijobCenter table").forEach(table=>{
+    const headers=[...table.querySelectorAll("thead th")].map(th=>th.textContent.trim());
+    table.querySelectorAll("tbody tr").forEach(tr=>[...tr.children].forEach((td,i)=>{if(headers[i])td.dataset.label=headers[i]}));
+  });
+}
+setupMobileNavigation();
 init();
