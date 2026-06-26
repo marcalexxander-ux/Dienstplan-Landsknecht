@@ -1,4 +1,4 @@
-const APP_VERSION="v5.2.14";
+const APP_VERSION="v5.3.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -693,7 +693,6 @@ async function createNotification(title,body){if(isManagement())await sb.from("n
 
 const MINIJOB_DEPARTMENTS=["Minijob Service","Minijob Bar","Minijob Küche"];
 
-
 function scheduleHoursForMinijobEntry(entry){
   if(!entry || entry.status !== "arbeit") return 0;
 
@@ -712,7 +711,6 @@ function scheduleHoursForMinijobEntry(entry){
 
   let minutes = endMin - startMin;
 
-  // Ab 4 Stunden automatisch 30 Minuten Pause
   if(minutes >= 240){
     minutes -= 30;
   }
@@ -730,15 +728,16 @@ function exportMinijobCsv(){
     return;
   }
   const rows=[
-    ["Mitarbeiter","Bereich","Stundenlohn","Geplante Stunden","Geplanter Verdienst","Restbetrag","Reststunden","Status"],
+    ["Mitarbeiter","Bereich","Stundenlohn","Geplante Stunden","Geplanter Verdienst","Restbetrag","Reststunden","ca. Schichten","Letzte Schicht","Status"],
     ...lastMinijobRows.map(r=>[
-      r.name,
-      r.department,
+      r.name,r.department,
       r.hourly_rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
       r.hours.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
       r.earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
       r.rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
       r.rest_hours.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.possible_shifts ?? "",
+      r.last_shift ?? "",
       r.status
     ])
   ];
@@ -785,21 +784,50 @@ async function loadMinijobCenter(){
 
   const totals={};
   (data||[]).forEach(entry=>{
-    totals[entry.profile_id] ||= {hours:0,count:0};
+    totals[entry.profile_id] ||= {hours:0,count:0,lastShift:null,lastShiftDate:null};
     const h=scheduleHoursForMinijobEntry(entry);
     totals[entry.profile_id].hours += h;
-    if(h>0) totals[entry.profile_id].count += 1;
+    if(h>0){
+      totals[entry.profile_id].count += 1;
+      const label=`${fmtDate(entry.work_date)} ${String(entry.start_time).slice(0,5)}-${String(entry.end_time).slice(0,5)}`;
+      if(!totals[entry.profile_id].lastShiftDate || entry.work_date > totals[entry.profile_id].lastShiftDate){
+        totals[entry.profile_id].lastShiftDate = entry.work_date;
+        totals[entry.profile_id].lastShift = label;
+      }
+    }
   });
 
   lastMinijobRows=[];
 
+  let totalHours=0,totalEarned=0,warningCount=0,stopCount=0;
+  minijobbers.forEach(p=>{
+    const hours=totals[p.id]?.hours || 0;
+    const rate=Number(p.hourly_rate||0);
+    const earned=hours*rate;
+    totalHours += hours;
+    totalEarned += earned;
+    if(limit>0 && earned>=limit) stopCount++;
+    else if(limit>0 && earned>=limit*0.8) warningCount++;
+  });
+
+  const freeTotal=Math.max(0,(minijobbers.length*limit)-totalEarned);
+
   let html=`
-    <div class="miniInfo">
-      <b>Quelle: Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
+    <div class="miniInfo miniInfoPro">
+      <b>Quelle: Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze pro Person: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
       Berücksichtigt werden nur: <b>Minijob Service</b>, <b>Minijob Bar</b>, <b>Minijob Küche</b>. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.<br>
       Letzte Berechnung: <b>${new Date().toLocaleString("de-DE")}</b>
     </div>
-    <div class="grid"><table>
+
+    <div class="miniStats">
+      <div class="miniStatCard"><span>Minijobber</span><b>${minijobbers.length}</b></div>
+      <div class="miniStatCard"><span>Geplante Stunden</span><b>${euroHours(totalHours)}</b></div>
+      <div class="miniStatCard"><span>Geplanter Verdienst</span><b>${totalEarned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></div>
+      <div class="miniStatCard"><span>Freier Gesamtbetrag</span><b>${freeTotal.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></div>
+      <div class="miniStatCard ${warningCount||stopCount?'miniStatWarn':''}"><span>Warnungen</span><b>${warningCount+stopCount}</b></div>
+    </div>
+
+    <div class="grid miniJobGrid"><table class="miniJobTable">
       <thead>
         <tr>
           <th>Mitarbeiter</th>
@@ -808,8 +836,11 @@ async function loadMinijobCenter(){
           <th>Schichten</th>
           <th>Geplante Std.</th>
           <th>Geplanter Verdienst</th>
+          <th>Fortschritt</th>
           <th>Restbetrag</th>
           <th>Reststunden</th>
+          <th>ca. Schichten</th>
+          <th>Letzte Schicht</th>
           <th>Status</th>
         </tr>
       </thead>
@@ -818,54 +849,53 @@ async function loadMinijobCenter(){
   minijobbers.forEach(p=>{
     const hours=totals[p.id]?.hours || 0;
     const count=totals[p.id]?.count || 0;
+    const lastShift=totals[p.id]?.lastShift || "—";
     const rate=Number(p.hourly_rate||0);
     const earned=hours*rate;
     const rest=Math.max(0,limit-earned);
     const restHours=rate>0 ? rest/rate : 0;
+    const avgShift=count>0 ? hours/count : 5.5;
+    const possibleShifts=avgShift>0 ? Math.floor(restHours/avgShift) : 0;
+    const pct=limit>0 ? Math.min(100,Math.round((earned/limit)*100)) : 0;
 
-    let status="OK";
-    let statusLabel="🟢 OK";
-    let cls="miniOk";
+    let status="OK",statusLabel="🟢 OK",cls="miniOk",rowCls="miniRowOk";
     if(limit>0 && earned>=limit){
-      status="Grenze erreicht";
-      statusLabel="🔴 Grenze erreicht";
-      cls="miniStop";
-    }else if(limit>0 && earned>=limit*0.85){
-      status="Achtung";
-      statusLabel="🟡 Achtung";
-      cls="miniWarn";
+      status="Grenze erreicht"; statusLabel="🔴 Grenze erreicht"; cls="miniStop"; rowCls="miniRowStop";
+    }else if(limit>0 && earned>=limit*0.8){
+      status="Achtung"; statusLabel="🟡 Achtung"; cls="miniWarn"; rowCls="miniRowWarn";
     }
 
     lastMinijobRows.push({
       name:`${p.first_name||""} ${p.last_name||""}`.trim(),
       department:p.department||"",
       hourly_rate:rate,
-      hours,
-      earned,
-      rest,
-      rest_hours:restHours,
+      hours,earned,rest,rest_hours:restHours,
+      possible_shifts:possibleShifts,
+      last_shift:lastShift,
       status
     });
 
-    html+=`<tr>
-      <td><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b></td>
-      <td>${deptBadge(p.department)}</td>
-      <td>${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
-      <td>${count}</td>
-      <td>${euroHours(hours)}</td>
-      <td><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></td>
-      <td>${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
-      <td>${euroHours(restHours)}</td>
-      <td><span class="${cls}">${statusLabel}</span></td>
+    html+=`<tr class="${rowCls}">
+      <td data-label="Mitarbeiter"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b></td>
+      <td data-label="Bereich">${deptBadge(p.department)}</td>
+      <td data-label="Std.-Lohn">${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td data-label="Schichten">${count}</td>
+      <td data-label="Geplante Std.">${euroHours(hours)}</td>
+      <td data-label="Geplanter Verdienst"><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></td>
+      <td data-label="Fortschritt">
+        <div class="miniProgress"><span style="width:${pct}%"></span></div>
+        <div class="miniProgressText">${pct}% · ${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} € / ${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
+      </td>
+      <td data-label="Restbetrag">${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td data-label="Reststunden">${euroHours(restHours)}</td>
+      <td data-label="ca. Schichten">≈ ${possibleShifts}</td>
+      <td data-label="Letzte Schicht">${escapeHtml(lastShift)}</td>
+      <td data-label="Status"><span class="${cls}">${statusLabel}</span></td>
     </tr>`;
   });
 
   html+='</tbody></table></div>';
-
-  if(!minijobbers.length){
-    html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
-  }
-
+  if(!minijobbers.length) html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
   $("minijobCenterList").innerHTML=html;
 }
 

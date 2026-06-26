@@ -333,3 +333,48 @@ tr.dragOver{outline:3px solid var(--green)}
   font-size:13px;
   line-height:1.45;
 }
+
+
+/* v5.3.0 Minijob-Center Pro + Handyfreundlich */
+.miniStats{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(130px,1fr));
+  gap:12px;
+  margin:14px 0;
+}
+.miniStatCard{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:12px;
+  box-shadow:0 4px 14px rgba(15,23,42,.05);
+}
+.miniStatCard span{display:block;font-size:12px;color:#64748b;margin-bottom:4px}
+.miniStatCard b{font-size:20px;color:#0f172a}
+.miniStatWarn{background:#fff7ed;border-color:#fed7aa}
+.miniProgress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;min-width:120px}
+.miniProgress span{display:block;height:100%;background:linear-gradient(90deg,#16a34a,#eab308,#dc2626);border-radius:999px}
+.miniProgressText{font-size:11px;color:#475569;margin-top:4px;white-space:nowrap}
+.miniRowWarn{background:#fffbeb}
+.miniRowStop{background:#fef2f2}
+.miniJobTable th,.miniJobTable td{vertical-align:middle}
+
+@media (max-width:780px){
+  body{font-size:15px}
+  .appShell,.layout,.main,main{width:100%!important;max-width:100%!important;overflow-x:hidden!important}
+  .sidebar{position:static!important;width:100%!important;display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:10px!important}
+  .sidebar button{min-height:42px;font-size:14px!important;border-radius:10px!important}
+  .card,section{margin:8px!important;padding:12px!important;border-radius:14px!important}
+  input,select,button{min-height:44px;font-size:16px!important}
+  .miniStats{grid-template-columns:1fr 1fr;gap:8px}
+  .miniStatCard{padding:10px}
+  .miniStatCard b{font-size:18px}
+  .miniJobGrid{overflow-x:visible!important}
+  .miniJobTable,.miniJobTable thead,.miniJobTable tbody,.miniJobTable th,.miniJobTable td,.miniJobTable tr{display:block;width:100%}
+  .miniJobTable thead{display:none}
+  .miniJobTable tr{background:#fff;margin:0 0 12px;border:1px solid #e5e7eb;border-radius:14px;padding:10px;box-shadow:0 4px 14px rgba(15,23,42,.06)}
+  .miniJobTable td{display:flex;justify-content:space-between;gap:14px;border:none!important;border-bottom:1px solid #f1f5f9!important;padding:8px 0!important;text-align:right}
+  .miniJobTable td:last-child{border-bottom:none!important}
+  .miniJobTable td::before{content:attr(data-label);font-weight:700;color:#475569;text-align:left}
+  .miniProgress{width:150px}
+}
