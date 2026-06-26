@@ -1,3 +1,4 @@
+const APP_VERSION="v5.2.14";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -354,6 +355,79 @@ async function loadPlanFiltered(title,week,departments,targetId){
   document.querySelectorAll(`#${targetId} input`).forEach(inp=>inp.onchange=()=>{applyShiftInputColors($(targetId));saveScheduleCell(inp)});
   setupDragAndDrop(targetId);
   applyShiftInputColors($(targetId));
+}
+
+
+async function saveScheduleCell(inp){
+  if(!isManagement()) return;
+
+  const profileId = inp.dataset.profile;
+  const workDate = inp.dataset.date;
+  const rawOriginal = (inp.value || "").trim();
+  const raw = rawOriginal.toLowerCase();
+
+  if(!profileId || !workDate) return;
+
+  if(!raw){
+    if(inp.dataset.id){
+      const del = await sb.from("schedules").delete().eq("id", inp.dataset.id);
+      if(del.error){
+        alert("Fehler beim Löschen: " + del.error.message);
+        return;
+      }
+      inp.dataset.id = "";
+    }
+    await loadMonth();
+    await loadMinijobCenter();
+    return;
+  }
+
+  let payload = {
+    profile_id: profileId,
+    work_date: workDate,
+    status: raw,
+    start_time: null,
+    end_time: null
+  };
+
+  const match = raw.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+
+  if(match){
+    payload.status = "arbeit";
+    payload.start_time = `${match[1].padStart(2,"0")}:${match[2]}`;
+    payload.end_time = `${match[3].padStart(2,"0")}:${match[4]}`;
+  }else if(raw.includes("frei")){
+    payload.status = "frei";
+  }else if(raw.includes("urlaub")){
+    payload.status = "urlaub";
+  }else if(raw.includes("krank")){
+    payload.status = "krank";
+  }else{
+    alert("Bitte im Format 17:00-22:00 oder frei / urlaub / krank eintragen.");
+    return;
+  }
+
+  const res = inp.dataset.id
+    ? await sb.from("schedules").update(payload).eq("id", inp.dataset.id).select().single()
+    : await sb.from("schedules").insert(payload).select().single();
+
+  if(res.error){
+    alert("Fehler beim Speichern: " + res.error.message);
+    return;
+  }
+
+  inp.dataset.id = res.data.id;
+
+  const displayValue = payload.status === "arbeit"
+    ? `${payload.start_time}-${payload.end_time}`
+    : payload.status;
+
+  inp.value = displayValue;
+  applyShiftInputColors(document);
+
+  await loadDashboardLight();
+  await loadMonth();
+  await loadMinijobCenter();
 }
 
 $("prevMonth").onclick=()=>{const[y,m]=($("monthSelect").value||monthISO()).split("-").map(Number);$("monthSelect").value=monthISO(new Date(y,m-2,1));loadMonth()};
