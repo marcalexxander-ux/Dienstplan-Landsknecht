@@ -886,23 +886,10 @@ tr.dragOver{outline:3px solid var(--green)}
 }
 
 
-/* v5.8.7 Login endgültig repariert */
+/* v5.8.8 Login korrekt repariert */
 
-/* Grundsätzlich: versteckte Bereiche wirklich verstecken */
-.hidden,
-#appView.hidden,
-#authView.hidden,
-.tabPage.hidden{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  height:0!important;
-  max-height:0!important;
-  overflow:hidden!important;
-  pointer-events:none!important;
-}
-
-/* Nicht eingeloggt: NUR Login sichtbar, keine Heute-Seite im Hintergrund */
+/* Wenn Login sichtbar ist, App komplett verstecken */
+#authView:not(.hidden) ~ #appView,
 body.loggedOut #appView,
 body:not(.loggedIn) #appView{
   display:none!important;
@@ -914,83 +901,98 @@ body:not(.loggedIn) #appView{
   pointer-events:none!important;
 }
 
-/* Login-Seite komplett eigenständig */
-body.loggedOut #authView,
-body:not(.loggedIn) #authView{
-  display:flex!important;
+/* Eingeloggt: Login komplett weg */
+body.loggedIn #authView,
+#authView.hidden{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  height:0!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Wichtig: authView IST selbst die Login-Karte, keine Flexbox */
+#authView.card.login:not(.hidden),
+body.loggedOut #authView.card.login,
+body:not(.loggedIn) #authView.card.login{
+  display:block!important;
   visibility:visible!important;
   opacity:1!important;
-  min-height:100vh!important;
-  height:100vh!important;
-  width:100vw!important;
-  align-items:center!important;
-  justify-content:center!important;
-  padding:24px!important;
-  box-sizing:border-box!important;
-  background:#f6f7f3!important;
-  overflow:hidden!important;
-}
-
-/* Login-Karte sauber und kompakt */
-body.loggedOut #authView .card,
-body:not(.loggedIn) #authView .card{
-  display:block!important;
   width:min(440px, calc(100vw - 32px))!important;
   max-width:440px!important;
-  min-height:0!important;
+  min-width:0!important;
   height:auto!important;
-  margin:0 auto!important;
-  padding:26px!important;
+  min-height:0!important;
+  max-height:none!important;
+  margin:70px auto!important;
+  padding:28px!important;
   box-sizing:border-box!important;
+  background:#ffffff!important;
+  border:1px solid #e5e7eb!important;
   border-radius:22px!important;
-  background:#fff!important;
   box-shadow:0 16px 40px rgba(15,23,42,.12)!important;
+  overflow:visible!important;
+  pointer-events:auto!important;
 }
 
-/* Login Überschrift */
-body.loggedOut #authView h1,
-body.loggedOut #authView h2,
-body.loggedOut #authView h3,
-body:not(.loggedIn) #authView h1,
-body:not(.loggedIn) #authView h2,
-body:not(.loggedIn) #authView h3{
-  display:block!important;
-  margin:0 0 18px!important;
-  font-size:28px!important;
-  line-height:1.15!important;
-  color:#111827!important;
-}
-
-/* Login Formular: alles untereinander */
-body.loggedOut #authView label,
-body:not(.loggedIn) #authView label{
+/* Login-Überschrift */
+#authView.card.login h1,
+#authView.card.login h2,
+#authView.card.login h3{
   display:block!important;
   width:100%!important;
-  margin:0 0 12px!important;
-  font-weight:800!important;
-  color:#374151!important;
+  margin:0 0 20px!important;
+  padding:0!important;
+  font-size:28px!important;
+  line-height:1.2!important;
+  color:#111827!important;
+  text-align:left!important;
 }
 
-body.loggedOut #authView input,
-body:not(.loggedIn) #authView input{
+/* Labels untereinander */
+#authView.card.login label{
+  display:block!important;
+  width:100%!important;
+  margin:0 0 6px!important;
+  padding:0!important;
+  font-size:15px!important;
+  line-height:1.3!important;
+  font-weight:800!important;
+  color:#374151!important;
+  text-align:left!important;
+}
+
+/* Eingabefelder volle Breite */
+#authView.card.login input{
   display:block!important;
   width:100%!important;
   min-width:100%!important;
   max-width:100%!important;
   height:46px!important;
-  margin:6px 0 0!important;
+  margin:0 0 16px!important;
   padding:10px 12px!important;
   box-sizing:border-box!important;
   border:1px solid #d1d5db!important;
   border-radius:12px!important;
-  font-size:16px!important;
-  background:white!important;
+  background:#ffffff!important;
   color:#111827!important;
+  font-size:16px!important;
+  line-height:1.2!important;
+  box-shadow:none!important;
+}
+
+/* Button-Zeile nicht mehr horizontal */
+#authView.card.login .buttonRow{
+  display:block!important;
+  width:100%!important;
+  margin:4px 0 0!important;
+  padding:0!important;
 }
 
 /* Buttons untereinander */
-body.loggedOut #authView button,
-body:not(.loggedIn) #authView button{
+#authView.card.login button{
   display:block!important;
   width:100%!important;
   min-width:100%!important;
@@ -1001,24 +1003,15 @@ body:not(.loggedIn) #authView button{
   box-sizing:border-box!important;
   border-radius:12px!important;
   font-size:15px!important;
+  line-height:1.2!important;
   font-weight:900!important;
   text-align:center!important;
   white-space:normal!important;
 }
 
-/* Eingeloggt: Login komplett weg */
-body.loggedIn #authView{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  height:0!important;
-  max-height:0!important;
-  overflow:hidden!important;
-  pointer-events:none!important;
-}
-
-body.loggedIn #appView{
-  display:block!important;
+/* Eingeloggt: App sichtbar */
+body.loggedIn #appView:not(.hidden){
+  display:grid!important;
   visibility:visible!important;
   opacity:1!important;
   height:auto!important;
@@ -1027,7 +1020,7 @@ body.loggedIn #appView{
   pointer-events:auto!important;
 }
 
-/* Sicherheit: Dashboard/Heute nie in Login-Zustand sichtbar */
+/* Sicherheit: Heute/Dashboard nie während Login zeigen */
 body.loggedOut #dashboardV57,
 body.loggedOut #today,
 body.loggedOut #planService,
@@ -1039,4 +1032,15 @@ body:not(.loggedIn) #planService,
 body:not(.loggedIn) #planKitchen,
 body:not(.loggedIn) #month{
   display:none!important;
+}
+
+/* Mobile Login */
+@media(max-width:600px){
+  #authView.card.login:not(.hidden),
+  body.loggedOut #authView.card.login,
+  body:not(.loggedIn) #authView.card.login{
+    margin:32px auto!important;
+    padding:22px!important;
+    width:calc(100vw - 24px)!important;
+  }
 }
