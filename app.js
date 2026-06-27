@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v5.8.9";
+const APP_VERSION="v5.9.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -579,7 +579,7 @@ function setupDashboardV57(){
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadSummary(),loadMinijobCenter()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadSummary(),loadMinijobCenter()]);
 }
 
 async function loadProfiles(){
@@ -982,7 +982,7 @@ $("requestVacation").onclick=async()=>{
   const from=$("vacFrom").value,to=$("vacTo").value;
   if(!from||!to)return alert("Von und Bis ausfüllen.");
   const{error}=await sb.from("vacation_requests").insert({profile_id:profile.id,date_from:from,date_to:to,note:$("vacNote").value,status:"beantragt"});
-  if(error)alert(error.message);else{await createNotification("Urlaub beantragt",`${profile.first_name} ${profile.last_name} hat Urlaub beantragt.`);await loadVacations();await loadVacationCalendar()}
+  if(error)alert(error.message);else{await createNotification("Urlaub beantragt",`${profile.first_name} ${profile.last_name} hat Urlaub beantragt.`);await loadVacations();await loadVacationCalendar();await loadVacationPlanner()}
 };
 
 $("prevVacMonth").onclick=()=>{const[y,m]=($("vacMonthSelect").value||monthISO()).split("-").map(Number);$("vacMonthSelect").value=monthISO(new Date(y,m-2,1));loadVacationCalendar()};
@@ -1004,7 +1004,7 @@ $("addVacationAdmin").onclick=async()=>{
     decided_by:profile.id,
     decided_at:new Date().toISOString()
   });
-  if(error)alert(error.message);else{await syncVacationToSchedule(profileId,from,to);$("vacAdminNote").value="";await createNotification("Urlaub eingetragen","Ein Urlaub wurde eingetragen.");await loadVacations();await loadVacationCalendar();await loadVacationOverlap();await loadPlanService();await loadPlanKitchen();await loadMonth()}
+  if(error)alert(error.message);else{await syncVacationToSchedule(profileId,from,to);$("vacAdminNote").value="";await createNotification("Urlaub eingetragen","Ein Urlaub wurde eingetragen.");await loadVacations();await loadVacationCalendar();await loadVacationPlanner();await loadVacationOverlap();await loadPlanService();await loadPlanKitchen();await loadMonth()}
 };
 
 async function setVacationStatus(id,status){
@@ -1014,12 +1014,158 @@ async function setVacationStatus(id,status){
     if(status==="genehmigt") await syncVacationToSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
     if(status==="abgelehnt") await removeVacationFromSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
   }
-  await loadVacations();await loadVacationCalendar();await loadPlanService();await loadPlanKitchen();await loadMonth();
+  await loadVacations();await loadVacationCalendar();await loadVacationPlanner();await loadPlanService();await loadPlanKitchen();await loadMonth();
 }
 window.setVacationStatus=setVacationStatus;
 
 
 function profileById(id){return profiles.find(p=>p.id===id)||{}}
+
+
+function vacationDayValue(v, iso){
+  const note = String(v.note||"").toLowerCase();
+  if(note.includes("halb") || note.includes("0,5") || note.includes("0.5")) return 0.5;
+  return 1;
+}
+function vacationDaysInRange(v, monthFrom, monthTo){
+  const out = {};
+  let d = v.date_from < monthFrom ? monthFrom : v.date_from;
+  const end = v.date_to > monthTo ? monthTo : v.date_to;
+  while(d <= end){
+    out[d] = vacationDayValue(v,d);
+    d = addDaysISO(d,1);
+  }
+  return out;
+}
+function vacationEntitlement(p){
+  const raw = p.vacation_days ?? p.urlaubstage ?? p.annual_vacation_days ?? p.vacation_entitlement;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : 30;
+}
+async function loadVacationPlanner(){
+  if(!$("vacPlannerGrid") || !isManagement() || !profiles.length) return;
+
+  const month = $("vacPlannerMonth")?.value || monthISO();
+  const from = firstOfMonthISO(month);
+  const to = month + "-" + pad2(lastDayOfMonth(month));
+  const yearFrom = month.split("-")[0] + "-01-01";
+  const yearTo = month.split("-")[0] + "-12-31";
+  const today = todayISO();
+
+  const [{data:monthData,error:monthError},{data:yearData}] = await Promise.all([
+    sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]),
+    sb.from("vacation_requests").select("*").lte("date_from",yearTo).gte("date_to",yearFrom).eq("status","genehmigt")
+  ]);
+
+  if(monthError){
+    $("vacPlannerGrid").innerHTML = `<div class="entry"><b>Fehler beim Laden des Urlaubsplaners:</b><br>${escapeHtml(monthError.message)}</div>`;
+    return;
+  }
+
+  const rows = plannable()
+    .slice()
+    .sort((a,b)=>
+      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
+      String(a.department||"").localeCompare(String(b.department||"")) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
+
+  const monthByProfile = {};
+  (monthData||[]).forEach(v=>{
+    monthByProfile[v.profile_id] ||= [];
+    monthByProfile[v.profile_id].push(v);
+  });
+
+  const yearTaken = {};
+  (yearData||[]).forEach(v=>{
+    let d = v.date_from < yearFrom ? yearFrom : v.date_from;
+    const end = v.date_to > yearTo ? yearTo : v.date_to;
+    while(d <= end){
+      yearTaken[v.profile_id] = (yearTaken[v.profile_id] || 0) + vacationDayValue(v,d);
+      d = addDaysISO(d,1);
+    }
+  });
+
+  const dayCount = lastDayOfMonth(month);
+  let html = `<div class="vacPlannerScroll"><table class="vacPlannerTable"><thead>`;
+  html += `<tr><th class="vacNameHead">Mitarbeiter</th>`;
+  for(let day=1; day<=dayCount; day++){
+    const iso = month + "-" + pad2(day);
+    const wd = days[weekdayMondayFirst(iso)];
+    const cls = (weekdayMondayFirst(iso) >= 5 ? "weekend" : "") + (iso===today ? " today" : "");
+    html += `<th class="vacDayHead ${cls}"><span>${wd}</span><b>${day}</b></th>`;
+  }
+  html += `<th class="vacSumHead">Anspruch</th><th class="vacTakenHead">Genommen</th><th class="vacRestHead">Rest</th></tr></thead><tbody>`;
+
+  rows.forEach(p=>{
+    const employeeVacs = monthByProfile[p.id] || [];
+    const dayMap = {};
+    employeeVacs.forEach(v=>{
+      const range = vacationDaysInRange(v,from,to);
+      Object.entries(range).forEach(([iso,val])=>{
+        dayMap[iso] = {value:val,status:v.status,note:v.note||"",id:v.id};
+      });
+    });
+
+    const entitlement = vacationEntitlement(p);
+    const takenYear = Number(yearTaken[p.id] || 0);
+    const rest = Math.max(0, entitlement - takenYear);
+
+    html += `<tr><td class="vacNameCell"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></td>`;
+
+    for(let day=1; day<=dayCount; day++){
+      const iso = month + "-" + pad2(day);
+      const wd = weekdayMondayFirst(iso);
+      const item = dayMap[iso];
+      let cls = wd>=5 ? "weekend" : "";
+      if(iso===today) cls += " today";
+      if(item) cls += item.status==="genehmigt" ? " vacApproved" : " vacRequested";
+      const label = item ? (Number(item.value)===0.5 ? "½" : "U") : "";
+      const title = item ? `${item.status} ${item.note||""}` : "";
+      html += `<td class="vacDayCell ${cls}" title="${escapeHtml(title)}">${label}</td>`;
+    }
+
+    html += `<td class="vacSumCell">${euroHours(entitlement).replace(",00","")}</td>`;
+    html += `<td class="vacTakenCell">${euroHours(takenYear).replace(",00","")}</td>`;
+    html += `<td class="vacRestCell">${euroHours(rest).replace(",00","")}</td></tr>`;
+  });
+
+  if(!rows.length){
+    html += `<tr><td colspan="${dayCount+4}">Keine einplanbaren Mitarbeiter gefunden.</td></tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  $("vacPlannerGrid").innerHTML = html;
+}
+function setupVacationPlanner(){
+  if($("vacPlannerMonth")) $("vacPlannerMonth").value ||= monthISO();
+  if($("prevVacPlannerMonth")) $("prevVacPlannerMonth").onclick = ()=>{
+    const [y,m]=($("vacPlannerMonth").value||monthISO()).split("-").map(Number);
+    $("vacPlannerMonth").value = monthISO(new Date(y,m-2,1));
+    loadVacationPlanner();
+  };
+  if($("nextVacPlannerMonth")) $("nextVacPlannerMonth").onclick = ()=>{
+    const [y,m]=($("vacPlannerMonth").value||monthISO()).split("-").map(Number);
+    $("vacPlannerMonth").value = monthISO(new Date(y,m,1));
+    loadVacationPlanner();
+  };
+  if($("vacPlannerMonth")) $("vacPlannerMonth").onchange = loadVacationPlanner;
+  if($("printVacPlanner")) $("printVacPlanner").onclick = ()=>{
+    document.body.classList.add("printVacationPlanner");
+    setTimeout(()=>{
+      window.print();
+      setTimeout(()=>document.body.classList.remove("printVacationPlanner"),500);
+    },150);
+  };
+}
+async function refreshVacationViews(){
+  await loadVacations();
+  await loadVacationCalendar();
+  await loadVacationPlanner();
+  await loadPlanService();
+  await loadPlanKitchen();
+  await loadMonth();
+}
 
 async function loadVacations(){
   let q=sb.from("vacation_requests").select("*").order("date_from",{ascending:false});
@@ -1452,4 +1598,5 @@ function setupPlanPublishButtons(){
 setupPlanPublishButtons();
 setupDashboardV57();
 setupEvents();
+setupVacationPlanner();
 init();

@@ -1053,3 +1053,207 @@ body:not(.loggedIn) #month{
     padding:22px!important;
   }
 }
+
+
+/* v5.9.0 Urlaubsplaner Monatsraster */
+.vacPlannerCard{
+  background:white;
+  border:1px solid #e5e7eb;
+  border-radius:22px;
+  padding:16px;
+  margin:0 0 16px;
+  box-shadow:0 8px 22px rgba(15,23,42,.06);
+}
+.vacPlannerHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:12px;
+}
+.vacPlannerHeader h3{
+  margin:0 0 4px;
+  color:#004634;
+}
+.vacPlannerHeader p{
+  margin:0;
+  color:#647067;
+}
+.vacPlannerControls{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.vacPlannerControls input{
+  min-width:150px;
+}
+.vacLegend{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:10px 0 14px;
+}
+.vacLegend span{
+  display:inline-flex;
+  align-items:center;
+  border-radius:10px;
+  padding:7px 10px;
+  font-weight:900;
+  font-size:13px;
+}
+.vacLegendFull{background:#4c9f25;color:white}
+.vacLegendHalf{background:#9ed36a;color:#163b08}
+.vacLegendWeekend{background:#f7e6a5;color:#5a3e00}
+.vacLegendToday{background:#dbeafe;color:#1d4ed8}
+.vacPlannerScroll{
+  width:100%;
+  overflow:auto;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+}
+.vacPlannerTable{
+  width:max-content;
+  min-width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  font-size:13px;
+}
+.vacPlannerTable th,
+.vacPlannerTable td{
+  border-right:1px solid #e5e7eb;
+  border-bottom:1px solid #e5e7eb;
+  text-align:center;
+}
+.vacNameHead,
+.vacNameCell{
+  position:sticky;
+  left:0;
+  z-index:3;
+  min-width:210px;
+  max-width:210px;
+  background:#f8fafc;
+  text-align:left!important;
+}
+.vacNameHead{
+  top:0;
+  z-index:5;
+  padding:10px;
+  color:#111827;
+}
+.vacNameCell{
+  padding:9px 10px;
+  background:#ffffff;
+}
+.vacNameCell small{
+  color:#647067;
+}
+.vacDayHead{
+  position:sticky;
+  top:0;
+  z-index:2;
+  min-width:42px;
+  background:#0b173d;
+  color:white;
+  padding:0;
+}
+.vacDayHead span{
+  display:block;
+  background:#f6f1d9;
+  color:#1f2937;
+  padding:3px 0;
+  font-weight:800;
+  font-size:11px;
+}
+.vacDayHead b{
+  display:block;
+  padding:7px 0;
+}
+.vacDayHead.weekend span,
+.vacDayCell.weekend{
+  background:#f7e6a5!important;
+}
+.vacDayHead.today b,
+.vacDayCell.today{
+  outline:2px solid #2563eb;
+  outline-offset:-2px;
+}
+.vacDayCell{
+  min-width:42px;
+  height:38px;
+  background:#f3f4f6;
+  font-weight:900;
+}
+.vacDayCell.vacApproved{
+  background:#4c9f25!important;
+  color:white!important;
+}
+.vacDayCell.vacRequested{
+  background:#facc15!important;
+  color:#422006!important;
+}
+.vacSumHead,.vacTakenHead,.vacRestHead{
+  position:sticky;
+  top:0;
+  z-index:2;
+  min-width:86px;
+  color:white;
+  writing-mode:vertical-rl;
+  transform:rotate(180deg);
+  padding:10px 6px;
+}
+.vacSumHead{background:#c89300}
+.vacTakenHead{background:#1f2937}
+.vacRestHead{background:#4c9f25}
+.vacSumCell,.vacTakenCell,.vacRestCell{
+  min-width:86px;
+  font-weight:900;
+  padding:8px;
+}
+.vacSumCell{background:#fff7d6}
+.vacTakenCell{background:#e5e7eb}
+.vacRestCell{background:#dff4d6}
+@media(max-width:820px){
+  .vacPlannerHeader{
+    display:grid;
+    grid-template-columns:1fr;
+  }
+  .vacPlannerControls{
+    justify-content:stretch;
+  }
+  .vacPlannerControls button,
+  .vacPlannerControls input{
+    width:100%;
+  }
+  .vacNameHead,.vacNameCell{
+    min-width:150px;
+    max-width:150px;
+  }
+}
+@media print{
+  body.printVacationPlanner *{
+    visibility:hidden!important;
+  }
+  body.printVacationPlanner .vacPlannerCard,
+  body.printVacationPlanner .vacPlannerCard *{
+    visibility:visible!important;
+  }
+  body.printVacationPlanner .vacPlannerCard{
+    position:absolute!important;
+    left:0!important;
+    top:0!important;
+    width:100%!important;
+    margin:0!important;
+    box-shadow:none!important;
+    border:none!important;
+  }
+  body.printVacationPlanner .sidebar,
+  body.printVacationPlanner header,
+  body.printVacationPlanner button{
+    display:none!important;
+  }
+  @page{
+    size:A4 landscape;
+    margin:8mm;
+  }
+}

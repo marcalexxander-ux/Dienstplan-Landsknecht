@@ -156,6 +156,29 @@
       </section>
 
       <section id="vacation" class="tabPage card hidden">
+
+  <div class="vacPlannerCard managementOnly">
+    <div class="vacPlannerHeader">
+      <div>
+        <h3>Urlaubsplaner Monatsraster</h3>
+        <p>Übersicht pro Mitarbeiter, Monat und Urlaubskonto. Genehmigte Urlaube werden wie bisher in den Dienstplan übertragen.</p>
+      </div>
+      <div class="vacPlannerControls">
+        <button id="prevVacPlannerMonth" type="button" class="secondary">← Vormonat</button>
+        <input id="vacPlannerMonth" type="month">
+        <button id="nextVacPlannerMonth" type="button" class="secondary">Nächster Monat →</button>
+        <button id="printVacPlanner" type="button">PDF Urlaub</button>
+      </div>
+    </div>
+    <div class="vacLegend">
+      <span class="vacLegendFull">U Urlaub ganztägig</span>
+      <span class="vacLegendHalf">½ Urlaub halbtägig</span>
+      <span class="vacLegendWeekend">Wochenende</span>
+      <span class="vacLegendToday">Heute</span>
+    </div>
+    <div id="vacPlannerGrid" class="vacPlannerGrid"></div>
+  </div>
+
         <h2>Urlaub</h2>
 
         <div class="managementOnly vacationAdmin">
