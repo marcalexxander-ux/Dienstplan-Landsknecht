@@ -1,5 +1,4 @@
-document.body.classList.add("loggedOut");
-const APP_VERSION="v5.8.5";
+const APP_VERSION="v5.8.6";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -198,35 +197,21 @@ async function loadProfile(){
   await sb.from("profiles").upsert(profile);
 }
 
-
-function setAuthBodyState(logged){
-  document.body.classList.toggle("loggedIn", !!logged);
-  document.body.classList.toggle("loggedOut", !logged);
-}
-
 function renderAuth(){
   const logged=!!session;
-  setAuthBodyState(logged);
-
-  if($("authView")) $("authView").classList.toggle("hidden", logged);
-  if($("appView")) $("appView").classList.toggle("hidden", !logged);
-
+  $("authView").classList.toggle("hidden",logged);
+  $("appView").classList.toggle("hidden",!logged);
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
-
   if(logged){
     $("weekStartService").value ||= mondayISO();
     $("weekStartKitchen").value ||= mondayISO();
     $("monthSelect").value ||= monthISO();
-    $("infoDate").value ||= todayISO();
-    $("vacMonthSelect").value ||= monthISO();
+    $("infoDate").value ||= todayISO(); $("vacMonthSelect").value ||= monthISO();
     $("timeDate").value ||= todayISO();
     $("vacFrom").value ||= todayISO();
     $("vacTo").value ||= todayISO();
-    if($("eventDate")) $("eventDate").value ||= todayISO();
-    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
-    $("sumFrom").value ||= mondayISO();
+    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();$("sumFrom").value ||= mondayISO();
     $("sumTo").value ||= addDaysISO(mondayISO(),6);
-    setActiveTab("today");
     loadAll();
   }
 }
@@ -346,7 +331,6 @@ function eventTypeIcon(type){
   if(t.includes("feiertag")||t.includes("saison")) return "🎄";
   return "📌";
 }
-
 function eventPlanLabel(e){
   const icon = eventTypeIcon(e.event_type);
   const title = e.title || "Event";
@@ -355,12 +339,11 @@ function eventPlanLabel(e){
   const rooms = e.rooms ? ` · ${e.rooms}` : "";
   return `${icon} ${title}${time}${guests}${rooms}`;
 }
-
 function eventTitleLine(e){
   const time = e.start_time ? `${String(e.start_time).slice(0,5)}${e.end_time ? "-"+String(e.end_time).slice(0,5) : ""}` : "";
   const guests = e.guests ? ` · ${e.guests} Gäste` : "";
   const rooms = e.rooms ? ` · ${escapeHtml(e.rooms)}` : "";
-  return `${escapeHtml(eventPlanLabel(e))} ${time ? "· "+escapeHtml(time) : ""}${guests}${rooms}`;
+  return `${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")} ${time ? "· "+escapeHtml(time) : ""}${guests}${rooms}`;
 }
 async function saveEvent(){
   if(!isManagement()) return;
@@ -843,7 +826,7 @@ async function loadMonth(){
       c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     }
     (eventsByDate[iso]||[]).forEach(e=>{
-      c+=`<div class="monthInfo eventMonthInfo">${escapeHtml(eventPlanLabel(e))}${e.rooms?`<br><small>${escapeHtml(e.rooms)}</small>`:""}</div>`;
+      c+=`<div class="monthInfo eventMonthInfo">${escapeHtml(eventPlanLabel(e))}</div>`;
     });
 
     html+=`<td class="monthCell">${c}</td>`;
