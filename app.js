@@ -1,4 +1,4 @@
-const APP_VERSION="v5.5.2";
+const APP_VERSION="v5.5.3";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -920,4 +920,46 @@ function setupPasswordReset(){
 }
 
 setupPasswordReset();
+
+async function publishPlan(kind){
+  if(!isManagement()) return alert("Nur Geschäftsführung kann den Dienstplan veröffentlichen.");
+
+  const isKitchen = kind === "kitchen";
+  const weekInput = isKitchen ? $("weekStartKitchen") : $("weekStartService");
+  const week = weekInput?.value || mondayISO();
+  const to = addDaysISO(week,6);
+  const title = isKitchen ? "Dienstplan Küche veröffentlicht" : "Dienstplan Service veröffentlicht";
+  const body = `Der Dienstplan für ${fmtDate(week)} bis ${fmtDate(to)} wurde veröffentlicht. Bitte prüfe deine Schichten.`;
+
+  let errorMessage = "";
+
+  if(typeof createNotification === "function"){
+    try{
+      await createNotification(title, body);
+    }catch(e){
+      errorMessage = e?.message || String(e);
+    }
+  }else{
+    const res = await sb.from("notifications").insert({
+      title,
+      body,
+      created_by: profile?.id || null
+    });
+    if(res.error) errorMessage = res.error.message;
+  }
+
+  if(errorMessage){
+    alert("Dienstplan wurde nicht veröffentlicht: " + errorMessage);
+    return;
+  }
+
+  alert("Dienstplan wurde veröffentlicht. Die Benachrichtigung wurde erstellt.");
+}
+
+function setupPlanPublishButtons(){
+  if($("publishServicePlanBtn")) $("publishServicePlanBtn").onclick = () => publishPlan("service");
+  if($("publishKitchenPlanBtn")) $("publishKitchenPlanBtn").onclick = () => publishPlan("kitchen");
+}
+
+setupPlanPublishButtons();
 init();

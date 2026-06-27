@@ -521,3 +521,21 @@ tr.dragOver{outline:3px solid var(--green)}
     max-width:170px;
   }
 }
+
+
+/* v5.5.3 Dienstplan veröffentlichen */
+.publishBtn{
+  background:#b9872c!important;
+  color:white!important;
+  font-weight:900!important;
+}
+.publishBtn:hover{
+  filter:brightness(.96);
+}
+@media(max-width:820px){
+  .publishBtn{
+    width:100%!important;
+    min-height:48px!important;
+    margin:6px 0!important;
+  }
+}
