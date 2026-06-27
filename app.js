@@ -1,4 +1,4 @@
-const APP_VERSION="v5.8.2";
+const APP_VERSION="v5.8.3";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -190,8 +190,15 @@ async function loadProfile(){
   await sb.from("profiles").upsert(profile);
 }
 
+
+function setAuthBodyState(logged){
+  document.body.classList.toggle("loggedIn", !!logged);
+  document.body.classList.toggle("loggedOut", !logged);
+}
+
 function renderAuth(){
   const logged=!!session;
+  setAuthBodyState(logged);
   $("authView").classList.toggle("hidden",logged);
   $("appView").classList.toggle("hidden",!logged);
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
