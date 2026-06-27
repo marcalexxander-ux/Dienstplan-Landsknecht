@@ -1,4 +1,4 @@
-const APP_VERSION="v5.7.1";
+const APP_VERSION="v5.7.2";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -614,27 +614,37 @@ $("monthSelect").onchange=loadMonth;
 async function loadMonth(){
   if(!session||!profiles.length)return;
   const month=$("monthSelect").value||monthISO(),from=firstOfMonthISO(month),to=month+"-"+pad2(lastDayOfMonth(month));
-  const[{data:schedules},{data:infos}]=await Promise.all([
-    sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to),
-    sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to)
-  ]);
-  const schedByDate={};(schedules||[]).forEach(s=>{schedByDate[s.work_date]||=[];schedByDate[s.work_date].push(s)});
-  const infoByDate={};(infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
+
+  const{data:infos,error}=await sb.from("daily_infos")
+    .select("*")
+    .gte("info_date",from)
+    .lte("info_date",to);
+
+  if(error){
+    $("monthGrid").innerHTML=`<div class="entry"><b>Fehler beim Laden der Monatsübersicht:</b><br>${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const infoByDate={};
+  (infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
+
   let html='<div class="grid"><table class="monthTable"><thead><tr>'+days.map(d=>`<th>${d}</th>`).join("")+'</tr></thead><tbody><tr>';
   const total=lastDayOfMonth(month),first=weekdayMondayFirst(from);
+
   for(let i=0;i<first;i++)html+='<td class="monthCell"></td>';
+
   for(let day=1;day<=total;day++){
     const iso=month+"-"+pad2(day);
     if(day>1&&weekdayMondayFirst(iso)===0)html+="</tr><tr>";
+
     let c=`<div class="monthDate">${fmtDate(iso)}</div>`;
-    if(infoByDate[iso])c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
-    (schedByDate[iso]||[]).forEach(s=>{
-      const p=plannable().find(x=>x.id===s.profile_id);if(!p)return;
-      const val=s.status==="arbeit"?`${s.start_time?.slice(0,5)||""}-${s.end_time?.slice(0,5)||""}`:s.status;
-      c+=`<div class="monthShift"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b> ${deptBadge(p.department)}<br>${escapeHtml(val)}</div>`;
-    });
+    if(infoByDate[iso]){
+      c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
+    }
+
     html+=`<td class="monthCell">${c}</td>`;
   }
+
   for(let i=weekdayMondayFirst(to)+1;i<7;i++)html+='<td class="monthCell"></td>';
   html+="</tr></tbody></table></div>";
   $("monthGrid").innerHTML=html;
