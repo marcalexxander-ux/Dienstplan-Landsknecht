@@ -1,4 +1,4 @@
-const APP_VERSION="v5.8.0";
+const APP_VERSION="v5.8.1";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -324,11 +324,21 @@ function eventTypeIcon(type){
   if(t.includes("feiertag")||t.includes("saison")) return "🎄";
   return "📌";
 }
+
+function eventPlanLabel(e){
+  const icon = eventTypeIcon(e.event_type);
+  const title = e.title || "Event";
+  const time = e.start_time ? ` · ${String(e.start_time).slice(0,5)}` : "";
+  const guests = e.guests ? ` · ${e.guests} Gäste` : "";
+  const rooms = e.rooms ? ` · ${e.rooms}` : "";
+  return `${icon} ${title}${time}${guests}${rooms}`;
+}
+
 function eventTitleLine(e){
   const time = e.start_time ? `${String(e.start_time).slice(0,5)}${e.end_time ? "-"+String(e.end_time).slice(0,5) : ""}` : "";
   const guests = e.guests ? ` · ${e.guests} Gäste` : "";
   const rooms = e.rooms ? ` · ${escapeHtml(e.rooms)}` : "";
-  return `${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")} ${time ? "· "+escapeHtml(time) : ""}${guests}${rooms}`;
+  return `${escapeHtml(eventPlanLabel(e))} ${time ? "· "+escapeHtml(time) : ""}${guests}${rooms}`;
 }
 async function saveEvent(){
   if(!isManagement()) return;
@@ -532,7 +542,7 @@ async function loadDashboardV57(){
 
   if($("dashboardEventsV57")){
     $("dashboardEventsV57").innerHTML = events.length ? events.map(e=>`
-      <div class="dashItemV57"><div><b>${escapeHtml(e.title||"Event")}</b><br><small>${fmtDate(e.event_date)}${e.note ? " · " + escapeHtml(e.note) : ""}</small></div></div>
+      <div class="dashItemV57"><div><b>${escapeHtml(eventPlanLabel(e))}</b><br><small>${fmtDate(e.event_date)}${e.note ? " · " + escapeHtml(e.note) : ""}</small></div></div>
     `).join("") : `<div class="dashEmptyV57">Keine kommenden Events eingetragen.</div>`;
   }
 }
@@ -676,7 +686,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const eventsByDate={};(events||[]).filter(e=>e.show_plan!==false).forEach(e=>{eventsByDate[e.event_date]||=[];eventsByDate[e.event_date].push(e)});
   const people=plannable().filter(p=>departments.includes(p.department)).sort((a,b)=>(Number(a.sort_order??9999)-Number(b.sort_order??9999)) || String(a.last_name||"").localeCompare(String(b.last_name||"")));
   let html='<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div><div class="grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
-  days.forEach((d,i)=>{const iso=addDaysISO(week,i);html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")}</div>`).join("")}</th>`});
+  days.forEach((d,i)=>{const iso=addDaysISO(week,i);html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`});
   html+='</tr></thead><tbody>';
   people.forEach(p=>{
     html+=`<tr ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)}</td>`;
@@ -811,7 +821,7 @@ async function loadMonth(){
       c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     }
     (eventsByDate[iso]||[]).forEach(e=>{
-      c+=`<div class="monthInfo eventMonthInfo">${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")}${e.rooms?`<br><small>${escapeHtml(e.rooms)}</small>`:""}</div>`;
+      c+=`<div class="monthInfo eventMonthInfo">${escapeHtml(eventPlanLabel(e))}${e.rooms?`<br><small>${escapeHtml(e.rooms)}</small>`:""}</div>`;
     });
 
     html+=`<td class="monthCell">${c}</td>`;

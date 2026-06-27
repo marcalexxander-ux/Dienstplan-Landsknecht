@@ -848,3 +848,12 @@ tr.dragOver{outline:3px solid var(--green)}
     width:100%!important;
   }
 }
+
+
+/* v5.8.1 Gästezahl im Dienstplan/Kalender */
+.eventDayInfo,
+.eventMonthInfo{
+  line-height:1.25!important;
+  font-weight:800!important;
+  white-space:normal!important;
+}
