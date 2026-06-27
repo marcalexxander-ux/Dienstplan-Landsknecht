@@ -638,3 +638,116 @@ tr.dragOver{outline:3px solid var(--green)}
 #dashboardMinijobV57Container{
   display:none!important;
 }
+
+
+/* v5.7.4 PDF-Druck sauber getrennt */
+@media print{
+  body.printService *,
+  body.printKitchen *,
+  body.printMonth *{
+    visibility:hidden!important;
+  }
+
+  body.printService #planService,
+  body.printService #planService *,
+  body.printKitchen #planKitchen,
+  body.printKitchen #planKitchen *,
+  body.printMonth #month,
+  body.printMonth #month *,
+  body.printService #printHeader,
+  body.printService #printHeader *,
+  body.printKitchen #printHeader,
+  body.printKitchen #printHeader *,
+  body.printMonth #printHeader,
+  body.printMonth #printHeader *{
+    visibility:visible!important;
+  }
+
+  body.printService #planService,
+  body.printKitchen #planKitchen,
+  body.printMonth #month{
+    position:absolute!important;
+    left:0!important;
+    top:0!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    background:white!important;
+  }
+
+  body.printService .sidebar,
+  body.printKitchen .sidebar,
+  body.printMonth .sidebar,
+  body.printService nav,
+  body.printKitchen nav,
+  body.printMonth nav,
+  body.printService header,
+  body.printKitchen header,
+  body.printMonth header,
+  body.printService .dashHero,
+  body.printKitchen .dashHero,
+  body.printMonth .dashHero,
+  body.printService .dashboardV57,
+  body.printKitchen .dashboardV57,
+  body.printMonth .dashboardV57,
+  body.printService button,
+  body.printKitchen button,
+  body.printMonth button,
+  body.printService .mobileMenuToggle,
+  body.printKitchen .mobileMenuToggle,
+  body.printMonth .mobileMenuToggle{
+    display:none!important;
+  }
+
+  body.printMonth #monthGrid,
+  body.printMonth #monthGrid *{
+    visibility:visible!important;
+  }
+
+  body.printMonth #monthGrid{
+    width:100%!important;
+    max-width:100%!important;
+    overflow:visible!important;
+  }
+
+  body.printMonth #monthGrid table{
+    width:100%!important;
+    min-width:0!important;
+    font-size:11px!important;
+  }
+
+  body.printService #planGridService,
+  body.printKitchen #planGridKitchen{
+    width:100%!important;
+    overflow:visible!important;
+  }
+
+  body.printService #planGridService table,
+  body.printKitchen #planGridKitchen table{
+    width:100%!important;
+    min-width:0!important;
+    font-size:10px!important;
+  }
+
+  body.printService input,
+  body.printKitchen input{
+    border:none!important;
+    background:transparent!important;
+    box-shadow:none!important;
+  }
+
+  body.printService .orderControls,
+  body.printKitchen .orderControls,
+  body.printService .orderHint,
+  body.printKitchen .orderHint,
+  body.printService .planLegend,
+  body.printKitchen .planLegend{
+    display:none!important;
+  }
+
+  @page{
+    size: A4 landscape;
+    margin: 8mm;
+  }
+}

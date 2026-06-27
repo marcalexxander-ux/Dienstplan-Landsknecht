@@ -1,4 +1,4 @@
-const APP_VERSION="v5.7.3";
+const APP_VERSION="v5.7.4";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -53,23 +53,48 @@ function setPrintHeader(title,weekStart){
   if($("printTitle")) $("printTitle").textContent=title;
   if($("printSubtitle")) $("printSubtitle").textContent=`Restaurant Landsknecht · KW ${kw} · ${fmtDate(from)} bis ${fmtDate(to)}`;
 }
+
+function setPrintMode(mode){
+  document.body.classList.remove("printService","printKitchen","printMonth","printAll");
+  if(mode) document.body.classList.add(mode);
+}
+function clearPrintMode(){
+  document.body.classList.remove("printService","printKitchen","printMonth","printAll");
+}
+function printOnly(mode, tabId, title, subtitle){
+  setActiveTab(tabId);
+  setPrintMode(mode);
+  if($("printTitle")) $("printTitle").textContent = title || "";
+  if($("printSubtitle")) $("printSubtitle").textContent = subtitle || "";
+  setTimeout(()=>{
+    window.print();
+    setTimeout(clearPrintMode,500);
+  },150);
+}
+
 function printServicePlan(){
-  setActiveTab("planService");
-  setPrintHeader("Dienstplan Service",$("weekStartService").value||mondayISO());
-  setTimeout(()=>window.print(),150);
+  const week=$("weekStartService").value||mondayISO();
+  const to=addDaysISO(week,6);
+  const kw=getISOWeek(week);
+  printOnly("printService","planService","Dienstplan Service",`Restaurant Landsknecht · KW ${kw} · ${fmtDate(week)} bis ${fmtDate(to)}`);
 }
 function printKitchenPlan(){
-  setActiveTab("planKitchen");
-  setPrintHeader("Dienstplan Küche",$("weekStartKitchen").value||mondayISO());
-  setTimeout(()=>window.print(),150);
+  const week=$("weekStartKitchen").value||mondayISO();
+  const to=addDaysISO(week,6);
+  const kw=getISOWeek(week);
+  printOnly("printKitchen","planKitchen","Dienstplan Küche",`Restaurant Landsknecht · KW ${kw} · ${fmtDate(week)} bis ${fmtDate(to)}`);
 }
 function printMonthPlan(){
-  if($("printTitle")) $("printTitle").textContent="Monatsübersicht";
-  if($("printSubtitle")) $("printSubtitle").textContent=`Restaurant Landsknecht · ${$("monthSelect").value||monthISO()}`;
-  setActiveTab("month");
-  setTimeout(()=>window.print(),150);
+  const month=$("monthSelect").value||monthISO();
+  printOnly("printMonth","month","Monatsübersicht",`Restaurant Landsknecht · ${month}`);
 }
-function printCurrent(){window.print()}
+function printCurrent(){
+  setPrintMode("printAll");
+  setTimeout(()=>{
+    window.print();
+    setTimeout(clearPrintMode,500);
+  },100);
+}
 function openStaffNew(){setActiveTab("staff");clearStaffForm();window.scrollTo({top:0,behavior:"smooth"})}
 
 function shiftDisplayClass(val){
