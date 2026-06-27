@@ -1022,3 +1022,85 @@ body.loggedIn #appView{
     width:calc(100% - 16px)!important;
   }
 }
+
+
+/* v5.8.4 Stabilisierung Tab/Login/Layout */
+body:not(.loggedIn) #appView,
+body.loggedOut #appView{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+body.loggedIn #authView{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+body.loggedIn #appView{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+}
+
+/* Wichtig: versteckte Tabs müssen IMMER versteckt bleiben */
+.tabPage.hidden,
+section.tabPage.hidden,
+div.tabPage.hidden,
+#events.hidden,
+#events.tabPage.hidden{
+  display:none!important;
+  visibility:hidden!important;
+  height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Eventkalender nur sichtbar, wenn der Tab aktiv ist */
+#events.tabPage:not(.hidden){
+  display:block!important;
+  visibility:visible!important;
+  height:auto!important;
+  overflow:visible!important;
+  width:100%!important;
+  max-width:100%!important;
+  margin:0!important;
+  padding:0!important;
+}
+
+/* Keine Eventkalender-Überlagerung unter Dienstplan oder Heute */
+#planService #events,
+#planKitchen #events,
+#today #events,
+#dashboard #events,
+#month #events{
+  display:none!important;
+}
+
+/* Eventformular im aktiven Tab sauber */
+#events.tabPage:not(.hidden) .formGrid{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(180px,1fr))!important;
+  gap:12px!important;
+}
+#events.tabPage:not(.hidden) .eventRooms{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(190px,1fr))!important;
+  gap:8px!important;
+}
+#events.tabPage:not(.hidden) .eventChecks{
+  display:grid!important;
+  grid-template-columns:repeat(3,1fr)!important;
+  gap:8px!important;
+}
+
+@media(max-width:820px){
+  #events.tabPage:not(.hidden) .formGrid,
+  #events.tabPage:not(.hidden) .eventRooms,
+  #events.tabPage:not(.hidden) .eventChecks{
+    grid-template-columns:1fr!important;
+  }
+}

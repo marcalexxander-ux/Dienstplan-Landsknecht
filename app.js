@@ -1,4 +1,5 @@
-const APP_VERSION="v5.8.3";
+document.body.classList.add("loggedOut");
+const APP_VERSION="v5.8.4";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
