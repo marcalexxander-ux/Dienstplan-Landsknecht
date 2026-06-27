@@ -1,4 +1,4 @@
-const APP_VERSION="v5.5.3";
+const APP_VERSION="v5.6.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -128,11 +128,41 @@ async function init(){
 }
 
 async function loadProfile(){
-  const{data,error}=await sb.from("profiles").select("*").eq("id",session.user.id).single();
-  if(error){
-    profile={id:session.user.id,email:session.user.email,first_name:"",last_name:"",phone:"",role:"employee",department:"Service",plannable:true,active:true};
-    await sb.from("profiles").upsert(profile);
-  }else profile=data;
+  const email = session?.user?.email || "";
+
+  let res = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+
+  if(res.data){
+    profile = res.data;
+    return;
+  }
+
+  if(email){
+    const byEmail = await sb.from("profiles")
+      .select("*")
+      .eq("email",email)
+      .eq("active",true)
+      .maybeSingle();
+
+    if(byEmail.data){
+      profile = byEmail.data;
+      return;
+    }
+  }
+
+  profile={
+    id:session.user.id,
+    email:email,
+    first_name:"",
+    last_name:"",
+    phone:"",
+    role:"employee",
+    department:"Service",
+    plannable:true,
+    active:true
+  };
+
+  await sb.from("profiles").upsert(profile);
 }
 
 function renderAuth(){
@@ -657,8 +687,44 @@ function editStaff(id){
 }
 async function deactivateStaff(id){if(!confirm("Mitarbeiter deaktivieren?"))return;await sb.from("profiles").update({active:false}).eq("id",id);await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth()}
 window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;
+
+function appPublicUrl(){
+  return window.location.origin + window.location.pathname;
+}
+
+function sendStaffInvite(profileId){
+  const p = profiles.find(x=>x.id===profileId);
+  if(!p) return alert("Mitarbeiter nicht gefunden.");
+  if(!p.email) return alert("Für diesen Mitarbeiter ist keine E-Mail hinterlegt.");
+
+  const name = `${p.first_name||""} ${p.last_name||""}`.trim() || "du";
+  const appUrl = appPublicUrl();
+
+  const subject = "Einladung zum Landsknecht Dienstplan";
+  const body =
+`Hallo ${name},
+
+du wurdest für den digitalen Dienstplan vom Restaurant Landsknecht eingeladen.
+
+Bitte öffne diesen Link:
+${appUrl}
+
+Wichtig:
+1. Klicke auf „Registrieren“.
+2. Verwende genau diese E-Mail-Adresse: ${p.email}
+3. Lege dein eigenes Passwort fest.
+
+Wenn du bereits registriert bist, nutze einfach „Anmelden“ oder „Passwort vergessen?“.
+
+Liebe Grüße`;
+
+  const mailto = `mailto:${encodeURIComponent(p.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+window.sendStaffInvite = sendStaffInvite;
+
 function renderStaff(){
-  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button>`:""}</div></div>`).join("");
+  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button>`:""}</div></div>`).join("");
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
