@@ -1,4 +1,4 @@
-const APP_VERSION="v5.8.1";
+const APP_VERSION="v5.8.2";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
