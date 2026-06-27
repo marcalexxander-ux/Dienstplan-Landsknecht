@@ -1,4 +1,5 @@
-const APP_VERSION="v5.8.6";
+document.body.classList.add("loggedOut");
+const APP_VERSION="v5.8.7";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -197,21 +198,35 @@ async function loadProfile(){
   await sb.from("profiles").upsert(profile);
 }
 
+
+function setAuthBodyState(logged){
+  document.body.classList.toggle("loggedIn", !!logged);
+  document.body.classList.toggle("loggedOut", !logged);
+}
+
 function renderAuth(){
   const logged=!!session;
-  $("authView").classList.toggle("hidden",logged);
-  $("appView").classList.toggle("hidden",!logged);
+  setAuthBodyState(logged);
+
+  if($("authView")) $("authView").classList.toggle("hidden", logged);
+  if($("appView")) $("appView").classList.toggle("hidden", !logged);
+
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
+
   if(logged){
     $("weekStartService").value ||= mondayISO();
     $("weekStartKitchen").value ||= mondayISO();
     $("monthSelect").value ||= monthISO();
-    $("infoDate").value ||= todayISO(); $("vacMonthSelect").value ||= monthISO();
+    $("infoDate").value ||= todayISO();
+    $("vacMonthSelect").value ||= monthISO();
     $("timeDate").value ||= todayISO();
     $("vacFrom").value ||= todayISO();
     $("vacTo").value ||= todayISO();
-    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();$("sumFrom").value ||= mondayISO();
+    if($("eventDate")) $("eventDate").value ||= todayISO();
+    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
+    $("sumFrom").value ||= mondayISO();
     $("sumTo").value ||= addDaysISO(mondayISO(),6);
+    setActiveTab("today");
     loadAll();
   }
 }
