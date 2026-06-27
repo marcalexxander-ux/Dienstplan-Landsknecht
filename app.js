@@ -1,4 +1,4 @@
-const APP_VERSION="v5.3.0";
+const APP_VERSION="v5.5.2";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -755,148 +755,120 @@ function plannedHoursFromSchedule(s){
   return hoursBetween(String(s.start_time).slice(0,5),String(s.end_time).slice(0,5),0);
 }
 
+
+function minijobDepartments(){
+  return ["Minijob Service","Minijob Bar","Minijob Küche"];
+}
+function isMinijobProfile(p){
+  return minijobDepartments().includes(p?.department) && p?.active !== false;
+}
+function scheduleHoursForMinijobEntry(entry){
+  if(!entry || entry.status !== "arbeit" || !entry.start_time || !entry.end_time) return 0;
+  const start = String(entry.start_time).slice(0,5);
+  const end = String(entry.end_time).slice(0,5);
+  let [sh, sm] = start.split(":").map(Number);
+  let [eh, em] = end.split(":").map(Number);
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if(endMin < startMin) endMin += 24 * 60;
+  let minutes = endMin - startMin;
+  if(minutes >= 240) minutes -= 30;
+  return Math.max(0, minutes / 60);
+}
+
 async function loadMinijobCenter(){
   if(!$("minijobCenterList") || !isManagement()) return;
 
-  const month=$("minijobMonth")?.value || monthISO();
-  const limit=Number($("minijobLimit")?.value || 603);
-  const from=firstOfMonthISO(month);
-  const to=month+"-"+String(lastDayOfMonth(month)).padStart(2,"0");
+  const month = $("minijobMonth")?.value || monthISO();
+  const limit = Number($("minijobLimit")?.value || 603);
+  const from = firstOfMonthISO(month);
+  const to = month + "-" + String(lastDayOfMonth(month)).padStart(2,"0");
 
-  $("minijobCenterList").innerHTML='<div class="entry">Minijob-Center wird aus dem Dienstplan neu berechnet...</div>';
+  $("minijobCenterList").innerHTML = '<div class="entry">Minijob-Center wird aus dem Dienstplan neu berechnet...</div>';
 
-  const {data,error}=await sb.from("schedules")
+  const { data, error } = await sb.from("schedules")
     .select("*")
-    .gte("work_date",from)
-    .lte("work_date",to);
+    .gte("work_date", from)
+    .lte("work_date", to);
 
   if(error){
-    $("minijobCenterList").innerHTML=`<div class="entry"><b>Fehler beim Laden des Dienstplans:</b><br>${escapeHtml(error.message)}</div>`;
+    $("minijobCenterList").innerHTML = `<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
     return;
   }
 
-  const minijobbers=profiles
-    .filter(minijobCenterEmployeeFilter)
+  const minijobbers = profiles
+    .filter(isMinijobProfile)
     .sort((a,b)=>
       (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
       String(a.last_name||"").localeCompare(String(b.last_name||""))
     );
 
-  const totals={};
-  (data||[]).forEach(entry=>{
-    totals[entry.profile_id] ||= {hours:0,count:0,lastShift:null,lastShiftDate:null};
-    const h=scheduleHoursForMinijobEntry(entry);
-    totals[entry.profile_id].hours += h;
-    if(h>0){
-      totals[entry.profile_id].count += 1;
-      const label=`${fmtDate(entry.work_date)} ${String(entry.start_time).slice(0,5)}-${String(entry.end_time).slice(0,5)}`;
-      if(!totals[entry.profile_id].lastShiftDate || entry.work_date > totals[entry.profile_id].lastShiftDate){
-        totals[entry.profile_id].lastShiftDate = entry.work_date;
-        totals[entry.profile_id].lastShift = label;
-      }
+  const totals = {};
+  (data||[]).forEach(s=>{
+    if(s.status !== "arbeit") return;
+    totals[s.profile_id] ||= {hours:0,count:0,last:"—"};
+    const h = scheduleHoursForMinijobEntry(s);
+    totals[s.profile_id].hours += h;
+    if(h > 0){
+      totals[s.profile_id].count += 1;
+      totals[s.profile_id].last = `${fmtDate(s.work_date)} ${String(s.start_time).slice(0,5)}-${String(s.end_time).slice(0,5)}`;
     }
   });
 
-  lastMinijobRows=[];
+  lastMinijobRows = [];
 
-  let totalHours=0,totalEarned=0,warningCount=0,stopCount=0;
-  minijobbers.forEach(p=>{
-    const hours=totals[p.id]?.hours || 0;
-    const rate=Number(p.hourly_rate||0);
-    const earned=hours*rate;
-    totalHours += hours;
-    totalEarned += earned;
-    if(limit>0 && earned>=limit) stopCount++;
-    else if(limit>0 && earned>=limit*0.8) warningCount++;
-  });
-
-  const freeTotal=Math.max(0,(minijobbers.length*limit)-totalEarned);
-
-  let html=`
-    <div class="miniInfo miniInfoPro">
-      <b>Quelle: Dienstplan</b> · Monat: <b>${escapeHtml(month)}</b> · Grenze pro Person: <b>${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><br>
-      Berücksichtigt werden nur: <b>Minijob Service</b>, <b>Minijob Bar</b>, <b>Minijob Küche</b>. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.<br>
-      Letzte Berechnung: <b>${new Date().toLocaleString("de-DE")}</b>
+  let html = `
+    <div class="miniInfo">
+      <b>Quelle:</b> Dienstplan · <b>Monat:</b> ${escapeHtml(month)} · <b>Grenze:</b> ${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €<br>
+      Nur Minijob Service, Minijob Bar und Minijob Küche. Ab 4 Stunden werden 30 Minuten Pause abgezogen.
     </div>
-
-    <div class="miniStats">
-      <div class="miniStatCard"><span>Minijobber</span><b>${minijobbers.length}</b></div>
-      <div class="miniStatCard"><span>Geplante Stunden</span><b>${euroHours(totalHours)}</b></div>
-      <div class="miniStatCard"><span>Geplanter Verdienst</span><b>${totalEarned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></div>
-      <div class="miniStatCard"><span>Freier Gesamtbetrag</span><b>${freeTotal.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></div>
-      <div class="miniStatCard ${warningCount||stopCount?'miniStatWarn':''}"><span>Warnungen</span><b>${warningCount+stopCount}</b></div>
-    </div>
-
-    <div class="grid miniJobGrid"><table class="miniJobTable">
-      <thead>
-        <tr>
-          <th>Mitarbeiter</th>
-          <th>Bereich</th>
-          <th>Std.-Lohn</th>
-          <th>Schichten</th>
-          <th>Geplante Std.</th>
-          <th>Geplanter Verdienst</th>
-          <th>Fortschritt</th>
-          <th>Restbetrag</th>
-          <th>Reststunden</th>
-          <th>ca. Schichten</th>
-          <th>Letzte Schicht</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>`;
+    <div class="grid"><table class="miniJobTable">
+      <thead><tr>
+        <th>Mitarbeiter</th><th>Bereich</th><th>Std.-Lohn</th><th>Schichten</th><th>Stunden</th><th>Verdienst</th><th>Rest</th><th>Status</th>
+      </tr></thead><tbody>`;
 
   minijobbers.forEach(p=>{
-    const hours=totals[p.id]?.hours || 0;
-    const count=totals[p.id]?.count || 0;
-    const lastShift=totals[p.id]?.lastShift || "—";
-    const rate=Number(p.hourly_rate||0);
-    const earned=hours*rate;
-    const rest=Math.max(0,limit-earned);
-    const restHours=rate>0 ? rest/rate : 0;
-    const avgShift=count>0 ? hours/count : 5.5;
-    const possibleShifts=avgShift>0 ? Math.floor(restHours/avgShift) : 0;
-    const pct=limit>0 ? Math.min(100,Math.round((earned/limit)*100)) : 0;
+    const t = totals[p.id] || {hours:0,count:0,last:"—"};
+    const rate = Number(p.hourly_rate || 0);
+    const earned = t.hours * rate;
+    const rest = Math.max(0, limit - earned);
+    const pct = limit ? Math.min(100, Math.round((earned / limit) * 100)) : 0;
 
-    let status="OK",statusLabel="🟢 OK",cls="miniOk",rowCls="miniRowOk";
-    if(limit>0 && earned>=limit){
-      status="Grenze erreicht"; statusLabel="🔴 Grenze erreicht"; cls="miniStop"; rowCls="miniRowStop";
-    }else if(limit>0 && earned>=limit*0.8){
-      status="Achtung"; statusLabel="🟡 Achtung"; cls="miniWarn"; rowCls="miniRowWarn";
-    }
+    let status = "🟢 OK";
+    let cls = "miniOk";
+    if(earned >= limit){ status = "🔴 Grenze erreicht"; cls = "miniStop"; }
+    else if(earned >= limit * 0.8){ status = "🟡 Achtung"; cls = "miniWarn"; }
 
     lastMinijobRows.push({
-      name:`${p.first_name||""} ${p.last_name||""}`.trim(),
-      department:p.department||"",
-      hourly_rate:rate,
-      hours,earned,rest,rest_hours:restHours,
-      possible_shifts:possibleShifts,
-      last_shift:lastShift,
+      name: `${p.first_name||""} ${p.last_name||""}`.trim(),
+      department: p.department || "",
+      hourly_rate: rate,
+      hours: t.hours,
+      earned,
+      rest,
       status
     });
 
-    html+=`<tr class="${rowCls}">
-      <td data-label="Mitarbeiter"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b></td>
-      <td data-label="Bereich">${deptBadge(p.department)}</td>
-      <td data-label="Std.-Lohn">${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
-      <td data-label="Schichten">${count}</td>
-      <td data-label="Geplante Std.">${euroHours(hours)}</td>
-      <td data-label="Geplanter Verdienst"><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></td>
-      <td data-label="Fortschritt">
-        <div class="miniProgress"><span style="width:${pct}%"></span></div>
-        <div class="miniProgressText">${pct}% · ${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} € / ${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</div>
-      </td>
-      <td data-label="Restbetrag">${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
-      <td data-label="Reststunden">${euroHours(restHours)}</td>
-      <td data-label="ca. Schichten">≈ ${possibleShifts}</td>
-      <td data-label="Letzte Schicht">${escapeHtml(lastShift)}</td>
-      <td data-label="Status"><span class="${cls}">${statusLabel}</span></td>
+    html += `<tr>
+      <td><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><span class="small">${escapeHtml(t.last)}</span></td>
+      <td>${deptBadge(p.department)}</td>
+      <td>${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td>${t.count}</td>
+      <td>${euroHours(t.hours)}</td>
+      <td><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b><div class="miniProgress"><span style="width:${pct}%"></span></div></td>
+      <td>${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</td>
+      <td><span class="${cls}">${status}</span></td>
     </tr>`;
   });
 
-  html+='</tbody></table></div>';
-  if(!minijobbers.length) html='<p>Keine Mitarbeiter in den Bereichen „Minijob Service“, „Minijob Bar“ oder „Minijob Küche“ gefunden.</p>';
-  $("minijobCenterList").innerHTML=html;applyMobileTableLabels();
+  html += '</tbody></table></div>';
+
+  if(!minijobbers.length){
+    html = '<p>Keine Mitarbeiter in den Bereichen Minijob Service, Minijob Bar oder Minijob Küche gefunden.</p>';
+  }
+
+  $("minijobCenterList").innerHTML = html;
+  applyMobileTableLabels();
 }
 
 
@@ -907,11 +879,45 @@ function setupMobileNavigation(){
   btn.onclick=()=>sidebar.classList.toggle("mobileOpen");
   sidebar.querySelectorAll("button,[data-tab]").forEach(el=>el.addEventListener("click",()=>sidebar.classList.remove("mobileOpen")));
 }
+
 function applyMobileTableLabels(){
-  document.querySelectorAll("#minijobCenter table").forEach(table=>{
+  document.querySelectorAll("#minijobCenter table, #minijobCenterList table, .miniJobTable").forEach(table=>{
     const headers=[...table.querySelectorAll("thead th")].map(th=>th.textContent.trim());
-    table.querySelectorAll("tbody tr").forEach(tr=>[...tr.children].forEach((td,i)=>{if(headers[i])td.dataset.label=headers[i]}));
+    table.querySelectorAll("tbody tr").forEach(tr=>{
+      [...tr.children].forEach((td,i)=>{
+        if(headers[i]) td.dataset.label=headers[i];
+      });
+    });
   });
 }
+
 setupMobileNavigation();
+
+function setupPasswordReset(){
+  const btn = $("resetPasswordBtn");
+  if(!btn) return;
+
+  btn.onclick = async () => {
+    if(!checkConfig()) return;
+    if(!sb) sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+    const email = $("email")?.value?.trim();
+    if(!email){
+      alert("Bitte zuerst deine E-Mail-Adresse eingeben.");
+      return;
+    }
+
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+
+    if(error){
+      alert("Fehler beim Passwort-Reset: " + error.message);
+      return;
+    }
+
+    alert("Passwort-Reset wurde gesendet. Bitte prüfe dein E-Mail-Postfach.");
+  };
+}
+
+setupPasswordReset();
 init();

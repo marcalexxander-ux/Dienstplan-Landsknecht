@@ -414,3 +414,110 @@ tr.dragOver{outline:3px solid var(--green)}
   #planGridService th:first-child,#planGridService td:first-child,#planGridKitchen th:first-child,#planGridKitchen td:first-child{min-width:124px!important;max-width:124px!important;font-size:12px!important}
   .orderHint{display:none!important}
 }
+
+
+/* v5.5.2 Login + Minijob + Mobile Stabilisierung */
+#resetPasswordBtn{
+  background:#e7ebe5!important;
+  color:#004634!important;
+}
+
+.miniProgress{
+  height:10px;
+  background:#e5e7eb;
+  border-radius:999px;
+  overflow:hidden;
+  margin-top:6px;
+}
+.miniProgress span{
+  display:block;
+  height:100%;
+  background:linear-gradient(90deg,#16a34a,#eab308,#dc2626);
+}
+
+@media(max-width:820px){
+  #authView .authCard,
+  .authCard{
+    width:calc(100% - 24px)!important;
+    max-width:420px!important;
+  }
+
+  #resetPasswordBtn{
+    min-height:44px!important;
+    font-size:15px!important;
+  }
+
+  /* Minijob Center wird wirklich Kartenansicht */
+  #minijobCenter .grid{
+    overflow-x:visible!important;
+  }
+
+  #minijobCenter table,
+  #minijobCenter thead,
+  #minijobCenter tbody,
+  #minijobCenter tr,
+  #minijobCenter th,
+  #minijobCenter td,
+  .miniJobTable,
+  .miniJobTable thead,
+  .miniJobTable tbody,
+  .miniJobTable tr,
+  .miniJobTable th,
+  .miniJobTable td{
+    display:block!important;
+    width:100%!important;
+  }
+
+  #minijobCenter thead,
+  .miniJobTable thead{
+    display:none!important;
+  }
+
+  #minijobCenter tr,
+  .miniJobTable tr{
+    background:white!important;
+    border:1px solid #e2e8f0!important;
+    border-radius:16px!important;
+    padding:12px!important;
+    margin:0 0 12px!important;
+    box-shadow:0 6px 18px rgba(15,23,42,.08)!important;
+  }
+
+  #minijobCenter td,
+  .miniJobTable td{
+    display:flex!important;
+    justify-content:space-between!important;
+    align-items:flex-start!important;
+    gap:12px!important;
+    padding:8px 0!important;
+    border:none!important;
+    border-bottom:1px solid #edf2f7!important;
+    text-align:right!important;
+    white-space:normal!important;
+    word-break:break-word!important;
+  }
+
+  #minijobCenter td:last-child,
+  .miniJobTable td:last-child{
+    border-bottom:none!important;
+  }
+
+  #minijobCenter td::before,
+  .miniJobTable td::before{
+    content:attr(data-label);
+    flex:0 0 42%;
+    font-weight:800;
+    color:#475569;
+    text-align:left;
+  }
+
+  #minijobCenterList,
+  #minijobCenter{
+    overflow-x:hidden!important;
+  }
+
+  .miniProgress{
+    min-width:130px;
+    max-width:170px;
+  }
+}
