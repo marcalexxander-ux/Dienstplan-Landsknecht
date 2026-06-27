@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v5.8.4";
+const APP_VERSION="v5.8.5";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -38,7 +38,14 @@ function isManagement(){return profile?.role==="management"||profile?.role==="ad
 function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
-function setActiveTab(tabId){document.querySelectorAll(".sidebar button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tabId));document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));$(tabId).classList.remove("hidden")}
+function setActiveTab(tabId){
+  document.querySelectorAll(".sidebar button[data-tab], nav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tabId));
+  document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
+  const target=$(tabId);
+  if(target) target.classList.remove("hidden");
+  if(tabId==="events") loadEvents?.();
+  if(tabId==="today" || tabId==="dashboard" || tabId==="home") loadDashboardV57?.();
+}
 function getISOWeek(iso){
   const d=parseISODateLocal(iso);
   const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
@@ -200,19 +207,26 @@ function setAuthBodyState(logged){
 function renderAuth(){
   const logged=!!session;
   setAuthBodyState(logged);
-  $("authView").classList.toggle("hidden",logged);
-  $("appView").classList.toggle("hidden",!logged);
+
+  if($("authView")) $("authView").classList.toggle("hidden", logged);
+  if($("appView")) $("appView").classList.toggle("hidden", !logged);
+
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
+
   if(logged){
     $("weekStartService").value ||= mondayISO();
     $("weekStartKitchen").value ||= mondayISO();
     $("monthSelect").value ||= monthISO();
-    $("infoDate").value ||= todayISO(); $("vacMonthSelect").value ||= monthISO();
+    $("infoDate").value ||= todayISO();
+    $("vacMonthSelect").value ||= monthISO();
     $("timeDate").value ||= todayISO();
     $("vacFrom").value ||= todayISO();
     $("vacTo").value ||= todayISO();
-    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();$("sumFrom").value ||= mondayISO();
+    if($("eventDate")) $("eventDate").value ||= todayISO();
+    if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
+    $("sumFrom").value ||= mondayISO();
     $("sumTo").value ||= addDaysISO(mondayISO(),6);
+    setActiveTab("today");
     loadAll();
   }
 }

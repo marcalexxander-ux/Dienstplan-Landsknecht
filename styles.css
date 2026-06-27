@@ -859,219 +859,96 @@ tr.dragOver{outline:3px solid var(--green)}
 }
 
 
-/* v5.8.2 Eventkalender Layout Fix */
-#events.eventsPage{
-  width:100%!important;
-  max-width:100%!important;
-  margin:0!important;
-  padding:0!important;
-}
+/* v5.8.5 FINAL Layout Repair */
 
-#events.eventsPage > .card{
-  width:100%!important;
-  max-width:100%!important;
-  margin:12px 0!important;
-}
-
-#events .formGrid{
-  display:grid!important;
-  grid-template-columns:repeat(3,minmax(180px,1fr))!important;
-  gap:12px!important;
-}
-
-#events label{
-  width:100%!important;
-}
-
-#events input,
-#events select,
-#events textarea{
-  width:100%!important;
-}
-
-#events .eventRooms{
-  display:grid!important;
-  grid-template-columns:repeat(3,minmax(190px,1fr))!important;
-  gap:8px!important;
-}
-
-#events .eventChecks{
-  display:grid!important;
-  grid-template-columns:repeat(3,1fr)!important;
-  gap:8px!important;
-}
-
-/* verhindert, dass Eventkalender unter/außerhalb des Hauptbereichs rutscht */
-#appView main,
-#appView .content,
-#appView .main,
-main,
-.content,
-.main{
-  align-items:start!important;
-}
-
-@media(min-width:821px){
-  #events.eventsPage{
-    margin-left:0!important;
-  }
-}
-
-@media(max-width:820px){
-  #events .formGrid,
-  #events .eventRooms,
-  #events .eventChecks{
-    grid-template-columns:1fr!important;
-  }
-
-  #events.eventsPage > .card{
-    margin:8px!important;
-    width:calc(100% - 16px)!important;
-  }
-}
-
-
-/* v5.8.3 Login & Eventlayout Fix */
-body.loggedOut #appView{
+/* Grundzustand */
+#appView.hidden,
+#authView.hidden,
+.tabPage.hidden{
   display:none!important;
   visibility:hidden!important;
   opacity:0!important;
-  pointer-events:none!important;
-}
-
-body.loggedOut #authView{
-  display:flex!important;
-  visibility:visible!important;
-  opacity:1!important;
-  min-height:100vh!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:#f6f7f3!important;
-}
-
-body.loggedIn #authView{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-
-body.loggedIn #appView{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-
-/* Eventkalender muss im Hauptbereich sitzen, nicht unter der Sidebar */
-#events.eventsPage{
-  position:relative!important;
-  width:100%!important;
-  max-width:100%!important;
-  margin:0!important;
-  padding:0!important;
-  grid-column:1 / -1!important;
-}
-
-#events.eventsPage > .card{
-  width:100%!important;
-  max-width:100%!important;
-  margin:12px 0!important;
-  box-sizing:border-box!important;
-}
-
-#events .formGrid{
-  display:grid!important;
-  grid-template-columns:repeat(3,minmax(180px,1fr))!important;
-  gap:12px!important;
-  width:100%!important;
-}
-
-#events .eventRooms{
-  display:grid!important;
-  grid-template-columns:repeat(3,minmax(190px,1fr))!important;
-  gap:8px!important;
-}
-
-#events .eventChecks{
-  display:grid!important;
-  grid-template-columns:repeat(3,1fr)!important;
-  gap:8px!important;
-}
-
-#events input,
-#events select,
-#events textarea{
-  width:100%!important;
-  max-width:100%!important;
-}
-
-/* Verhindert große leere Fläche über Eventkalender */
-#events.eventsPage{
-  align-self:start!important;
-}
-
-@media(max-width:820px){
-  #events .formGrid,
-  #events .eventRooms,
-  #events .eventChecks{
-    grid-template-columns:1fr!important;
-  }
-
-  #events.eventsPage > .card{
-    margin:8px!important;
-    width:calc(100% - 16px)!important;
-  }
-}
-
-
-/* v5.8.4 Stabilisierung Tab/Login/Layout */
-body:not(.loggedIn) #appView,
-body.loggedOut #appView{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-
-body.loggedIn #authView{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-
-body.loggedIn #appView{
-  display:block!important;
-  visibility:visible!important;
-  opacity:1!important;
-}
-
-/* Wichtig: versteckte Tabs müssen IMMER versteckt bleiben */
-.tabPage.hidden,
-section.tabPage.hidden,
-div.tabPage.hidden,
-#events.hidden,
-#events.tabPage.hidden{
-  display:none!important;
-  visibility:hidden!important;
   height:0!important;
   overflow:hidden!important;
   pointer-events:none!important;
 }
 
-/* Eventkalender nur sichtbar, wenn der Tab aktiv ist */
-#events.tabPage:not(.hidden){
-  display:block!important;
-  visibility:visible!important;
-  height:auto!important;
-  overflow:visible!important;
-  width:100%!important;
-  max-width:100%!important;
-  margin:0!important;
-  padding:0!important;
+/* Nicht eingeloggt: ausschließlich Login */
+body.loggedOut #appView,
+body:not(.loggedIn) #appView{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
 }
 
-/* Keine Eventkalender-Überlagerung unter Dienstplan oder Heute */
+body.loggedOut #authView,
+body:not(.loggedIn) #authView{
+  display:flex!important;
+  visibility:visible!important;
+  opacity:1!important;
+  min-height:100vh!important;
+  height:100vh!important;
+  width:100%!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:#f6f7f3!important;
+  overflow:hidden!important;
+}
+
+/* Login-Box sauber */
+body.loggedOut #authView .card,
+body:not(.loggedIn) #authView .card{
+  width:min(440px,calc(100vw - 32px))!important;
+  max-width:440px!important;
+  margin:0 auto!important;
+  display:block!important;
+}
+
+body.loggedOut #authView input,
+body:not(.loggedIn) #authView input{
+  width:100%!important;
+  box-sizing:border-box!important;
+}
+
+body.loggedOut #authView button,
+body:not(.loggedIn) #authView button{
+  width:100%!important;
+  margin-top:8px!important;
+}
+
+/* Eingeloggt: Login komplett weg */
+body.loggedIn #authView{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
+body.loggedIn #appView{
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+
+/* Tabs: Nur aktiver Tab sichtbar */
+body.loggedIn .tabPage{
+  display:block;
+}
+body.loggedIn .tabPage.hidden{
+  display:none!important;
+  visibility:hidden!important;
+  height:0!important;
+  overflow:hidden!important;
+}
+
+/* Eventkalender darf nie in anderen Tabs sichtbar werden */
 #planService #events,
 #planKitchen #events,
 #today #events,
@@ -1080,27 +957,48 @@ div.tabPage.hidden,
   display:none!important;
 }
 
-/* Eventformular im aktiven Tab sauber */
-#events.tabPage:not(.hidden) .formGrid{
+/* Eventkalender nur als eigener aktiver Tab */
+body.loggedIn #events.tabPage:not(.hidden){
+  display:block!important;
+  visibility:visible!important;
+  opacity:1!important;
+  height:auto!important;
+  overflow:visible!important;
+  width:100%!important;
+  max-width:100%!important;
+}
+
+/* Eventformular Desktop */
+body.loggedIn #events.tabPage:not(.hidden) .formGrid{
   display:grid!important;
   grid-template-columns:repeat(3,minmax(180px,1fr))!important;
   gap:12px!important;
 }
-#events.tabPage:not(.hidden) .eventRooms{
+body.loggedIn #events.tabPage:not(.hidden) .eventRooms{
   display:grid!important;
   grid-template-columns:repeat(3,minmax(190px,1fr))!important;
   gap:8px!important;
 }
-#events.tabPage:not(.hidden) .eventChecks{
+body.loggedIn #events.tabPage:not(.hidden) .eventChecks{
   display:grid!important;
   grid-template-columns:repeat(3,1fr)!important;
   gap:8px!important;
 }
 
+/* verhindert riesige grüne Fläche durch falsch gestreckte Sidebar */
+body.loggedIn .sidebar{
+  align-self:stretch!important;
+}
+body.loggedIn main,
+body.loggedIn .content,
+body.loggedIn .main{
+  align-self:start!important;
+}
+
 @media(max-width:820px){
-  #events.tabPage:not(.hidden) .formGrid,
-  #events.tabPage:not(.hidden) .eventRooms,
-  #events.tabPage:not(.hidden) .eventChecks{
+  body.loggedIn #events.tabPage:not(.hidden) .formGrid,
+  body.loggedIn #events.tabPage:not(.hidden) .eventRooms,
+  body.loggedIn #events.tabPage:not(.hidden) .eventChecks{
     grid-template-columns:1fr!important;
   }
 }
