@@ -1,4 +1,4 @@
-const APP_VERSION="v5.7.4";
+const APP_VERSION="v5.7.5";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -680,10 +680,67 @@ $("saveInfo").onclick=async()=>{
   const{error}=await sb.from("daily_infos").upsert({info_date:d,info_text:t,created_by:profile.id},{onConflict:"info_date"});
   if(error)alert(error.message);else{$("infoText").value="";await createNotification("Neue Tagesinfo",t);await loadInfos();await loadPlanService();await loadPlanKitchen();await loadMonth()}
 };
-$("deleteInfo").onclick=async()=>{const d=$("infoDate").value;if(!d)return;await sb.from("daily_infos").delete().eq("info_date",d);await loadInfos();await loadPlanService();await loadPlanKitchen();await loadMonth()};
+$("deleteInfo").onclick=async()=>{
+  const d=$("infoDate").value;
+  if(!d)return alert("Bitte Datum auswählen.");
+  if(!confirm("Tagesinfo für dieses Datum wirklich löschen?")) return;
+  const{error}=await sb.from("daily_infos").delete().eq("info_date",d);
+  if(error) alert(error.message);
+  else{
+    $("infoText").value="";
+    await loadInfos();
+    await loadPlanService();
+    await loadPlanKitchen();
+    await loadMonth();
+    await loadDashboardV57?.();
+  }
+};
+
+function editDailyInfo(date,text){
+  if($("infoDate")) $("infoDate").value = date;
+  if($("infoText")) $("infoText").value = text || "";
+  setActiveTab("infos");
+  setTimeout(()=>$("infoText")?.focus(),100);
+}
+window.editDailyInfo = editDailyInfo;
+
+async function deleteDailyInfo(date){
+  if(!date) return;
+  if(!confirm("Diese Tagesinfo wirklich löschen?")) return;
+
+  const { error } = await sb.from("daily_infos").delete().eq("info_date",date);
+  if(error){
+    alert("Fehler beim Löschen: " + error.message);
+    return;
+  }
+
+  if($("infoDate")?.value === date && $("infoText")) $("infoText").value = "";
+  await loadInfos();
+  await loadPlanService();
+  await loadPlanKitchen();
+  await loadMonth();
+  await loadDashboardV57?.();
+}
+window.deleteDailyInfo = deleteDailyInfo;
+
 async function loadInfos(){
-  const{data}=await sb.from("daily_infos").select("*").order("info_date",{ascending:false}).limit(80);
-  $("infoList").innerHTML=(data||[]).map(i=>`<div class="entry"><b>${fmtDate(i.info_date)}</b><br>${escapeHtml(i.info_text)}</div>`).join("")||"<p>Keine Tagesinfos.</p>";
+  const{data,error}=await sb.from("daily_infos").select("*").order("info_date",{ascending:false}).limit(80);
+  if(error){
+    $("infoList").innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  $("infoList").innerHTML=(data||[]).map(i=>`
+    <div class="entry infoEntry">
+      <div class="infoEntryText">
+        <b>${fmtDate(i.info_date)}</b><br>${escapeHtml(i.info_text)}
+      </div>
+      <div class="infoEntryActions">
+        <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}', '${escapeHtml(String(i.info_text||'')).replaceAll("'", "&#039;")}')">Bearbeiten</button>
+        <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Löschen</button>
+      </div>
+    </div>
+  `).join("")||"<p>Keine Tagesinfos.</p>";
 }
 
 $("saveTime").onclick=async()=>{

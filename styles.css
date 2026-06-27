@@ -751,3 +751,36 @@ tr.dragOver{outline:3px solid var(--green)}
     margin: 8mm;
   }
 }
+
+
+/* v5.7.5 Tagesinfos bearbeiten/löschen */
+.infoEntry{
+  display:flex!important;
+  justify-content:space-between!important;
+  align-items:flex-start!important;
+  gap:12px!important;
+}
+.infoEntryText{
+  flex:1!important;
+}
+.infoEntryActions{
+  display:flex!important;
+  gap:8px!important;
+  flex-wrap:wrap!important;
+}
+.infoEntryActions button{
+  min-height:36px!important;
+}
+@media(max-width:820px){
+  .infoEntry{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+  .infoEntryActions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+  }
+  .infoEntryActions button{
+    width:100%!important;
+  }
+}
