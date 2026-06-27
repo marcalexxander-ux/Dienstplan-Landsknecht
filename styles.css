@@ -631,3 +631,10 @@ tr.dragOver{outline:3px solid var(--green)}
   font-weight:800!important;
   color:#1f2937!important;
 }
+
+
+/* v5.7.3 Heute ohne Minijob-Ampel */
+#dashboardMinijobV57,
+#dashboardMinijobV57Container{
+  display:none!important;
+}

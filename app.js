@@ -1,4 +1,4 @@
-const APP_VERSION="v5.7.2";
+const APP_VERSION="v5.7.3";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -307,7 +307,6 @@ async function loadDashboardV57(){
       dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
       dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
       dashboardV57Card("Urlaub", String(todayVacations.length), "heute"),
-      dashboardV57Card("Minijob-Warnungen", String(minijobWarnCount), "über 80 %", minijobWarnCount ? "warn" : ""),
       dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub"),
       dashboardV57Card("Events", String(events.length), "kommend")
     ].join("");
