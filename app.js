@@ -1,9 +1,9 @@
-const APP_VERSION="v5.7.5";
+const APP_VERSION="v5.7.6";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
 const KITCHEN_DEPARTMENTS=["Küche","Minijob Küche","Spüler","Reinigung"];
-let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[];
+let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
 
 function $(id){return document.getElementById(id)}
 function pad2(n){return String(n).padStart(2,"0")}
@@ -696,9 +696,13 @@ $("deleteInfo").onclick=async()=>{
   }
 };
 
-function editDailyInfo(date,text){
-  if($("infoDate")) $("infoDate").value = date;
-  if($("infoText")) $("infoText").value = text || "";
+function editDailyInfo(date){
+  const item = (dailyInfoCache||[]).find(x=>x.info_date===date);
+  if(!item) return alert("Tagesinfo nicht gefunden.");
+
+  if($("infoDate")) $("infoDate").value = item.info_date;
+  if($("infoText")) $("infoText").value = item.info_text || "";
+
   setActiveTab("infos");
   setTimeout(()=>$("infoText")?.focus(),100);
 }
@@ -730,13 +734,15 @@ async function loadInfos(){
     return;
   }
 
-  $("infoList").innerHTML=(data||[]).map(i=>`
+  dailyInfoCache = data || [];
+
+  $("infoList").innerHTML=dailyInfoCache.map(i=>`
     <div class="entry infoEntry">
       <div class="infoEntryText">
         <b>${fmtDate(i.info_date)}</b><br>${escapeHtml(i.info_text)}
       </div>
       <div class="infoEntryActions">
-        <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}', '${escapeHtml(String(i.info_text||'')).replaceAll("'", "&#039;")}')">Bearbeiten</button>
+        <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}')">Bearbeiten</button>
         <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Löschen</button>
       </div>
     </div>
