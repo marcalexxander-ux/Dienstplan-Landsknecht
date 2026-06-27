@@ -1,4 +1,4 @@
-const APP_VERSION="v5.6.0";
+const APP_VERSION="v5.7.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -199,6 +199,118 @@ if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
 
 document.querySelectorAll(".sidebar button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
 
+
+
+function dashboardV57Card(title,value,sub,cls=""){
+  return `<div class="dashStatV57 ${cls}"><span>${escapeHtml(title)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(sub||"")}</small></div>`;
+}
+function dashboardV57ShiftText(s){
+  if(!s) return "—";
+  if(s.status==="arbeit") return `${String(s.start_time||"").slice(0,5)}-${String(s.end_time||"").slice(0,5)}`;
+  return s.status || "—";
+}
+async function safeSelect(table,queryBuilder){
+  try{
+    const res = await queryBuilder;
+    return res.error ? [] : (res.data || []);
+  }catch(e){ return []; }
+}
+async function loadDashboardV57(){
+  if(!$("dashboardV57") || !session || !profiles.length) return;
+
+  const today = todayISO();
+  const month = monthISO();
+  const fromMonth = firstOfMonthISO(month);
+  const toMonth = month+"-"+pad2(lastDayOfMonth(month));
+
+  if($("dashboardGreeting")){
+    const h = new Date().getHours();
+    const g = h < 11 ? "Guten Morgen" : h < 18 ? "Guten Tag" : "Guten Abend";
+    $("dashboardGreeting").textContent = `${g}${profile?.first_name ? " " + profile.first_name : ""} · ${fmtDate(today)}`;
+  }
+
+  const todaySchedules = await safeSelect("schedules", sb.from("schedules").select("*").eq("work_date",today));
+  const infos = await safeSelect("daily_infos", sb.from("daily_infos").select("*").eq("info_date",today));
+  const openVacations = await safeSelect("vacation_requests", sb.from("vacation_requests").select("*").eq("status","beantragt").order("date_from",{ascending:true}).limit(8));
+  const todayVacations = await safeSelect("vacation_requests", sb.from("vacation_requests").select("*").lte("date_from",today).gte("date_to",today).in("status",["genehmigt"]));
+  const monthSchedules = await safeSelect("schedules", sb.from("schedules").select("*").gte("work_date",fromMonth).lte("work_date",toMonth));
+  const events = await safeSelect("events", sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).limit(6));
+
+  const workToday = todaySchedules.filter(s=>s.status==="arbeit");
+  const sickToday = todaySchedules.filter(s=>s.status==="krank");
+
+  const minijobTotals = {};
+  monthSchedules.forEach(s=>{
+    const p = profileById(s.profile_id);
+    if(!isMinijobProfile(p) || s.status !== "arbeit") return;
+    minijobTotals[s.profile_id] ||= {hours:0,earned:0,count:0};
+    const h = scheduleHoursForMinijobEntry(s);
+    const rate = Number(p.hourly_rate || 0);
+    minijobTotals[s.profile_id].hours += h;
+    minijobTotals[s.profile_id].earned += h * rate;
+    if(h>0) minijobTotals[s.profile_id].count += 1;
+  });
+
+  const minijobLimit = Number($("minijobLimit")?.value || 603);
+  const minijobWarnCount = Object.values(minijobTotals).filter(t=>minijobLimit && t.earned >= minijobLimit*0.8).length;
+
+  $("dashboardStatsV57").innerHTML = [
+    dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
+    dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
+    dashboardV57Card("Urlaub", String(todayVacations.length), "heute"),
+    dashboardV57Card("Minijob-Warnungen", String(minijobWarnCount), "über 80 %", minijobWarnCount ? "warn" : ""),
+    dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub"),
+    dashboardV57Card("Events", String(events.length), "kommend")
+  ].join("");
+
+  const sortedToday = workToday.map(s=>({s,p:profileById(s.profile_id)}))
+    .sort((a,b)=>String(a.s.start_time||"").localeCompare(String(b.s.start_time||"")) || String(a.p.last_name||"").localeCompare(String(b.p.last_name||"")));
+
+  $("dashboardTodayWorkersV57").innerHTML = sortedToday.length ? sortedToday.map(({s,p})=>`
+    <div class="dashItemV57"><div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${deptBadge(p.department)}</small></div><strong>${escapeHtml(dashboardV57ShiftText(s))}</strong></div>
+  `).join("") : `<div class="dashEmptyV57">Heute sind keine Schichten eingetragen.</div>`;
+
+  $("dashboardInfosV57").innerHTML = infos.length ? infos.map(i=>`
+    <div class="dashItemV57"><div><b>${fmtDate(i.info_date)}</b><br>${escapeHtml(i.info_text)}</div></div>
+  `).join("") : `<div class="dashEmptyV57">Keine Tagesinfo für heute.</div>`;
+
+  const minijobRows = profiles.filter(isMinijobProfile).map(p=>{
+    const t = minijobTotals[p.id] || {hours:0,earned:0,count:0};
+    const pct = minijobLimit ? Math.round((t.earned/minijobLimit)*100) : 0;
+    const cls = pct >= 100 ? "stop" : pct >= 80 ? "warn" : "ok";
+    return {p,t,pct,cls};
+  }).sort((a,b)=>b.pct-a.pct);
+
+  $("dashboardMinijobV57").innerHTML = minijobRows.length ? minijobRows.slice(0,8).map(r=>`
+    <div class="dashItemV57 ${r.cls}"><div><b>${escapeHtml(r.p.first_name||"")} ${escapeHtml(r.p.last_name||"")}</b><br><small>${euroHours(r.t.hours)} Std. · ${r.t.earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</small></div><strong>${r.pct}%</strong></div>
+  `).join("") : `<div class="dashEmptyV57">Keine Minijobber gefunden.</div>`;
+
+  $("dashboardVacationsV57").innerHTML = openVacations.length ? openVacations.map(v=>{
+    const p=profileById(v.profile_id);
+    return `<div class="dashItemV57"><div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}</small></div><strong>Offen</strong></div>`;
+  }).join("") : `<div class="dashEmptyV57">Keine offenen Urlaubsanträge.</div>`;
+
+  const upcomingBirthdays = profiles.filter(p=>p.birthday).map(p=>{
+    const parts=String(p.birthday).split("-");
+    if(parts.length<3) return null;
+    const m=parts[1], d=parts[2], y=new Date().getFullYear();
+    let next = `${y}-${m}-${d}`;
+    if(next < today) next = `${y+1}-${m}-${d}`;
+    const diff = Math.round((parseISODateLocal(next)-parseISODateLocal(today))/86400000);
+    return {p,next,diff};
+  }).filter(Boolean).filter(x=>x.diff>=0 && x.diff<=30).sort((a,b)=>a.diff-b.diff).slice(0,6);
+
+  $("dashboardBirthdaysV57").innerHTML = upcomingBirthdays.length ? upcomingBirthdays.map(x=>`
+    <div class="dashItemV57"><div><b>${escapeHtml(x.p.first_name||"")} ${escapeHtml(x.p.last_name||"")}</b><br><small>${fmtDate(x.next)}</small></div><strong>${x.diff===0?"Heute":x.diff+" Tage"}</strong></div>
+  `).join("") : `<div class="dashEmptyV57">Keine Geburtstage in den nächsten 30 Tagen.</div>`;
+
+  $("dashboardEventsV57").innerHTML = events.length ? events.map(e=>`
+    <div class="dashItemV57"><div><b>${escapeHtml(e.title||"Event")}</b><br><small>${fmtDate(e.event_date)}${e.note ? " · " + escapeHtml(e.note) : ""}</small></div></div>
+  `).join("") : `<div class="dashEmptyV57">Keine kommenden Events eingetragen.</div>`;
+}
+function setupDashboardV57(){
+  if($("refreshDashboardV57")) $("refreshDashboardV57").onclick = loadDashboardV57;
+}
 
 async function loadDashboardLight(){
   if(!$("dashboardGrid") || !session || !profiles.length) return;
@@ -1028,4 +1140,5 @@ function setupPlanPublishButtons(){
 }
 
 setupPlanPublishButtons();
+setupDashboardV57();
 init();
