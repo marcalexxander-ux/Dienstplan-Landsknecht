@@ -886,10 +886,23 @@ tr.dragOver{outline:3px solid var(--green)}
 }
 
 
-/* v5.8.8 Login korrekt repariert */
+/* v5.8.9 Login sauber neu aufgebaut */
 
-/* Wenn Login sichtbar ist, App komplett verstecken */
-#authView:not(.hidden) ~ #appView,
+/* Generelle Hidden-Regel */
+.hidden,
+#authView.hidden,
+#appView.hidden,
+.tabPage.hidden{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  height:0!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Ausgeloggt: App komplett weg */
 body.loggedOut #appView,
 body:not(.loggedIn) #appView{
   display:none!important;
@@ -901,58 +914,57 @@ body:not(.loggedIn) #appView{
   pointer-events:none!important;
 }
 
-/* Eingeloggt: Login komplett weg */
-body.loggedIn #authView,
-#authView.hidden{
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  height:0!important;
-  max-height:0!important;
-  overflow:hidden!important;
-  pointer-events:none!important;
-}
-
-/* Wichtig: authView IST selbst die Login-Karte, keine Flexbox */
-#authView.card.login:not(.hidden),
-body.loggedOut #authView.card.login,
-body:not(.loggedIn) #authView.card.login{
-  display:block!important;
+/* Login ist eigene Bildschirmfläche */
+#authView.authScreen:not(.hidden),
+body.loggedOut #authView.authScreen,
+body:not(.loggedIn) #authView.authScreen{
+  display:flex!important;
   visibility:visible!important;
   opacity:1!important;
-  width:min(440px, calc(100vw - 32px))!important;
+  width:100%!important;
+  min-height:calc(100vh - 130px)!important;
+  height:auto!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:32px 16px!important;
+  box-sizing:border-box!important;
+  background:#f6f7f3!important;
+  overflow:auto!important;
+  pointer-events:auto!important;
+}
+
+/* Die eigentliche Login-Karte */
+#authView.authScreen .authCard{
+  display:block!important;
+  width:100%!important;
   max-width:440px!important;
   min-width:0!important;
   height:auto!important;
   min-height:0!important;
-  max-height:none!important;
-  margin:70px auto!important;
+  margin:0 auto!important;
   padding:28px!important;
   box-sizing:border-box!important;
-  background:#ffffff!important;
+  background:#fff!important;
   border:1px solid #e5e7eb!important;
   border-radius:22px!important;
   box-shadow:0 16px 40px rgba(15,23,42,.12)!important;
   overflow:visible!important;
-  pointer-events:auto!important;
 }
 
-/* Login-Überschrift */
-#authView.card.login h1,
-#authView.card.login h2,
-#authView.card.login h3{
+/* Überschrift */
+#authView.authScreen .authCard h2{
   display:block!important;
-  width:100%!important;
   margin:0 0 20px!important;
   padding:0!important;
+  width:100%!important;
+  color:#111827!important;
   font-size:28px!important;
   line-height:1.2!important;
-  color:#111827!important;
   text-align:left!important;
 }
 
-/* Labels untereinander */
-#authView.card.login label{
+/* Labels */
+#authView.authScreen .authCard label{
   display:block!important;
   width:100%!important;
   margin:0 0 6px!important;
@@ -964,11 +976,11 @@ body:not(.loggedIn) #authView.card.login{
   text-align:left!important;
 }
 
-/* Eingabefelder volle Breite */
-#authView.card.login input{
+/* Eingabefelder */
+#authView.authScreen .authCard input{
   display:block!important;
   width:100%!important;
-  min-width:100%!important;
+  min-width:0!important;
   max-width:100%!important;
   height:46px!important;
   margin:0 0 16px!important;
@@ -976,26 +988,17 @@ body:not(.loggedIn) #authView.card.login{
   box-sizing:border-box!important;
   border:1px solid #d1d5db!important;
   border-radius:12px!important;
-  background:#ffffff!important;
+  background:#fff!important;
   color:#111827!important;
   font-size:16px!important;
   line-height:1.2!important;
   box-shadow:none!important;
 }
 
-/* Button-Zeile nicht mehr horizontal */
-#authView.card.login .buttonRow{
+/* Buttons */
+#authView.authScreen .authCard button{
   display:block!important;
   width:100%!important;
-  margin:4px 0 0!important;
-  padding:0!important;
-}
-
-/* Buttons untereinander */
-#authView.card.login button{
-  display:block!important;
-  width:100%!important;
-  min-width:100%!important;
   max-width:100%!important;
   min-height:44px!important;
   margin:10px 0 0!important;
@@ -1009,7 +1012,17 @@ body:not(.loggedIn) #authView.card.login{
   white-space:normal!important;
 }
 
-/* Eingeloggt: App sichtbar */
+/* Eingeloggt: Login weg, App normal */
+body.loggedIn #authView{
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  height:0!important;
+  max-height:0!important;
+  overflow:hidden!important;
+  pointer-events:none!important;
+}
+
 body.loggedIn #appView:not(.hidden){
   display:grid!important;
   visibility:visible!important;
@@ -1020,7 +1033,7 @@ body.loggedIn #appView:not(.hidden){
   pointer-events:auto!important;
 }
 
-/* Sicherheit: Heute/Dashboard nie während Login zeigen */
+/* Sicherheit: Heute/Dashboard nie während Login */
 body.loggedOut #dashboardV57,
 body.loggedOut #today,
 body.loggedOut #planService,
@@ -1034,13 +1047,9 @@ body:not(.loggedIn) #month{
   display:none!important;
 }
 
-/* Mobile Login */
 @media(max-width:600px){
-  #authView.card.login:not(.hidden),
-  body.loggedOut #authView.card.login,
-  body:not(.loggedIn) #authView.card.login{
-    margin:32px auto!important;
+  #authView.authScreen .authCard{
+    max-width:100%!important;
     padding:22px!important;
-    width:calc(100vw - 24px)!important;
   }
 }

@@ -55,18 +55,23 @@
     <p>Bitte in <b>config.js</b> die Supabase URL und den Publishable Key eintragen.</p>
   </section>
 
-  <section id="authView" class="card login">
+  
+<section id="authView" class="authScreen">
+  <div class="authCard">
     <h2>Login</h2>
-    <label>E-Mail</label>
-    <input id="email" type="email" placeholder="name@beispiel.de">
-    <label>Passwort</label>
-    <input id="password" type="password" placeholder="Passwort">
-    <div class="buttonRow">
-      <button id="loginBtn">Einloggen</button>
-      <button id="resetPasswordBtn" class="secondary" type="button">Passwort vergessen?</button>
-      <button id="registerBtn" class="secondary">Mitarbeiter registrieren</button>
-    </div>
-  </section>
+
+    <label for="email">E-Mail</label>
+    <input id="email" type="email" autocomplete="email" placeholder="name@beispiel.de">
+
+    <label for="password">Passwort</label>
+    <input id="password" type="password" autocomplete="current-password" placeholder="Passwort">
+
+    <button id="loginBtn" type="button">Einloggen</button>
+    <button id="resetPasswordBtn" class="secondary" type="button">Passwort vergessen?</button>
+    <button id="registerBtn" class="secondary" type="button">Mitarbeiter registrieren</button>
+  </div>
+</section>
+
 
   <section id="appView" class="hidden layout">
     <aside class="sidebar">
