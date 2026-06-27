@@ -75,6 +75,7 @@
       <button data-tab="planKitchen">🍳 Dienstplan Küche</button>
       <button data-tab="month">🗓️ Monatsübersicht</button>
       <button data-tab="infos">📢 Tagesinfos</button>
+        <button data-tab="events" class="managementOnly">📅 Eventkalender</button>
       <button data-tab="vacation">🏝️ Urlaub</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
       <button data-tab="time" class="managementOnly">⏱️ Zeiterfassung</button>
@@ -301,6 +302,81 @@
 
     </section>
   </section>
+
+<section id="events" class="tabPage hidden managementOnly">
+  <div class="card">
+    <h2>Eventkalender</h2>
+    <p>Veranstaltungen, Räume und wichtige Hinweise für Dienstplan und Tagesbriefing.</p>
+
+    <input type="hidden" id="editingEventId">
+
+    <div class="formGrid">
+      <label>Datum
+        <input id="eventDate" type="date">
+      </label>
+      <label>Beginn
+        <input id="eventStart" type="time">
+      </label>
+      <label>Ende
+        <input id="eventEnd" type="time">
+      </label>
+      <label>Eventart
+        <select id="eventType">
+          <option>Geburtstag</option>
+          <option>Trauerfeier</option>
+          <option>Hochzeit</option>
+          <option>Firmenfeier</option>
+          <option>Tagung / Konferenz</option>
+          <option>Sportübertragung</option>
+          <option>Live-Musik</option>
+          <option>Weinabend</option>
+          <option>Feiertag / Saison</option>
+          <option>Sonstiges</option>
+        </select>
+      </label>
+      <label>Titel
+        <input id="eventTitle" placeholder="z. B. 80. Geburtstag Müller">
+      </label>
+      <label>Gästezahl
+        <input id="eventGuests" type="number" min="0" placeholder="z. B. 45">
+      </label>
+    </div>
+
+    <div class="eventRoomsBox">
+      <b>Räume / Bereiche</b>
+      <div class="eventRooms">
+        <label><input type="checkbox" value="Restaurant"> Restaurant</label>
+        <label><input type="checkbox" value="Terrasse"> Terrasse</label>
+        <label><input type="checkbox" value="Burgkeller"> Burgkeller</label>
+        <label><input type="checkbox" value="Jägersaal"> Jägersaal</label>
+        <label><input type="checkbox" value="Kuppelsaal"> Kuppelsaal</label>
+        <label><input type="checkbox" value="Konferenzraum Restaurant"> Konferenzraum Restaurant</label>
+        <label><input type="checkbox" value="Konferenzraum 1. Etage"> Konferenzraum 1. Etage</label>
+      </div>
+    </div>
+
+    <label>Notiz / Details
+      <textarea id="eventNote" rows="4" placeholder="Menü, Ansprechpartner, Besonderheiten, Aufbau, Technik, wichtige Hinweise..."></textarea>
+    </label>
+
+    <div class="eventChecks">
+      <label><input id="eventDashboard" type="checkbox" checked> Im Dashboard anzeigen</label>
+      <label><input id="eventPlan" type="checkbox" checked> Im Dienstplan anzeigen</label>
+      <label><input id="eventImportant" type="checkbox"> Für Mitarbeiter wichtig</label>
+    </div>
+
+    <div class="buttonRow">
+      <button id="saveEvent" type="button">Event speichern</button>
+      <button id="clearEvent" type="button" class="secondary">Neu / leeren</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Kommende Events</h3>
+    <div id="eventList"></div>
+  </div>
+</section>
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

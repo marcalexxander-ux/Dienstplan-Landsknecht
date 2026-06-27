@@ -1,4 +1,4 @@
-const APP_VERSION="v5.7.6";
+const APP_VERSION="v5.8.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -287,6 +287,141 @@ async function dashboardSafe(q){
     return [];
   }
 }
+
+function selectedEventRooms(){
+  return [...document.querySelectorAll(".eventRooms input[type='checkbox']:checked")].map(x=>x.value);
+}
+function setEventRooms(rooms){
+  const list = Array.isArray(rooms) ? rooms : String(rooms||"").split(",").map(x=>x.trim()).filter(Boolean);
+  document.querySelectorAll(".eventRooms input[type='checkbox']").forEach(cb=>{
+    cb.checked = list.includes(cb.value);
+  });
+}
+function clearEventForm(){
+  if($("editingEventId")) $("editingEventId").value="";
+  if($("eventDate")) $("eventDate").value=todayISO();
+  if($("eventStart")) $("eventStart").value="";
+  if($("eventEnd")) $("eventEnd").value="";
+  if($("eventType")) $("eventType").value="Geburtstag";
+  if($("eventTitle")) $("eventTitle").value="";
+  if($("eventGuests")) $("eventGuests").value="";
+  if($("eventNote")) $("eventNote").value="";
+  if($("eventDashboard")) $("eventDashboard").checked=true;
+  if($("eventPlan")) $("eventPlan").checked=true;
+  if($("eventImportant")) $("eventImportant").checked=false;
+  setEventRooms([]);
+}
+function eventTypeIcon(type){
+  const t=String(type||"").toLowerCase();
+  if(t.includes("hochzeit")) return "💍";
+  if(t.includes("geburtstag")) return "🎂";
+  if(t.includes("trauer")) return "🕊️";
+  if(t.includes("firma")) return "🥂";
+  if(t.includes("tagung")||t.includes("konferenz")) return "👥";
+  if(t.includes("sport")) return "⚽";
+  if(t.includes("musik")) return "🎵";
+  if(t.includes("wein")) return "🍷";
+  if(t.includes("feiertag")||t.includes("saison")) return "🎄";
+  return "📌";
+}
+function eventTitleLine(e){
+  const time = e.start_time ? `${String(e.start_time).slice(0,5)}${e.end_time ? "-"+String(e.end_time).slice(0,5) : ""}` : "";
+  const guests = e.guests ? ` · ${e.guests} Gäste` : "";
+  const rooms = e.rooms ? ` · ${escapeHtml(e.rooms)}` : "";
+  return `${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")} ${time ? "· "+escapeHtml(time) : ""}${guests}${rooms}`;
+}
+async function saveEvent(){
+  if(!isManagement()) return;
+  const date=$("eventDate")?.value;
+  const title=$("eventTitle")?.value?.trim();
+  if(!date || !title) return alert("Bitte Datum und Titel ausfüllen.");
+
+  const payload={
+    event_date:date,
+    title:title,
+    event_type:$("eventType")?.value || "Sonstiges",
+    start_time:$("eventStart")?.value || null,
+    end_time:$("eventEnd")?.value || null,
+    guests:$("eventGuests")?.value ? Number($("eventGuests").value) : null,
+    rooms:selectedEventRooms().join(", "),
+    note:$("eventNote")?.value || "",
+    show_dashboard:!!$("eventDashboard")?.checked,
+    show_plan:!!$("eventPlan")?.checked,
+    important:!!$("eventImportant")?.checked,
+    created_by:profile?.id || null
+  };
+
+  const id=$("editingEventId")?.value;
+  const res=id ? await sb.from("events").update(payload).eq("id",id) : await sb.from("events").insert(payload);
+  if(res.error){
+    alert("Fehler beim Speichern: "+res.error.message);
+    return;
+  }
+  clearEventForm();
+  await loadEvents();
+  await loadDashboardV57?.();
+  await loadMonth();
+  await loadPlanService();
+  await loadPlanKitchen();
+}
+async function loadEvents(){
+  if(!$("eventList") || !isManagement()) return;
+  const today=todayISO();
+  const {data,error}=await sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).order("start_time",{ascending:true}).limit(80);
+  if(error){
+    $("eventList").innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
+    return;
+  }
+  $("eventList").innerHTML=(data||[]).map(e=>`
+    <div class="entry eventEntry ${e.important?"eventImportant":""}">
+      <div class="eventEntryText">
+        <b>${fmtDate(e.event_date)}</b><br>
+        ${eventTitleLine(e)}<br>
+        ${e.note ? `<span class="small">${escapeHtml(e.note)}</span>` : ""}
+      </div>
+      <div class="eventEntryActions">
+        <button class="secondary" onclick="editEvent('${e.id}')">Bearbeiten</button>
+        <button class="danger" onclick="deleteEvent('${e.id}')">Löschen</button>
+      </div>
+    </div>
+  `).join("") || "<p>Keine kommenden Events.</p>";
+}
+async function editEvent(id){
+  const {data,error}=await sb.from("events").select("*").eq("id",id).single();
+  if(error || !data) return alert("Event nicht gefunden.");
+  $("editingEventId").value=data.id;
+  $("eventDate").value=data.event_date || todayISO();
+  $("eventStart").value=data.start_time ? String(data.start_time).slice(0,5) : "";
+  $("eventEnd").value=data.end_time ? String(data.end_time).slice(0,5) : "";
+  $("eventType").value=data.event_type || "Sonstiges";
+  $("eventTitle").value=data.title || "";
+  $("eventGuests").value=data.guests || "";
+  $("eventNote").value=data.note || "";
+  $("eventDashboard").checked=data.show_dashboard!==false;
+  $("eventPlan").checked=data.show_plan!==false;
+  $("eventImportant").checked=!!data.important;
+  setEventRooms(data.rooms);
+  setActiveTab("events");
+  setTimeout(()=>$("eventTitle")?.focus(),100);
+}
+async function deleteEvent(id){
+  if(!confirm("Dieses Event wirklich löschen?")) return;
+  const {error}=await sb.from("events").delete().eq("id",id);
+  if(error) return alert("Fehler beim Löschen: "+error.message);
+  await loadEvents();
+  await loadDashboardV57?.();
+  await loadMonth();
+  await loadPlanService();
+  await loadPlanKitchen();
+}
+function setupEvents(){
+  if($("eventDate")) $("eventDate").value ||= todayISO();
+  if($("saveEvent")) $("saveEvent").onclick=saveEvent;
+  if($("clearEvent")) $("clearEvent").onclick=clearEventForm;
+}
+window.editEvent=editEvent;
+window.deleteEvent=deleteEvent;
+
 async function loadDashboardV57(){
   if(!$("dashboardV57") || !session) return;
   if(!profiles.length) await loadProfiles();
@@ -531,15 +666,17 @@ async function reorderEmployeeBefore(draggedId,targetIdProfile){
 
 async function loadPlanFiltered(title,week,departments,targetId){
   const from=week,to=addDaysISO(week,6);
-  const[{data:schedules},{data:infos}]=await Promise.all([
+  const[{data:schedules},{data:infos},{data:events}]=await Promise.all([
     sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to),
-    sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to)
+    sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
+    sb.from("events").select("*").gte("event_date",from).lte("event_date",to)
   ]);
   const byKey={};(schedules||[]).forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
   const infoByDate={};(infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
+  const eventsByDate={};(events||[]).filter(e=>e.show_plan!==false).forEach(e=>{eventsByDate[e.event_date]||=[];eventsByDate[e.event_date].push(e)});
   const people=plannable().filter(p=>departments.includes(p.department)).sort((a,b)=>(Number(a.sort_order??9999)-Number(b.sort_order??9999)) || String(a.last_name||"").localeCompare(String(b.last_name||"")));
   let html='<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div><div class="grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
-  days.forEach((d,i)=>{const iso=addDaysISO(week,i);html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}</th>`});
+  days.forEach((d,i)=>{const iso=addDaysISO(week,i);html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")}</div>`).join("")}</th>`});
   html+='</tr></thead><tbody>';
   people.forEach(p=>{
     html+=`<tr ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)}</td>`;
@@ -639,18 +776,26 @@ async function loadMonth(){
   if(!session||!profiles.length)return;
   const month=$("monthSelect").value||monthISO(),from=firstOfMonthISO(month),to=month+"-"+pad2(lastDayOfMonth(month));
 
-  const{data:infos,error}=await sb.from("daily_infos")
-    .select("*")
-    .gte("info_date",from)
-    .lte("info_date",to);
+  const[{data:infos,error:infoError},{data:events,error:eventError}]=await Promise.all([
+    sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
+    sb.from("events").select("*").gte("event_date",from).lte("event_date",to)
+  ]);
 
-  if(error){
-    $("monthGrid").innerHTML=`<div class="entry"><b>Fehler beim Laden der Monatsübersicht:</b><br>${escapeHtml(error.message)}</div>`;
+  if(infoError){
+    $("monthGrid").innerHTML=`<div class="entry"><b>Fehler beim Laden der Monatsübersicht:</b><br>${escapeHtml(infoError.message)}</div>`;
     return;
   }
 
   const infoByDate={};
   (infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
+
+  const eventsByDate={};
+  if(!eventError){
+    (events||[]).filter(e=>e.show_plan!==false).forEach(e=>{
+      eventsByDate[e.event_date] ||= [];
+      eventsByDate[e.event_date].push(e);
+    });
+  }
 
   let html='<div class="grid"><table class="monthTable"><thead><tr>'+days.map(d=>`<th>${d}</th>`).join("")+'</tr></thead><tbody><tr>';
   const total=lastDayOfMonth(month),first=weekdayMondayFirst(from);
@@ -665,6 +810,9 @@ async function loadMonth(){
     if(infoByDate[iso]){
       c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     }
+    (eventsByDate[iso]||[]).forEach(e=>{
+      c+=`<div class="monthInfo eventMonthInfo">${eventTypeIcon(e.event_type)} ${escapeHtml(e.title||"Event")}${e.rooms?`<br><small>${escapeHtml(e.rooms)}</small>`:""}</div>`;
+    });
 
     html+=`<td class="monthCell">${c}</td>`;
   }
@@ -1273,4 +1421,5 @@ function setupPlanPublishButtons(){
 
 setupPlanPublishButtons();
 setupDashboardV57();
+setupEvents();
 init();

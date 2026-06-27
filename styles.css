@@ -784,3 +784,67 @@ tr.dragOver{outline:3px solid var(--green)}
     width:100%!important;
   }
 }
+
+
+/* v5.8.0 Eventkalender */
+.eventRoomsBox{
+  margin:12px 0;
+}
+.eventRooms{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(180px,1fr));
+  gap:8px;
+  margin-top:8px;
+}
+.eventRooms label,
+.eventChecks label{
+  background:#f8fafc;
+  border:1px solid #e2e8f0;
+  border-radius:12px;
+  padding:9px 10px;
+}
+.eventChecks{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin:12px 0;
+}
+.eventEntry{
+  display:flex!important;
+  justify-content:space-between!important;
+  gap:12px!important;
+}
+.eventEntryActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.eventImportant{
+  border-color:#f6c65b!important;
+  background:#fffbeb!important;
+}
+.eventMonthInfo{
+  background:#fff7e6!important;
+  color:#6f4200!important;
+}
+.eventDayInfo{
+  background:#fff7e6!important;
+  color:#6f4200!important;
+}
+@media(max-width:820px){
+  .eventRooms,
+  .eventChecks{
+    grid-template-columns:1fr!important;
+  }
+  .eventEntry{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+  .eventEntryActions{
+    display:grid!important;
+    grid-template-columns:1fr 1fr!important;
+  }
+  .eventEntryActions button{
+    width:100%!important;
+  }
+}
