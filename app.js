@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.5";
+const APP_VERSION="v6.0.6";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -582,7 +582,7 @@ function setupDashboardV57(){
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadSummary(),loadMinijobCenter()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadSummary(),loadMinijobCenter()]);
 }
 
 async function loadProfiles(){
@@ -1918,5 +1918,167 @@ function setupPlanPublishButtons(){
 setupPlanPublishButtons();
 setupDashboardV57();
 setupEvents();
+
+function vacationDateRangeDays(from,to,rangeFrom,rangeTo,value=1){
+  const out = {};
+  let d = from < rangeFrom ? rangeFrom : from;
+  const end = to > rangeTo ? rangeTo : to;
+  while(d <= end){
+    out[d] = value;
+    d = addDaysISO(d,1);
+  }
+  return out;
+}
+
+async function collectVacationDaysForYear(year){
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+
+  const [vacRes, scheduleRes] = await Promise.all([
+    sb.from("vacation_requests")
+      .select("*")
+      .lte("date_from",to)
+      .gte("date_to",from)
+      .in("status",["genehmigt"]),
+    sb.from("schedules")
+      .select("*")
+      .gte("work_date",from)
+      .lte("work_date",to)
+  ]);
+
+  if(vacRes.error || scheduleRes.error){
+    throw new Error((vacRes.error || scheduleRes.error).message);
+  }
+
+  const byProfile = {};
+  const sourceInfo = {};
+
+  function ensure(profileId){
+    byProfile[profileId] ||= {};
+    sourceInfo[profileId] ||= {};
+  }
+
+  (vacRes.data || []).forEach(v=>{
+    ensure(v.profile_id);
+    const range = vacationDateRangeDays(v.date_from,v.date_to,from,to,vacationDayValue(v,v.date_from));
+    Object.entries(range).forEach(([iso,val])=>{
+      byProfile[v.profile_id][iso] = val;
+      sourceInfo[v.profile_id][iso] = "Urlaubsliste";
+    });
+  });
+
+  (scheduleRes.data || [])
+    .filter(s=>String(s.status || "").toLowerCase().includes("urlaub"))
+    .forEach(s=>{
+      ensure(s.profile_id);
+      const iso = s.work_date;
+      if(!iso || iso < from || iso > to) return;
+      if(!byProfile[s.profile_id][iso]){
+        byProfile[s.profile_id][iso] = 1;
+        sourceInfo[s.profile_id][iso] = "Dienstplan";
+      }
+    });
+
+  return {byProfile,sourceInfo};
+}
+
+async function loadVacationYearOverview(){
+  if(!$("vacYearGrid") || !isManagement() || !profiles.length) return;
+
+  const year = Number($("vacYearSelect")?.value || new Date().getFullYear());
+  if($("vacYearSelect")) $("vacYearSelect").value = year;
+
+  $("vacYearGrid").innerHTML = `<div class="entry">Jahresübersicht wird berechnet...</div>`;
+
+  let collected;
+  try{
+    collected = await collectVacationDaysForYear(year);
+  }catch(e){
+    $("vacYearGrid").innerHTML = `<div class="entry"><b>Fehler:</b><br>${escapeHtml(e.message)}</div>`;
+    return;
+  }
+
+  const {byProfile,sourceInfo} = collected;
+  const months = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
+
+  const rows = plannable()
+    .slice()
+    .sort((a,b)=>
+      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
+      String(a.department||"").localeCompare(String(b.department||"")) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
+
+  let mobile = `<div class="vacYearMobileCards">`;
+  let html = `<div class="vacYearScroll"><table class="vacYearTable"><thead><tr>
+    <th class="vacYearNameHead">Mitarbeiter</th>
+    ${months.map(m=>`<th>${m}</th>`).join("")}
+    <th>Anspruch</th>
+    <th>Genommen</th>
+    <th>Rest</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach(p=>{
+    const daysMap = byProfile[p.id] || {};
+    const monthly = Array(12).fill(0);
+    const detailByMonth = Array.from({length:12},()=>[]);
+
+    Object.entries(daysMap).forEach(([iso,val])=>{
+      const m = Number(iso.slice(5,7))-1;
+      monthly[m] += Number(val||0);
+      detailByMonth[m].push(`${fmtDate(iso)} ${sourceInfo[p.id]?.[iso] || ""}`);
+    });
+
+    const taken = monthly.reduce((a,b)=>a+b,0);
+    const entitlement = vacationEntitlement(p);
+    const rest = Math.max(0, entitlement - taken);
+
+    html += `<tr>
+      <td class="vacYearNameCell"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></td>
+      ${monthly.map((v,i)=>`<td title="${escapeHtml(detailByMonth[i].join(" | "))}" class="${v>0?"vacYearHas":""}">${v ? euroHours(v).replace(",00","") : ""}</td>`).join("")}
+      <td class="vacYearEnt">${euroHours(entitlement).replace(",00","")}</td>
+      <td class="vacYearTaken">${euroHours(taken).replace(",00","")}</td>
+      <td class="vacYearRest">${euroHours(rest).replace(",00","")}</td>
+    </tr>`;
+
+    const usedMonths = monthly.map((v,i)=>v>0 ? `<span><b>${months[i]}</b>${euroHours(v).replace(",00","")}</span>` : "").join("");
+    mobile += `
+      <div class="vacYearMobileCard ${taken>0 ? "hasVacation" : ""}">
+        <div class="vacYearMobileHead">
+          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
+          <strong>${taken>0 ? euroHours(taken).replace(",00","") + " genommen" : "Kein Urlaub"}</strong>
+        </div>
+        <div class="vacYearMobileStats">
+          <span><small>Anspruch</small><b>${euroHours(entitlement).replace(",00","")}</b></span>
+          <span><small>Genommen</small><b>${euroHours(taken).replace(",00","")}</b></span>
+          <span><small>Rest</small><b>${euroHours(rest).replace(",00","")}</b></span>
+        </div>
+        <div class="vacYearMonths">${usedMonths || "<em>Kein Urlaub im Jahr</em>"}</div>
+      </div>`;
+  });
+
+  if(!rows.length){
+    html += `<tr><td colspan="16">Keine einplanbaren Mitarbeiter gefunden.</td></tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+  mobile += `</div>`;
+  $("vacYearGrid").innerHTML = mobile + html;
+}
+
+function setupVacationYearOverview(){
+  if($("vacYearSelect")) $("vacYearSelect").value ||= new Date().getFullYear();
+  if($("calcVacYear")) $("calcVacYear").onclick = loadVacationYearOverview;
+  if($("prevVacYear")) $("prevVacYear").onclick = ()=>{
+    $("vacYearSelect").value = Number($("vacYearSelect").value || new Date().getFullYear()) - 1;
+    loadVacationYearOverview();
+  };
+  if($("nextVacYear")) $("nextVacYear").onclick = ()=>{
+    $("vacYearSelect").value = Number($("vacYearSelect").value || new Date().getFullYear()) + 1;
+    loadVacationYearOverview();
+  };
+}
+
+setupVacationYearOverview();
 setupVacationPlanner();
 init();
