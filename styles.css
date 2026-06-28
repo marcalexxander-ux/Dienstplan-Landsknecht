@@ -1257,3 +1257,326 @@ body:not(.loggedIn) #month{
     margin:8mm;
   }
 }
+
+
+/* v6.0.0 Stabilisierung: Layout, Mobile, Minijob */
+.hidden,
+.tabPage.hidden,
+#appView.hidden,
+#authView.hidden{
+  display:none!important;
+}
+
+/* Login: keine Heute-Seite im Hintergrund */
+body.loggedOut #appView,
+body:not(.loggedIn) #appView{
+  display:none!important;
+}
+body.loggedIn #authView{
+  display:none!important;
+}
+body.loggedIn #appView:not(.hidden){
+  display:grid!important;
+  grid-template-columns:230px minmax(0,1fr)!important;
+  width:100%!important;
+  max-width:100%!important;
+}
+#appView .content{
+  min-width:0!important;
+  width:100%!important;
+}
+.dashboardPage.card{
+  padding:0!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.dashboardPage .dashboardV57{
+  display:block!important;
+}
+#events.eventsPage{
+  width:100%!important;
+  max-width:100%!important;
+}
+#mobileMenuToggle{
+  display:none;
+}
+.mobilePlanCards{
+  display:none;
+}
+
+/* Minijob Karten */
+.miniJobCards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:12px;
+  margin:14px 0;
+}
+.miniJobCard{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:14px;
+  box-shadow:0 8px 22px rgba(15,23,42,.06);
+}
+.miniJobCardHead{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+  margin-bottom:10px;
+}
+.miniJobCardHead strong{
+  white-space:nowrap;
+}
+.miniJobCardGrid{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:6px 12px;
+  margin:10px 0;
+}
+.miniJobCardGrid span{
+  color:#64748b;
+  font-weight:800;
+}
+.miniJobCardGrid b{
+  text-align:right;
+}
+.miniJobCard.miniWarn{
+  border-color:#fde68a;
+  background:#fffbeb;
+}
+.miniJobCard.miniStop{
+  border-color:#fecaca;
+  background:#fef2f2;
+}
+.miniJobCard.miniOk{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+}
+
+@media(min-width:821px){
+  .miniJobCards{
+    display:none!important;
+  }
+}
+
+@media(max-width:820px){
+  html,body{
+    max-width:100%;
+    overflow-x:hidden!important;
+  }
+
+  .topbar{
+    height:auto!important;
+    min-height:82px!important;
+    padding:12px!important;
+  }
+  .brand h1{
+    font-size:24px!important;
+  }
+  .brand img{
+    width:58px!important;
+    height:58px!important;
+  }
+
+  body.loggedIn #appView:not(.hidden){
+    display:block!important;
+    width:100%!important;
+  }
+
+  body.loggedIn #mobileMenuToggle{
+    display:block!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:10000!important;
+    width:100%!important;
+    min-height:52px!important;
+    border-radius:0!important;
+    background:#004634!important;
+    color:white!important;
+    font-weight:900!important;
+    text-align:left!important;
+    padding:12px 16px!important;
+  }
+
+  #appView .sidebar{
+    position:fixed!important;
+    top:52px!important;
+    left:0!important;
+    bottom:0!important;
+    width:min(86vw,320px)!important;
+    z-index:9999!important;
+    background:#004634!important;
+    padding:12px!important;
+    transform:translateX(-110%)!important;
+    transition:.22s ease!important;
+    overflow-y:auto!important;
+    box-shadow:18px 0 40px rgba(0,0,0,.25)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    gap:8px!important;
+  }
+
+  #appView .sidebar.mobileOpen{
+    transform:translateX(0)!important;
+  }
+
+  #appView .sidebar button{
+    width:100%!important;
+    min-height:48px!important;
+    border-radius:14px!important;
+    font-size:15px!important;
+    text-align:left!important;
+    white-space:normal!important;
+  }
+
+  #appView .content{
+    padding:10px!important;
+    width:100%!important;
+    max-width:100%!important;
+    overflow-x:hidden!important;
+  }
+
+  .tabPage.card,
+  .dashboardPage.card,
+  #events.eventsPage{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0 0 12px!important;
+    padding:12px!important;
+    border-radius:18px!important;
+    overflow:hidden!important;
+  }
+
+  .dashboardStatsV57{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .dashboardColumnsV57{
+    grid-template-columns:1fr!important;
+  }
+  .dashHero{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    border-radius:18px!important;
+    margin:0 0 10px!important;
+  }
+
+  .sectionHeader,
+  .navButtons,
+  .buttonRow,
+  .formGrid{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  .navButtons input,
+  .navButtons button,
+  input,
+  select,
+  textarea,
+  button{
+    width:100%!important;
+    max-width:100%!important;
+    min-height:44px!important;
+    font-size:16px!important;
+  }
+
+  .mobilePlanCards{
+    display:grid!important;
+    gap:12px!important;
+    margin:12px 0!important;
+  }
+  .mobilePlanCards h3{
+    margin:4px 0!important;
+    color:#004634!important;
+  }
+  .mobileDayCard{
+    background:white!important;
+    border:1px solid #e5e7eb!important;
+    border-radius:18px!important;
+    padding:12px!important;
+    box-shadow:0 8px 22px rgba(15,23,42,.06)!important;
+  }
+  .mobileDayHead{
+    color:#004634!important;
+    margin-bottom:8px!important;
+  }
+  .mobileDayInfo,
+  .mobileDayEvent{
+    background:#ecfdf5!important;
+    border-radius:12px!important;
+    padding:8px!important;
+    margin:6px 0!important;
+    color:#064e3b!important;
+    font-weight:800!important;
+  }
+  .mobileDayEvent{
+    background:#fff7e6!important;
+    color:#6f4200!important;
+  }
+  .mobileShiftRow{
+    display:flex!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+    align-items:center!important;
+    border-radius:14px!important;
+    padding:10px!important;
+    margin:7px 0!important;
+    background:#f8fafc!important;
+  }
+  .mobileShiftRow.workMorning,
+  .mobileShiftRow.workEvening,
+  .mobileShiftRow.workLate,
+  .mobileShiftRow.workShort{
+    background:#eef8f4!important;
+  }
+  .mobileShiftRow.vac{
+    background:#fff0bd!important;
+  }
+  .mobileShiftRow.sick{
+    background:#fee2e2!important;
+  }
+  .mobileShiftRow.free{
+    background:#f0f0f0!important;
+  }
+  .mobileEmpty{
+    color:#64748b!important;
+    background:#f8fafc!important;
+    border-radius:12px!important;
+    padding:10px!important;
+  }
+
+  .desktopPlanGrid{
+    overflow-x:auto!important;
+    border:1px solid #e5e7eb!important;
+    border-radius:16px!important;
+    margin-top:12px!important;
+  }
+  .desktopPlanGrid table{
+    min-width:900px!important;
+  }
+
+  .miniStats{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  }
+  .miniJobGrid{
+    display:none!important;
+  }
+  .miniJobCards{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+  }
+
+  .vacPlannerScroll{
+    overflow-x:auto!important;
+  }
+}
+
+/* Print: mobile menu nie drucken */
+@media print{
+  #mobileMenuToggle,
+  .mobilePlanCards{
+    display:none!important;
+  }
+}

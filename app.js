@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v5.9.0";
+const APP_VERSION="v6.0.0";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -39,12 +39,15 @@ function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
 function setActiveTab(tabId){
-  document.querySelectorAll(".sidebar button[data-tab], nav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===tabId));
+  const normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
+  document.querySelectorAll(".sidebar button[data-tab], nav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
   document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
-  const target=$(tabId);
+  const target=$(normalized);
   if(target) target.classList.remove("hidden");
-  if(tabId==="events") loadEvents?.();
-  if(tabId==="today" || tabId==="dashboard" || tabId==="home") loadDashboardV57?.();
+  if(normalized==="events") loadEvents?.();
+  if(normalized==="dashboard") loadDashboardV57?.();
+  if(normalized==="minijobCenter") loadMinijobCenter?.();
+  if(normalized==="vacation") loadVacationPlanner?.();
 }
 function getISOWeek(iso){
   const d=parseISODateLocal(iso);
@@ -226,7 +229,7 @@ function renderAuth(){
     if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
     $("sumFrom").value ||= mondayISO();
     $("sumTo").value ||= addDaysISO(mondayISO(),6);
-    setActiveTab("today");
+    setActiveTab("dashboard");
     loadAll();
   }
 }
@@ -701,24 +704,78 @@ async function loadPlanFiltered(title,week,departments,targetId){
     sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
     sb.from("events").select("*").gte("event_date",from).lte("event_date",to)
   ]);
-  const byKey={};(schedules||[]).forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
-  const infoByDate={};(infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
-  const eventsByDate={};(events||[]).filter(e=>e.show_plan!==false).forEach(e=>{eventsByDate[e.event_date]||=[];eventsByDate[e.event_date].push(e)});
-  const people=plannable().filter(p=>departments.includes(p.department)).sort((a,b)=>(Number(a.sort_order??9999)-Number(b.sort_order??9999)) || String(a.last_name||"").localeCompare(String(b.last_name||"")));
-  let html='<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div><div class="grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
-  days.forEach((d,i)=>{const iso=addDaysISO(week,i);html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`});
+
+  const byKey={};
+  (schedules||[]).forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
+
+  const infoByDate={};
+  (infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
+
+  const eventsByDate={};
+  (events||[]).filter(e=>e.show_plan!==false).forEach(e=>{
+    eventsByDate[e.event_date] ||= [];
+    eventsByDate[e.event_date].push(e);
+  });
+
+  const people=plannable()
+    .filter(p=>departments.includes(p.department))
+    .sort((a,b)=>
+      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
+
+  function cellValue(item){
+    if(!item) return "";
+    return item.status==="arbeit"
+      ? `${item.start_time?.slice(0,5)||""}-${item.end_time?.slice(0,5)||""}`
+      : item.status;
+  }
+
+  let mobile = `<div class="mobilePlanCards"><h3>Mobile Übersicht ${escapeHtml(title)}</h3>`;
+  days.forEach((d,i)=>{
+    const iso=addDaysISO(week,i);
+    const dayRows=people.map(p=>({p,item:byKey[`${p.id}_${iso}`]})).filter(x=>x.item);
+    mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><b>${d}, ${fmtDate(iso)}</b></div>`;
+    if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
+    (eventsByDate[iso]||[]).forEach(e=>mobile += `<div class="mobileDayEvent">${escapeHtml(eventPlanLabel(e))}</div>`);
+    if(dayRows.length){
+      mobile += dayRows.map(({p,item})=>`
+        <div class="mobileShiftRow ${shiftClass(cellValue(item))}">
+          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
+          <strong>${escapeHtml(cellValue(item))}</strong>
+        </div>
+      `).join("");
+    }else{
+      mobile += `<div class="mobileEmpty">Keine Einträge.</div>`;
+    }
+    mobile += `</div>`;
+  });
+  mobile += `</div>`;
+
+  let html=mobile;
+  html += '<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div>';
+  html += '<div class="desktopPlanGrid grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
+  days.forEach((d,i)=>{
+    const iso=addDaysISO(week,i);
+    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
+  });
   html+='</tr></thead><tbody>';
+
   people.forEach(p=>{
     html+=`<tr ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)}</td>`;
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
-      const val=item?(item.status==="arbeit"?`${item.start_time?.slice(0,5)||""}-${item.end_time?.slice(0,5)||""}`:item.status):"";
-      html+=isManagement()?`<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)}" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="08:00-16:00 / frei / urlaub / krank"></td>`:`<td>${shiftPill(val)}</td>`;
+      const val=cellValue(item);
+      html+=isManagement()
+        ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)}" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="08:00-16:00 / frei / urlaub / krank"></td>`
+        : `<td>${shiftPill(val)}</td>`;
     });
     html+="</tr>";
   });
-  if(!people.length)html+=`<tr><td colspan="8"><span class="small">Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.</span></td></tr>`;
+
+  if(!people.length) html+=`<tr><td colspan="8"><span class="small">Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.</span></td></tr>`;
   html+="</tbody></table></div>";
+
   $(targetId).innerHTML=html;
   document.querySelectorAll(`#${targetId} input`).forEach(inp=>inp.onchange=()=>{applyShiftInputColors($(targetId));saveScheduleCell(inp)});
   setupDragAndDrop(targetId);
@@ -1506,6 +1563,225 @@ async function loadMinijobCenter(){
 }
 
 
+
+
+/* v6.0.0 Minijob-Center stabilisiert */
+function minijobDepartmentsV6(){
+  return ["Minijob Service","Minijob Bar","Minijob Küche"];
+}
+function isMinijobProfileV6(p){
+  return minijobDepartmentsV6().includes(p?.department) && p?.active !== false;
+}
+function minijobRateV6(p){
+  const n = Number(p?.hourly_rate);
+  return Number.isFinite(n) && n > 0 ? n : 14;
+}
+function scheduleHoursForMinijobEntry(entry){
+  if(!entry || entry.status !== "arbeit" || !entry.start_time || !entry.end_time) return 0;
+  const start = String(entry.start_time).slice(0,5);
+  const end = String(entry.end_time).slice(0,5);
+
+  let [sh, sm] = start.split(":").map(Number);
+  let [eh, em] = end.split(":").map(Number);
+  let startMin = sh * 60 + sm;
+  let endMin = eh * 60 + em;
+  if(endMin < startMin) endMin += 24 * 60;
+
+  let minutes = endMin - startMin;
+  if(minutes >= 240) minutes -= 30;
+
+  return Math.max(0, minutes / 60);
+}
+async function loadMinijobCenter(){
+  if(!$("minijobCenterList") || !isManagement()) return;
+
+  const limitInput = $("minijobLimit");
+  if(limitInput && !limitInput.dataset.v6default){
+    limitInput.value = "603";
+    limitInput.dataset.v6default = "1";
+  }
+
+  const month = $("minijobMonth")?.value || monthISO();
+  const limit = Number(limitInput?.value || 603);
+  const from = firstOfMonthISO(month);
+  const to = month + "-" + pad2(lastDayOfMonth(month));
+
+  $("minijobCenterList").innerHTML = '<div class="entry">Minijob-Center wird direkt aus dem Dienstplan neu berechnet...</div>';
+
+  const { data, error } = await sb.from("schedules")
+    .select("*")
+    .gte("work_date", from)
+    .lte("work_date", to);
+
+  if(error){
+    $("minijobCenterList").innerHTML = `<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const minijobbers = profiles
+    .filter(isMinijobProfileV6)
+    .sort((a,b)=>
+      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
+
+  const totals = {};
+  (data||[]).forEach(s=>{
+    const p = profiles.find(x=>x.id===s.profile_id);
+    if(!isMinijobProfileV6(p) || s.status !== "arbeit") return;
+
+    totals[s.profile_id] ||= {hours:0,count:0,last:"—"};
+    const h = scheduleHoursForMinijobEntry(s);
+    totals[s.profile_id].hours += h;
+    if(h > 0){
+      totals[s.profile_id].count += 1;
+      totals[s.profile_id].last = `${fmtDate(s.work_date)} ${String(s.start_time).slice(0,5)}-${String(s.end_time).slice(0,5)}`;
+    }
+  });
+
+  let totalHours = 0;
+  let totalEarned = 0;
+  let warnCount = 0;
+  lastMinijobRows = [];
+
+  minijobbers.forEach(p=>{
+    const t = totals[p.id] || {hours:0,count:0,last:"—"};
+    const rate = minijobRateV6(p);
+    const earned = t.hours * rate;
+    const rest = Math.max(0, limit - earned);
+    const rest_hours = rate ? rest / rate : 0;
+    const pct = limit ? Math.round((earned / limit) * 100) : 0;
+    let status = "OK";
+    let cls = "miniOk";
+    if(earned >= limit){ status = "Grenze erreicht"; cls = "miniStop"; }
+    else if(earned >= limit * 0.8){ status = "Achtung"; cls = "miniWarn"; warnCount++; }
+
+    totalHours += t.hours;
+    totalEarned += earned;
+
+    lastMinijobRows.push({
+      name:`${p.first_name||""} ${p.last_name||""}`.trim(),
+      department:p.department||"",
+      hourly_rate:rate,
+      shifts:t.count,
+      hours:t.hours,
+      earned,
+      rest,
+      rest_hours,
+      possible_shifts: rate ? Math.floor(rest / rate / 5.5) : 0,
+      last_shift:t.last,
+      status,
+      cls
+    });
+  });
+
+  const money = n => Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const number = n => Number(n||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  let html = `
+    <div class="miniInfo">
+      <b>Quelle:</b> Dienstplan · <b>Monat:</b> ${escapeHtml(month)} · <b>Grenze:</b> ${money(limit)} €<br>
+      Berücksichtigt werden nur Minijob Service, Minijob Bar und Minijob Küche. Ab 4 Stunden werden automatisch 30 Minuten Pause abgezogen.
+    </div>
+    <div class="miniStats">
+      <div class="miniStatCard"><span>Minijobber</span><b>${minijobbers.length}</b></div>
+      <div class="miniStatCard"><span>Geplante Stunden</span><b>${number(totalHours)}</b></div>
+      <div class="miniStatCard"><span>Geplanter Verdienst</span><b>${money(totalEarned)} €</b></div>
+      <div class="miniStatCard"><span>Warnungen</span><b>${warnCount}</b></div>
+      <div class="miniStatCard"><span>Grenze</span><b>${money(limit)} €</b></div>
+    </div>
+    <div class="miniJobCards">
+  `;
+
+  lastMinijobRows.forEach(r=>{
+    const pct = limit ? Math.min(100, Math.round((r.earned / limit) * 100)) : 0;
+    html += `
+      <div class="miniJobCard ${r.cls}">
+        <div class="miniJobCardHead">
+          <div><b>${escapeHtml(r.name)}</b><br><small>${escapeHtml(r.department)}</small></div>
+          <strong>${escapeHtml(r.status)}</strong>
+        </div>
+        <div class="miniJobCardGrid">
+          <span>Std.-Lohn</span><b>${money(r.hourly_rate)} €</b>
+          <span>Schichten</span><b>${r.shifts}</b>
+          <span>Stunden</span><b>${number(r.hours)}</b>
+          <span>Verdienst</span><b>${money(r.earned)} €</b>
+          <span>Restbetrag</span><b>${money(r.rest)} €</b>
+          <span>Reststunden</span><b>${number(r.rest_hours)}</b>
+        </div>
+        <div class="miniProgress"><span style="width:${pct}%"></span></div>
+        <small>Letzte Schicht: ${escapeHtml(r.last_shift)}</small>
+      </div>
+    `;
+  });
+
+  html += `</div>
+    <div class="grid miniJobGrid"><table class="miniJobTable">
+      <thead><tr>
+        <th>Mitarbeiter</th><th>Bereich</th><th>Std.-Lohn</th><th>Schichten</th><th>Stunden</th><th>Verdienst</th><th>Restbetrag</th><th>Reststunden</th><th>Status</th>
+      </tr></thead><tbody>`;
+
+  lastMinijobRows.forEach(r=>{
+    const pct = limit ? Math.min(100, Math.round((r.earned / limit) * 100)) : 0;
+    html += `<tr>
+      <td><b>${escapeHtml(r.name)}</b><br><span class="small">${escapeHtml(r.last_shift)}</span></td>
+      <td>${deptBadge(r.department)}</td>
+      <td>${money(r.hourly_rate)} €</td>
+      <td>${r.shifts}</td>
+      <td>${number(r.hours)}</td>
+      <td><b>${money(r.earned)} €</b><div class="miniProgress"><span style="width:${pct}%"></span></div></td>
+      <td>${money(r.rest)} €</td>
+      <td>${number(r.rest_hours)}</td>
+      <td><span class="${r.cls}">${escapeHtml(r.status)}</span></td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+
+  if(!minijobbers.length){
+    html = '<p>Keine Mitarbeiter in den Bereichen Minijob Service, Minijob Bar oder Minijob Küche gefunden.</p>';
+  }
+
+  $("minijobCenterList").innerHTML = html;
+  applyMobileTableLabels();
+}
+function exportMinijobCsv(){
+  if(!lastMinijobRows.length){
+    alert("Bitte zuerst Minijob-Center neu berechnen.");
+    return;
+  }
+  const rows=[
+    ["Mitarbeiter","Bereich","Stundenlohn","Schichten","Geplante Stunden","Geplanter Verdienst","Restbetrag","Reststunden","ca. weitere 5,5h-Schichten","Letzte Schicht","Status"],
+    ...lastMinijobRows.map(r=>[
+      r.name,r.department,
+      r.hourly_rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.shifts,
+      r.hours.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.rest_hours.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}),
+      r.possible_shifts ?? "",
+      r.last_shift ?? "",
+      r.status
+    ])
+  ];
+  const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(";")).join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`minijob-center-${$("minijobMonth")?.value||monthISO()}.csv`;
+  a.click();
+}
+function setupMinijobCenterV6(){
+  if($("minijobLimit")){
+    $("minijobLimit").value="603";
+    $("minijobLimit").dataset.v6default="1";
+  }
+  if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
+  if($("exportMinijobCsv")) $("exportMinijobCsv").onclick=exportMinijobCsv;
+  if($("minijobMonth")) $("minijobMonth").onchange=loadMinijobCenter;
+}
+
 function setupMobileNavigation(){
   const btn=document.getElementById("mobileMenuToggle");
   const sidebar=document.querySelector(".sidebar")||document.querySelector("nav");
@@ -1525,6 +1801,7 @@ function applyMobileTableLabels(){
   });
 }
 
+setupMinijobCenterV6();
 setupMobileNavigation();
 
 function setupPasswordReset(){

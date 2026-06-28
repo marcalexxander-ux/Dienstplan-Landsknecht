@@ -27,28 +27,6 @@
 </div>
 
 
-<div id="dashboardV57" class="dashboardV57">
-  <div class="dashHero">
-    <div>
-      <h2>Heute</h2>
-      <p id="dashboardGreeting">Aktueller Überblick</p>
-    </div>
-    <button id="refreshDashboardV57" type="button">Aktualisieren</button>
-  </div>
-  <div id="dashboardStatsV57" class="dashboardStatsV57"></div>
-  <div class="dashboardColumnsV57">
-    <div class="dashboardColumnV57">
-      <div class="dashPanelV57"><h3>Heute im Dienst</h3><div id="dashboardTodayWorkersV57" class="dashListV57"></div></div>
-      <div class="dashPanelV57"><h3>Tagesinfos</h3><div id="dashboardInfosV57" class="dashListV57"></div></div>
-    </div>
-    <div class="dashboardColumnV57">
-      <div class="dashPanelV57"><h3>Offene Urlaubsanträge</h3><div id="dashboardVacationsV57" class="dashListV57"></div></div>
-      <div class="dashPanelV57"><h3>Geburtstage</h3><div id="dashboardBirthdaysV57" class="dashListV57"></div></div>
-      <div class="dashPanelV57"><h3>Events</h3><div id="dashboardEventsV57" class="dashListV57"></div></div>
-    </div>
-  </div>
-</div>
-
 <main>
   <section id="setupNotice" class="card warn hidden">
     <h2>Einrichtung erforderlich</h2>
@@ -74,6 +52,7 @@
 
 
   <section id="appView" class="hidden layout">
+    <button id="mobileMenuToggle" class="mobileMenuToggle" type="button">☰ Menü</button>
     <aside class="sidebar">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
       <button data-tab="planService">🍽️ Dienstplan Service</button>
@@ -91,7 +70,32 @@
     </aside>
 
     <section class="content">
-      <section id="planService" class="tabPage card">
+
+      <section id="dashboard" class="tabPage card dashboardPage">
+        <div id="dashboardV57" class="dashboardV57">
+  <div class="dashHero">
+    <div>
+      <h2>Heute</h2>
+      <p id="dashboardGreeting">Aktueller Überblick</p>
+    </div>
+    <button id="refreshDashboardV57" type="button">Aktualisieren</button>
+  </div>
+  <div id="dashboardStatsV57" class="dashboardStatsV57"></div>
+  <div class="dashboardColumnsV57">
+    <div class="dashboardColumnV57">
+      <div class="dashPanelV57"><h3>Heute im Dienst</h3><div id="dashboardTodayWorkersV57" class="dashListV57"></div></div>
+      <div class="dashPanelV57"><h3>Tagesinfos</h3><div id="dashboardInfosV57" class="dashListV57"></div></div>
+    </div>
+    <div class="dashboardColumnV57">
+      <div class="dashPanelV57"><h3>Offene Urlaubsanträge</h3><div id="dashboardVacationsV57" class="dashListV57"></div></div>
+      <div class="dashPanelV57"><h3>Geburtstage</h3><div id="dashboardBirthdaysV57" class="dashListV57"></div></div>
+      <div class="dashPanelV57"><h3>Events</h3><div id="dashboardEventsV57" class="dashListV57"></div></div>
+    </div>
+  </div>
+</div>
+      </section>
+
+      <section id="planService" class="tabPage card hidden">
         <div class="sectionHeader">
           <div>
             <h2>Dienstplan Service</h2>
@@ -328,10 +332,7 @@
         <div id="minijobCenterList"></div>
       </section>
 
-    </section>
-  </section>
-
-<section id="events" class="tabPage hidden managementOnly">
+<section id="events" class="tabPage hidden managementOnly eventsPage">
   <div class="card">
     <h2>Eventkalender</h2>
     <p>Veranstaltungen, Räume und wichtige Hinweise für Dienstplan und Tagesbriefing.</p>
@@ -404,7 +405,8 @@
     <div id="eventList"></div>
   </div>
 </section>
-
+    </section>
+  </section>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
