@@ -1580,3 +1580,222 @@ body.loggedIn #appView:not(.hidden){
     display:none!important;
   }
 }
+
+
+/* v6.0.2 Mobile Bedienung 1 */
+
+/* Smartphone: Kopfbereich kompakter */
+@media(max-width:820px){
+  .topbar{
+    min-height:72px!important;
+    padding:8px 12px!important;
+  }
+  .brand{
+    gap:10px!important;
+    align-items:center!important;
+  }
+  .brand img{
+    width:48px!important;
+    height:48px!important;
+    min-width:48px!important;
+  }
+  .brand h1{
+    font-size:22px!important;
+    line-height:1.05!important;
+  }
+  .brand p{
+    font-size:15px!important;
+    line-height:1.15!important;
+    margin-top:4px!important;
+  }
+  .header-empty{
+    display:none!important;
+  }
+
+  /* Formulare auf Smartphone etwas kompakter */
+  .card{
+    border-radius:18px!important;
+  }
+  h2{
+    font-size:30px!important;
+    line-height:1.15!important;
+  }
+  h3{
+    font-size:22px!important;
+  }
+  label{
+    margin-top:10px!important;
+  }
+  input,
+  select,
+  textarea{
+    min-height:42px!important;
+    font-size:16px!important;
+    padding:10px 12px!important;
+  }
+  button{
+    min-height:46px!important;
+    font-size:16px!important;
+    padding:10px 12px!important;
+  }
+
+  /* Wichtig: Checkboxen dürfen nicht volle Breite bekommen */
+  input[type="checkbox"]{
+    width:24px!important;
+    min-width:24px!important;
+    max-width:24px!important;
+    height:24px!important;
+    min-height:24px!important;
+    margin:0!important;
+    padding:0!important;
+    accent-color:var(--green)!important;
+  }
+
+  /* Dienstplan: große Desktop-Tabelle auf Smartphone ausblenden */
+  .desktopPlanGrid{
+    display:none!important;
+  }
+  .planLegend{
+    display:flex!important;
+    gap:8px!important;
+    overflow-x:auto!important;
+    padding-bottom:4px!important;
+  }
+  .planLegend span{
+    white-space:nowrap!important;
+  }
+  .mobilePlanCards{
+    display:grid!important;
+    gap:12px!important;
+  }
+  .mobileDayCard{
+    padding:12px!important;
+  }
+  .mobileShiftRow{
+    align-items:flex-start!important;
+  }
+  .mobileShiftRow strong{
+    white-space:nowrap!important;
+  }
+
+  /* Eventkalender: Räume als kompakte Chips */
+  #events .eventRooms{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+  }
+  #events .eventRooms label{
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    margin:0!important;
+    padding:10px!important;
+    border:1px solid var(--border)!important;
+    border-radius:14px!important;
+    background:#f8fafc!important;
+    font-size:14px!important;
+    line-height:1.2!important;
+  }
+  #events .eventRooms label:has(input:checked){
+    background:#e9f7f2!important;
+    border-color:#8fd1b8!important;
+    color:var(--green)!important;
+  }
+  #events .eventChecks{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  #events .eventChecks label{
+    display:flex!important;
+    align-items:center!important;
+    gap:8px!important;
+    margin:0!important;
+    padding:10px!important;
+    border:1px solid var(--border)!important;
+    border-radius:14px!important;
+    background:#f8fafc!important;
+  }
+
+  /* Urlaubsplaner: auf Smartphone Karten statt Excel-Tabelle */
+  .vacPlannerScroll{
+    display:none!important;
+  }
+  .vacMobileCards{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:12px!important;
+    margin-top:12px!important;
+  }
+  .vacMobileCard{
+    background:#fff!important;
+    border:1px solid #e5e7eb!important;
+    border-radius:18px!important;
+    padding:14px!important;
+    box-shadow:0 8px 22px rgba(15,23,42,.06)!important;
+  }
+  .vacMobileHead{
+    display:flex!important;
+    justify-content:space-between!important;
+    gap:10px!important;
+    align-items:flex-start!important;
+    margin-bottom:10px!important;
+  }
+  .vacMobileHead strong{
+    color:var(--green)!important;
+    white-space:nowrap!important;
+  }
+  .vacMobileStats{
+    display:grid!important;
+    grid-template-columns:repeat(3,1fr)!important;
+    gap:8px!important;
+    margin:10px 0!important;
+  }
+  .vacMobileStats span{
+    background:#f8fafc!important;
+    border:1px solid #e5e7eb!important;
+    border-radius:14px!important;
+    padding:9px!important;
+    text-align:center!important;
+  }
+  .vacMobileStats small{
+    display:block!important;
+    color:#64748b!important;
+    font-weight:800!important;
+    font-size:12px!important;
+    margin-bottom:4px!important;
+  }
+  .vacMobileStats b{
+    color:#111827!important;
+    font-size:18px!important;
+  }
+  .vacMobileDays{
+    display:flex!important;
+    flex-wrap:wrap!important;
+    gap:6px!important;
+  }
+  .vacMobileDays em{
+    display:inline-flex!important;
+    font-style:normal!important;
+    background:#ecfdf5!important;
+    color:#064e3b!important;
+    border-radius:999px!important;
+    padding:6px 9px!important;
+    font-size:13px!important;
+    font-weight:800!important;
+  }
+
+  /* Mitarbeiterkarten: Buttons etwas kompakter */
+  .staffActions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+}
+
+/* Desktop: mobile Urlaubs-Karten nicht anzeigen */
+@media(min-width:821px){
+  .vacMobileCards{
+    display:none!important;
+  }
+}

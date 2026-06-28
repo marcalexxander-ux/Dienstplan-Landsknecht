@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.1";
+const APP_VERSION="v6.0.2";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1144,6 +1144,7 @@ async function loadVacationPlanner(){
   });
 
   const dayCount = lastDayOfMonth(month);
+  let mobileHtml = `<div class="vacMobileCards">`;
   let html = `<div class="vacPlannerScroll"><table class="vacPlannerTable"><thead>`;
   html += `<tr><th class="vacNameHead">Mitarbeiter</th>`;
   for(let day=1; day<=dayCount; day++){
@@ -1169,6 +1170,20 @@ async function loadVacationPlanner(){
       .filter(x => x.status === "genehmigt")
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
     const rest = Math.max(0, entitlement - takenMonth);
+    const vacDays = Object.entries(dayMap).map(([iso,x])=>`${fmtDate(iso)} ${Number(x.value)===0.5?"½":"U"} (${x.status})`);
+    mobileHtml += `
+      <div class="vacMobileCard">
+        <div class="vacMobileHead">
+          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
+          <strong>${euroHours(rest).replace(",00","")} Rest</strong>
+        </div>
+        <div class="vacMobileStats">
+          <span><small>Anspruch</small><b>${euroHours(entitlement).replace(",00","")}</b></span>
+          <span><small>Genommen</small><b>${euroHours(takenMonth).replace(",00","")}</b></span>
+          <span><small>Rest</small><b>${euroHours(rest).replace(",00","")}</b></span>
+        </div>
+        <div class="vacMobileDays">${vacDays.length ? vacDays.map(x=>`<em>${escapeHtml(x)}</em>`).join("") : "<em>Keine Urlaube in diesem Monat.</em>"}</div>
+      </div>`;
 
     html += `<tr><td class="vacNameCell"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></td>`;
 
@@ -1194,7 +1209,8 @@ async function loadVacationPlanner(){
   }
 
   html += `</tbody></table></div>`;
-  $("vacPlannerGrid").innerHTML = html;
+  mobileHtml += `</div>`;
+  $("vacPlannerGrid").innerHTML = mobileHtml + html;
 }
 function setupVacationPlanner(){
   if($("vacPlannerMonth")) $("vacPlannerMonth").value ||= monthISO();
