@@ -2171,3 +2171,23 @@ body.loggedIn #appView:not(.hidden){
     font-weight:800;
   }
 }
+
+
+/* v6.0.7 Urlaub kompakte Zeiträume */
+.vacMobileDays{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:7px!important;
+}
+.vacMobileDays em{
+  width:fit-content!important;
+  max-width:100%!important;
+  border-radius:14px!important;
+  white-space:normal!important;
+  line-height:1.25!important;
+  text-align:left!important;
+}
+.vacMobileCard.hasVacation .vacMobileDays em{
+  background:#dcfce7!important;
+  color:#14532d!important;
+}

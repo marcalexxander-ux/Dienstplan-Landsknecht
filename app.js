@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.6";
+const APP_VERSION="v6.0.7";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1100,6 +1100,39 @@ function vacationEntitlement(p){
   return Number.isFinite(n) && n > 0 ? n : 30;
 }
 
+
+function vacationRangeSummaries(dayMap){
+  const entries = Object.entries(dayMap || {})
+    .filter(([,x]) => x && (x.status === "genehmigt" || x.status === "dienstplan"))
+    .sort((a,b)=>a[0].localeCompare(b[0]));
+  if(!entries.length) return [];
+  const groups = [];
+  let current = null;
+  entries.forEach(([iso,x])=>{
+    const value = Number(x.value || 1);
+    const status = x.status === "dienstplan" ? "Dienstplan" : "genehmigt";
+    const key = `${status}|${value}`;
+    if(!current){
+      current = {from:iso,to:iso,value,status,total:value,key};
+      return;
+    }
+    const expectedNext = addDaysISO(current.to,1);
+    if(iso === expectedNext && current.key === key){
+      current.to = iso;
+      current.total += value;
+    }else{
+      groups.push(current);
+      current = {from:iso,to:iso,value,status,total:value,key};
+    }
+  });
+  if(current) groups.push(current);
+  return groups.map(g=>{
+    const daysText = euroHours(g.total).replace(",00","");
+    const range = g.from === g.to ? fmtDate(g.from) : `${fmtDate(g.from)} bis ${fmtDate(g.to)}`;
+    return `${range} · ${daysText} ${Number(g.total)===1 ? "Tag" : "Tage"} · ${g.status}`;
+  });
+}
+
 async function loadVacationPlanner(){
   if(!$("vacPlannerGrid") || !isManagement() || !profiles.length) return;
 
@@ -1187,10 +1220,7 @@ async function loadVacationPlanner(){
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
     const rest = Math.max(0, entitlement - takenMonth);
 
-    const vacDays = Object.entries(dayMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([iso,x])=>{
-      const label = x.status==="dienstplan" ? "Dienstplan" : x.status;
-      return `${fmtDate(iso)} ${Number(x.value)===0.5 ? "½" : "U"} (${label})`;
-    });
+    const vacDays = vacationRangeSummaries(dayMap);
 
     mobileHtml += `
       <div class="vacMobileCard ${takenMonth>0 ? "hasVacation" : ""}">
