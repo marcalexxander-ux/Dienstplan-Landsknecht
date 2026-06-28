@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.4";
+const APP_VERSION="v6.0.5";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1099,26 +1099,41 @@ function vacationEntitlement(p){
   const n = Number(raw);
   return Number.isFinite(n) && n > 0 ? n : 30;
 }
+
 async function loadVacationPlanner(){
   if(!$("vacPlannerGrid") || !isManagement() || !profiles.length) return;
 
   const month = $("vacPlannerMonth")?.value || monthISO();
+  if($("vacPlannerMonth")) $("vacPlannerMonth").value = month;
+
   const from = firstOfMonthISO(month);
   const to = month + "-" + pad2(lastDayOfMonth(month));
-  const yearFrom = month.split("-")[0] + "-01-01";
-  const yearTo = month.split("-")[0] + "-12-31";
   const today = todayISO();
 
-  const [{data:monthData,error:monthError},{data:yearData},{data:scheduleVacations,error:scheduleError}] = await Promise.all([
-    sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]),
-    sb.from("vacation_requests").select("*").lte("date_from",yearTo).gte("date_to",yearFrom).eq("status","genehmigt"),
-    sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to).eq("status","urlaub")
+  $("vacPlannerGrid").innerHTML = `<div class="entry">Urlaub wird berechnet...</div>`;
+
+  const [vacRes, scheduleRes] = await Promise.all([
+    sb.from("vacation_requests")
+      .select("*")
+      .lte("date_from",to)
+      .gte("date_to",from)
+      .in("status",["beantragt","genehmigt"]),
+    sb.from("schedules")
+      .select("*")
+      .gte("work_date",from)
+      .lte("work_date",to)
   ]);
 
-  if(monthError || scheduleError){
-    $("vacPlannerGrid").innerHTML = `<div class="entry"><b>Fehler beim Laden des Urlaubsplaners:</b><br>${escapeHtml((monthError||scheduleError).message)}</div>`;
+  if(vacRes.error || scheduleRes.error){
+    const err = vacRes.error || scheduleRes.error;
+    $("vacPlannerGrid").innerHTML = `<div class="entry"><b>Fehler beim Berechnen:</b><br>${escapeHtml(err.message)}</div>`;
     return;
   }
+
+  const vacationRequests = vacRes.data || [];
+  const scheduleVacations = (scheduleRes.data || []).filter(s =>
+    String(s.status || "").toLowerCase().includes("urlaub")
+  );
 
   const rows = plannable()
     .slice()
@@ -1128,67 +1143,60 @@ async function loadVacationPlanner(){
       String(a.last_name||"").localeCompare(String(b.last_name||""))
     );
 
-  const monthByProfile = {};
-  (monthData||[]).forEach(v=>{
-    monthByProfile[v.profile_id] ||= [];
-    monthByProfile[v.profile_id].push(v);
-  });
-
-  const yearTaken = {};
-  (yearData||[]).forEach(v=>{
-    let d = v.date_from < yearFrom ? yearFrom : v.date_from;
-    const end = v.date_to > yearTo ? yearTo : v.date_to;
-    while(d <= end){
-      yearTaken[v.profile_id] = (yearTaken[v.profile_id] || 0) + vacationDayValue(v,d);
-      d = addDaysISO(d,1);
-    }
+  const requestsByProfile = {};
+  vacationRequests.forEach(v=>{
+    requestsByProfile[v.profile_id] ||= [];
+    requestsByProfile[v.profile_id].push(v);
   });
 
   const dayCount = lastDayOfMonth(month);
   let mobileHtml = `<div class="vacMobileCards">`;
   let html = `<div class="vacPlannerScroll"><table class="vacPlannerTable"><thead>`;
   html += `<tr><th class="vacNameHead">Mitarbeiter</th>`;
+
   for(let day=1; day<=dayCount; day++){
     const iso = month + "-" + pad2(day);
     const wd = days[weekdayMondayFirst(iso)];
     const cls = (weekdayMondayFirst(iso) >= 5 ? "weekend" : "") + (iso===today ? " today" : "");
     html += `<th class="vacDayHead ${cls}"><span>${wd}</span><b>${day}</b></th>`;
   }
+
   html += `<th class="vacSumHead">Anspruch</th><th class="vacTakenHead">Genommen</th><th class="vacRestHead">Rest</th></tr></thead><tbody>`;
 
   rows.forEach(p=>{
-    const employeeVacs = monthByProfile[p.id] || [];
     const dayMap = {};
-    employeeVacs.forEach(v=>{
+
+    (requestsByProfile[p.id] || []).forEach(v=>{
       const range = vacationDaysInRange(v,from,to);
       Object.entries(range).forEach(([iso,val])=>{
-        dayMap[iso] = {value:val,status:v.status,note:v.note||"",id:v.id};
+        dayMap[iso] = {value:val,status:v.status,source:"urlaubsliste",note:v.note||"",id:v.id};
       });
     });
 
-    (scheduleVacations||[])
-      .filter(s=>s.profile_id===p.id)
-      .forEach(s=>{
-        const iso=s.work_date;
-        if(!dayMap[iso] || dayMap[iso].status==="beantragt"){
-          dayMap[iso] = {value:1,status:"dienstplan",note:"Direkt im Dienstplan eingetragen",id:s.id};
-        }
-      });
+    scheduleVacations.filter(s=>s.profile_id===p.id).forEach(s=>{
+      const iso = s.work_date;
+      if(!iso || iso < from || iso > to) return;
+      if(!dayMap[iso] || dayMap[iso].status==="beantragt"){
+        dayMap[iso] = {value:1,status:"dienstplan",source:"dienstplan",note:"Direkt im Dienstplan als Urlaub eingetragen",id:s.id};
+      }
+    });
 
     const entitlement = vacationEntitlement(p);
     const takenMonth = Object.values(dayMap)
       .filter(x => x.status === "genehmigt" || x.status === "dienstplan")
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
     const rest = Math.max(0, entitlement - takenMonth);
-    const vacDays = Object.entries(dayMap).map(([iso,x])=>{
+
+    const vacDays = Object.entries(dayMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([iso,x])=>{
       const label = x.status==="dienstplan" ? "Dienstplan" : x.status;
-      return `${fmtDate(iso)} ${Number(x.value)===0.5?"½":"U"} (${label})`;
+      return `${fmtDate(iso)} ${Number(x.value)===0.5 ? "½" : "U"} (${label})`;
     });
+
     mobileHtml += `
-      <div class="vacMobileCard">
+      <div class="vacMobileCard ${takenMonth>0 ? "hasVacation" : ""}">
         <div class="vacMobileHead">
           <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
-          <strong>${takenMonth > 0 ? "Urlaub eingetragen" : "Kein Urlaub"}</strong>
+          <strong>${takenMonth > 0 ? euroHours(takenMonth).replace(",00","") + " genommen" : "Kein Urlaub"}</strong>
         </div>
         <div class="vacMobileStats">
           <span><small>Anspruch</small><b>${euroHours(entitlement).replace(",00","")}</b></span>
@@ -1204,9 +1212,11 @@ async function loadVacationPlanner(){
       const iso = month + "-" + pad2(day);
       const wd = weekdayMondayFirst(iso);
       const item = dayMap[iso];
+
       let cls = wd>=5 ? "weekend" : "";
       if(iso===today) cls += " today";
       if(item) cls += (item.status==="genehmigt" || item.status==="dienstplan") ? " vacApproved" : " vacRequested";
+
       const label = item ? (Number(item.value)===0.5 ? "½" : "U") : "";
       const title = item ? `${item.status} ${item.note||""}` : "";
       html += `<td class="vacDayCell ${cls}" title="${escapeHtml(title)}">${label}</td>`;
@@ -1225,7 +1235,9 @@ async function loadVacationPlanner(){
   mobileHtml += `</div>`;
   $("vacPlannerGrid").innerHTML = mobileHtml + html;
 }
+
 function setupVacationPlanner(){
+  if($("recalcVacationPlanner")) $("recalcVacationPlanner").onclick = loadVacationPlanner;
   if($("vacPlannerMonth")) $("vacPlannerMonth").value ||= monthISO();
   if($("prevVacPlannerMonth")) $("prevVacPlannerMonth").onclick = ()=>{
     const [y,m]=($("vacPlannerMonth").value||monthISO()).split("-").map(Number);

@@ -1961,3 +1961,23 @@ body.loggedIn #appView:not(.hidden){
     font-size:10px!important;
   }
 }
+
+
+/* v6.0.5 Urlaub-Rechner */
+#recalcVacationPlanner{
+  background:#b88a2e!important;
+  color:white!important;
+}
+.vacMobileCard.hasVacation{
+  border-color:#86efac!important;
+  background:#f0fdf4!important;
+}
+.vacMobileCard.hasVacation .vacMobileHead strong{
+  background:#dcfce7!important;
+  color:#166534!important;
+}
+@media(max-width:820px){
+  #recalcVacationPlanner{
+    order:4;
+  }
+}
