@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.8";
+const APP_VERSION="v6.0.9";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -580,10 +580,104 @@ function setupDashboardV57(){
   });
 }
 
+
+function employeeCanSeeOwnFinance(){
+  return !!profile && isMinijobProfile(profile);
+}
+
+function currentMonthRangeFromInput(inputId){
+  const month = $(inputId)?.value || monthISO();
+  return {
+    month,
+    from:firstOfMonthISO(month),
+    to:month+"-"+pad2(lastDayOfMonth(month))
+  };
+}
+
+async function loadEmployeeOwnOverview(){
+  if(!$("employeeOwnOverview") || !session || !profile || isManagement()) {
+    if($("employeeOwnOverview")) $("employeeOwnOverview").innerHTML="";
+    return;
+  }
+
+  const month = monthISO();
+  const from = firstOfMonthISO(month);
+  const to = month+"-"+pad2(lastDayOfMonth(month));
+
+  const [scheduleRes,timeRes] = await Promise.all([
+    sb.from("schedules").select("*").eq("profile_id",profile.id).gte("work_date",from).lte("work_date",to).order("work_date",{ascending:true}),
+    sb.from("time_entries").select("*").eq("profile_id",profile.id).gte("work_date",from).lte("work_date",to).order("work_date",{ascending:true})
+  ]);
+
+  if(scheduleRes.error || timeRes.error){
+    const err = scheduleRes.error || timeRes.error;
+    $("employeeOwnOverview").innerHTML = `<div class="entry"><b>Fehler beim Laden deiner Stunden:</b><br>${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  const schedules = scheduleRes.data || [];
+  const times = timeRes.data || [];
+
+  const plannedWork = schedules.filter(s=>s.status==="arbeit");
+  const plannedHours = plannedWork.reduce((sum,s)=>sum+scheduleHoursForMinijobEntry(s),0);
+  const realHours = times.reduce((sum,t)=>sum+Number(t.hours||0),0);
+
+  const rate = Number(profile.hourly_rate || 0);
+  const isMini = employeeCanSeeOwnFinance();
+  const limit = 603;
+  const earned = isMini ? plannedHours * rate : 0;
+  const rest = isMini ? Math.max(0,limit-earned) : 0;
+  const pct = isMini && limit ? Math.round((earned/limit)*100) : 0;
+
+  let status = "OK";
+  let cls = "ownOk";
+  if(isMini && earned >= limit){ status="Grenze erreicht"; cls="ownStop"; }
+  else if(isMini && earned >= limit*0.8){ status="Achtung"; cls="ownWarn"; }
+
+  const plannedList = plannedWork.length ? plannedWork.map(s=>`
+    <div class="ownRow">
+      <span>${fmtDate(s.work_date)}</span>
+      <b>${String(s.start_time||"").slice(0,5)}-${String(s.end_time||"").slice(0,5)}</b>
+    </div>`).join("") : `<p class="small">Keine geplanten Arbeitsschichten in diesem Monat.</p>`;
+
+  const timeList = times.length ? times.map(t=>`
+    <div class="ownRow">
+      <span>${fmtDate(t.work_date)}</span>
+      <b>${String(t.start_time||"").slice(0,5)}-${String(t.end_time||"").slice(0,5)} · ${euroHours(t.hours)} Std.</b>
+    </div>`).join("") : `<p class="small">Keine Zeiteinträge in diesem Monat.</p>`;
+
+  $("employeeOwnOverview").innerHTML = `
+    <div class="ownHoursCard ${cls}">
+      <div class="ownHoursHead">
+        <div>
+          <h3>Meine Stunden</h3>
+          <p>${escapeHtml(month)} · nur deine eigenen Daten</p>
+        </div>
+        ${isMini ? `<strong>${status}</strong>` : ""}
+      </div>
+
+      <div class="ownStats">
+        <span><small>Geplant</small><b>${euroHours(plannedHours)}</b></span>
+        <span><small>Erfasst</small><b>${euroHours(realHours)}</b></span>
+        ${isMini ? `<span><small>Verdienst</small><b>${earned.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></span>` : ""}
+        ${isMini ? `<span><small>Rest 603 €</small><b>${rest.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €</b></span>` : ""}
+      </div>
+
+      ${isMini ? `<div class="ownProgress"><span style="width:${Math.min(100,pct)}%"></span></div><p class="small">Stundenlohn: ${rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} € · Grenze: 603,00 €</p>` : ""}
+
+      <h4>Meine geplanten Dienste</h4>
+      ${plannedList}
+
+      <h4>Meine erfassten Zeiten</h4>
+      ${timeList}
+    </div>
+  `;
+}
+
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadSummary(),loadMinijobCenter()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadSummary(),loadMinijobCenter(),loadEmployeeOwnOverview()]);
 }
 
 async function loadProfiles(){
@@ -854,6 +948,7 @@ async function saveScheduleCell(inp){
   await loadDashboardLight();
   await loadMonth();
   await loadMinijobCenter();
+  await loadEmployeeOwnOverview();
 }
 
 $("prevMonth").onclick=()=>{const[y,m]=($("monthSelect").value||monthISO()).split("-").map(Number);$("monthSelect").value=monthISO(new Date(y,m-2,1));loadMonth()};
@@ -997,12 +1092,14 @@ $("saveTime").onclick=async()=>{
   let a=sh*60+sm,b=eh*60+em;if(b<a)b+=1440;
   br=effectiveBreakMinutes(b-a,br);
   const{error}=await sb.from("time_entries").insert({profile_id:profileId,work_date:date,start_time:start,end_time:end,break_minutes:br,hours:hoursBetween(start,end,br),created_by:profile.id});
-  if(error)alert(error.message);else{await loadTimes();await loadSummary()}
+  if(error)alert(error.message);else{await loadTimes();await loadSummary();await loadEmployeeOwnOverview()}
 };
 async function loadTimes(){
   let q=sb.from("time_entries").select("*, profiles(first_name,last_name)").order("work_date",{ascending:false}).limit(50);
+  if(!isManagement()) q = q.eq("profile_id",profile.id);
   const{data}=await q;
-  $("timeList").innerHTML=(data||[]).map(e=>`<div class="entry"><b>${escapeHtml(e.profiles?.first_name||"")} ${escapeHtml(e.profiles?.last_name||"")}</b><br>${fmtDate(e.work_date)}: ${e.start_time.slice(0,5)}-${e.end_time.slice(0,5)}, Pause ${e.break_minutes} Min.<br><b>${euroHours(e.hours)} Std.</b></div>`).join("")||"<p>Keine Zeiteinträge.</p>";
+  $("timeList").innerHTML=(data||[]).map(e=>`<div class="entry"><b>${escapeHtml(e.profiles?.first_name||"")} ${escapeHtml(e.profiles?.last_name||"")}</b><br>${fmtDate(e.work_date)}: ${String(e.start_time||"").slice(0,5)}-${String(e.end_time||"").slice(0,5)}, Pause ${e.break_minutes} Min.<br><b>${euroHours(e.hours)} Std.</b></div>`).join("")||"<p>Keine Zeiteinträge.</p>";
+  await loadEmployeeOwnOverview();
 }
 
 
@@ -1441,7 +1538,11 @@ $("exportCsv").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="stunden-auswertung.csv";a.click()
 };
 async function loadSummary(){
-  if(!isManagement())return;
+  if(!isManagement()){
+    if($("summaryList")) $("summaryList").innerHTML = "<p>Du siehst hier nur deine eigenen Stunden über die Zeiterfassung.</p>";
+    await loadEmployeeOwnOverview();
+    return;
+  }
   const from=$("sumFrom").value||"0000-01-01",to=$("sumTo").value||"9999-12-31";
   const{data}=await sb.from("time_entries").select("*, profiles(first_name,last_name,department,role)").gte("work_date",from).lte("work_date",to);
   const totals={};
@@ -1546,7 +1647,13 @@ function scheduleHoursForMinijobEntry(entry){
 }
 
 async function loadMinijobCenter(){
-  if(!$("minijobCenterList") || !isManagement()) return;
+  if(!$("minijobCenterList")) return;
+  if(!isManagement()){
+    if(!employeeCanSeeOwnFinance()){
+      $("minijobCenterList").innerHTML = `<div class="entry">Für dich ist kein Minijob-Center freigeschaltet.</div>`;
+      return;
+    }
+  }
 
   const month = $("minijobMonth")?.value || monthISO();
   const limit = Number($("minijobLimit")?.value || 603);
@@ -1566,7 +1673,7 @@ async function loadMinijobCenter(){
   }
 
   const minijobbers = profiles
-    .filter(isMinijobProfile)
+    .filter(p=>isManagement() ? isMinijobProfile(p) : p.id===profile.id && isMinijobProfile(p))
     .sort((a,b)=>
       (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
       String(a.last_name||"").localeCompare(String(b.last_name||""))
@@ -1588,7 +1695,7 @@ async function loadMinijobCenter(){
 
   let html = `
     <div class="miniInfo">
-      <b>Quelle:</b> Dienstplan · <b>Monat:</b> ${escapeHtml(month)} · <b>Grenze:</b> ${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €<br>
+      ${isManagement() ? "<b>Quelle:</b> Dienstplan" : "<b>Meine Minijob-Übersicht</b>"} · <b>Monat:</b> ${escapeHtml(month)} · <b>Grenze:</b> ${limit.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €<br>
       Nur Minijob Service, Minijob Bar und Minijob Küche. Ab 4 Stunden werden 30 Minuten Pause abgezogen.
     </div>
     <div class="grid"><table class="miniJobTable">
