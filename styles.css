@@ -2191,3 +2191,21 @@ body.loggedIn #appView:not(.hidden){
   background:#dcfce7!important;
   color:#14532d!important;
 }
+
+
+/* v6.0.8 Tagesinfos Rechte */
+.infoReadOnlyHint{
+  display:none;
+  background:#f8fafc;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:10px 12px;
+  color:#64748b;
+  font-weight:700;
+}
+body.employeeMode .employeeOnlyHint{
+  display:block!important;
+}
+body.employeeMode #infos .infoEntryActions{
+  display:none!important;
+}

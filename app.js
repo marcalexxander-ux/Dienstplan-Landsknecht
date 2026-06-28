@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.7";
+const APP_VERSION="v6.0.8";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -205,6 +205,7 @@ async function loadProfile(){
 function setAuthBodyState(logged){
   document.body.classList.toggle("loggedIn", !!logged);
   document.body.classList.toggle("loggedOut", !logged);
+  document.body.classList.toggle("employeeMode", !!logged && !isManagement());
 }
 
 function renderAuth(){
@@ -910,12 +911,14 @@ async function loadMonth(){
 }
 
 $("saveInfo").onclick=async()=>{
+  if(!isManagement()) return alert("Tagesinfos dürfen nur von der Geschäftsführung bearbeitet werden.");
   const d=$("infoDate").value,t=$("infoText").value.trim();
   if(!d||!t)return alert("Datum und Info ausfüllen.");
   const{error}=await sb.from("daily_infos").upsert({info_date:d,info_text:t,created_by:profile.id},{onConflict:"info_date"});
   if(error)alert(error.message);else{$("infoText").value="";await createNotification("Neue Tagesinfo",t);await loadInfos();await loadPlanService();await loadPlanKitchen();await loadMonth()}
 };
 $("deleteInfo").onclick=async()=>{
+  if(!isManagement()) return alert("Tagesinfos dürfen nur von der Geschäftsführung gelöscht werden.");
   const d=$("infoDate").value;
   if(!d)return alert("Bitte Datum auswählen.");
   if(!confirm("Tagesinfo für dieses Datum wirklich löschen?")) return;
@@ -932,6 +935,7 @@ $("deleteInfo").onclick=async()=>{
 };
 
 function editDailyInfo(date){
+  if(!isManagement()) return alert("Tagesinfos dürfen nur von der Geschäftsführung bearbeitet werden.");
   const item = (dailyInfoCache||[]).find(x=>x.info_date===date);
   if(!item) return alert("Tagesinfo nicht gefunden.");
 
@@ -944,6 +948,7 @@ function editDailyInfo(date){
 window.editDailyInfo = editDailyInfo;
 
 async function deleteDailyInfo(date){
+  if(!isManagement()) return alert("Tagesinfos dürfen nur von der Geschäftsführung gelöscht werden.");
   if(!date) return;
   if(!confirm("Diese Tagesinfo wirklich löschen?")) return;
 
@@ -976,10 +981,10 @@ async function loadInfos(){
       <div class="infoEntryText">
         <b>${fmtDate(i.info_date)}</b><br>${escapeHtml(i.info_text)}
       </div>
-      <div class="infoEntryActions">
+      ${isManagement()?`<div class="infoEntryActions">
         <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}')">Bearbeiten</button>
         <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Löschen</button>
-      </div>
+      </div>`:""}
     </div>
   `).join("")||"<p>Keine Tagesinfos.</p>";
 }
