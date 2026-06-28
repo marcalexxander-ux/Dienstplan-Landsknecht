@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.3";
+const APP_VERSION="v6.0.4";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1109,13 +1109,14 @@ async function loadVacationPlanner(){
   const yearTo = month.split("-")[0] + "-12-31";
   const today = todayISO();
 
-  const [{data:monthData,error:monthError},{data:yearData}] = await Promise.all([
+  const [{data:monthData,error:monthError},{data:yearData},{data:scheduleVacations,error:scheduleError}] = await Promise.all([
     sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]),
-    sb.from("vacation_requests").select("*").lte("date_from",yearTo).gte("date_to",yearFrom).eq("status","genehmigt")
+    sb.from("vacation_requests").select("*").lte("date_from",yearTo).gte("date_to",yearFrom).eq("status","genehmigt"),
+    sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to).eq("status","urlaub")
   ]);
 
-  if(monthError){
-    $("vacPlannerGrid").innerHTML = `<div class="entry"><b>Fehler beim Laden des Urlaubsplaners:</b><br>${escapeHtml(monthError.message)}</div>`;
+  if(monthError || scheduleError){
+    $("vacPlannerGrid").innerHTML = `<div class="entry"><b>Fehler beim Laden des Urlaubsplaners:</b><br>${escapeHtml((monthError||scheduleError).message)}</div>`;
     return;
   }
 
@@ -1165,12 +1166,24 @@ async function loadVacationPlanner(){
       });
     });
 
+    (scheduleVacations||[])
+      .filter(s=>s.profile_id===p.id)
+      .forEach(s=>{
+        const iso=s.work_date;
+        if(!dayMap[iso] || dayMap[iso].status==="beantragt"){
+          dayMap[iso] = {value:1,status:"dienstplan",note:"Direkt im Dienstplan eingetragen",id:s.id};
+        }
+      });
+
     const entitlement = vacationEntitlement(p);
     const takenMonth = Object.values(dayMap)
-      .filter(x => x.status === "genehmigt")
+      .filter(x => x.status === "genehmigt" || x.status === "dienstplan")
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
     const rest = Math.max(0, entitlement - takenMonth);
-    const vacDays = Object.entries(dayMap).map(([iso,x])=>`${fmtDate(iso)} ${Number(x.value)===0.5?"½":"U"} (${x.status})`);
+    const vacDays = Object.entries(dayMap).map(([iso,x])=>{
+      const label = x.status==="dienstplan" ? "Dienstplan" : x.status;
+      return `${fmtDate(iso)} ${Number(x.value)===0.5?"½":"U"} (${label})`;
+    });
     mobileHtml += `
       <div class="vacMobileCard">
         <div class="vacMobileHead">
@@ -1193,7 +1206,7 @@ async function loadVacationPlanner(){
       const item = dayMap[iso];
       let cls = wd>=5 ? "weekend" : "";
       if(iso===today) cls += " today";
-      if(item) cls += item.status==="genehmigt" ? " vacApproved" : " vacRequested";
+      if(item) cls += (item.status==="genehmigt" || item.status==="dienstplan") ? " vacApproved" : " vacRequested";
       const label = item ? (Number(item.value)===0.5 ? "½" : "U") : "";
       const title = item ? `${item.status} ${item.note||""}` : "";
       html += `<td class="vacDayCell ${cls}" title="${escapeHtml(title)}">${label}</td>`;
