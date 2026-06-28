@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.2";
+const APP_VERSION="v6.0.3";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1175,14 +1175,14 @@ async function loadVacationPlanner(){
       <div class="vacMobileCard">
         <div class="vacMobileHead">
           <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
-          <strong>${euroHours(rest).replace(",00","")} Rest</strong>
+          <strong>${takenMonth > 0 ? "Urlaub eingetragen" : "Kein Urlaub"}</strong>
         </div>
         <div class="vacMobileStats">
           <span><small>Anspruch</small><b>${euroHours(entitlement).replace(",00","")}</b></span>
           <span><small>Genommen</small><b>${euroHours(takenMonth).replace(",00","")}</b></span>
           <span><small>Rest</small><b>${euroHours(rest).replace(",00","")}</b></span>
         </div>
-        <div class="vacMobileDays">${vacDays.length ? vacDays.map(x=>`<em>${escapeHtml(x)}</em>`).join("") : "<em>Keine Urlaube in diesem Monat.</em>"}</div>
+        <div class="vacMobileDays">${vacDays.length ? vacDays.map(x=>`<em>${escapeHtml(x)}</em>`).join("") : "<em>Kein Urlaub im Monat</em>"}</div>
       </div>`;
 
     html += `<tr><td class="vacNameCell"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></td>`;

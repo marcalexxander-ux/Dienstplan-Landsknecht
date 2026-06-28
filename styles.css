@@ -1799,3 +1799,165 @@ body.loggedIn #appView:not(.hidden){
     display:none!important;
   }
 }
+
+
+/* v6.0.3 Urlaub optimiert */
+
+.vacPlannerHeader{
+  align-items:center!important;
+}
+.vacPlannerControls{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:10px!important;
+}
+.vacPlannerControls button,
+.vacPlannerControls input{
+  width:auto!important;
+  min-width:150px!important;
+  max-width:220px!important;
+}
+.vacPlannerControls input[type="month"]{
+  text-align:center!important;
+}
+
+.vacSumHead,
+.vacTakenHead,
+.vacRestHead{
+  writing-mode:horizontal-tb!important;
+  transform:none!important;
+  min-width:92px!important;
+  max-width:110px!important;
+  height:56px!important;
+  padding:8px!important;
+  vertical-align:middle!important;
+  text-align:center!important;
+  line-height:1.15!important;
+  position:sticky!important;
+  top:0!important;
+  z-index:2!important;
+}
+
+.vacPlannerTable{
+  font-size:13px!important;
+}
+.vacDayHead{
+  min-width:38px!important;
+}
+.vacDayCell{
+  min-width:38px!important;
+  height:34px!important;
+}
+.vacNameHead,
+.vacNameCell{
+  min-width:230px!important;
+  max-width:230px!important;
+}
+.vacSumCell,
+.vacTakenCell,
+.vacRestCell{
+  min-width:92px!important;
+  font-size:14px!important;
+}
+.vacDayCell.weekend{
+  background:#fbf1c2!important;
+}
+
+@media(max-width:820px){
+  .vacPlannerCard{
+    padding:14px!important;
+  }
+  .vacPlannerHeader{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  .vacPlannerHeader h3{
+    font-size:24px!important;
+    line-height:1.15!important;
+    margin-bottom:4px!important;
+  }
+  .vacPlannerHeader p{
+    font-size:15px!important;
+    line-height:1.35!important;
+  }
+  .vacPlannerControls{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+    width:100%!important;
+  }
+  .vacPlannerControls button,
+  .vacPlannerControls input{
+    width:100%!important;
+    max-width:none!important;
+    min-width:0!important;
+    min-height:44px!important;
+    font-size:16px!important;
+  }
+  .vacLegend{
+    gap:6px!important;
+    margin:8px 0 12px!important;
+  }
+  .vacLegend span{
+    font-size:13px!important;
+    padding:6px 9px!important;
+  }
+  .vacMobileCards{
+    gap:10px!important;
+  }
+  .vacMobileCard{
+    padding:12px!important;
+    border-radius:16px!important;
+  }
+  .vacMobileHead{
+    margin-bottom:8px!important;
+  }
+  .vacMobileHead b{
+    font-size:20px!important;
+    line-height:1.15!important;
+  }
+  .vacMobileHead small{
+    font-size:15px!important;
+    color:#647067!important;
+  }
+  .vacMobileHead strong{
+    font-size:14px!important;
+    padding:5px 8px!important;
+    border-radius:999px!important;
+    background:#ecfdf5!important;
+    color:#065f46!important;
+    white-space:nowrap!important;
+  }
+  .vacMobileStats{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+    margin:8px 0!important;
+  }
+  .vacMobileStats span{
+    padding:8px 4px!important;
+    border-radius:12px!important;
+  }
+  .vacMobileStats small{
+    font-size:11px!important;
+    line-height:1.1!important;
+  }
+  .vacMobileStats b{
+    font-size:22px!important;
+    line-height:1.1!important;
+  }
+  .vacMobileDays em{
+    font-size:12px!important;
+    padding:5px 8px!important;
+  }
+}
+
+@media(max-width:430px){
+  .vacMobileStats b{
+    font-size:20px!important;
+  }
+  .vacMobileStats small{
+    font-size:10px!important;
+  }
+}
