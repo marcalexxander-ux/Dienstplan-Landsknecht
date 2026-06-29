@@ -2335,3 +2335,30 @@ body.loggedIn:not(.employeeMode) .employeeHoursNav{
     font-size:30px!important;
   }
 }
+
+
+/* v6.0.11 Mitarbeiter sehen nur Arbeitsschichten */
+body.employeeMode #planService .planLegend .legendVacation,
+body.employeeMode #planService .planLegend .legendSick,
+body.employeeMode #planService .planLegend .legendFree,
+body.employeeMode #planKitchen .planLegend .legendVacation,
+body.employeeMode #planKitchen .planLegend .legendSick,
+body.employeeMode #planKitchen .planLegend .legendFree{
+  display:none!important;
+}
+
+body.employeeMode #dashboardVacationsV57{
+  display:none!important;
+}
+
+body.employeeMode .mobileShiftRow.vac,
+body.employeeMode .mobileShiftRow.sick,
+body.employeeMode .mobileShiftRow.free{
+  display:none!important;
+}
+
+body.employeeMode .shift.vac,
+body.employeeMode .shift.sick,
+body.employeeMode .shift.free{
+  display:none!important;
+}

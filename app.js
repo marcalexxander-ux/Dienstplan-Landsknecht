@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.10";
+const APP_VERSION="v6.0.11";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -497,11 +497,14 @@ async function loadDashboardV57(){
   const minijobWarnCount = Object.values(minijobTotals).filter(t=>minijobLimit && t.earned >= minijobLimit*0.8).length;
 
   if($("dashboardStatsV57")){
-    $("dashboardStatsV57").innerHTML = [
+    $("dashboardStatsV57").innerHTML = isManagement() ? [
       dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
       dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
       dashboardV57Card("Urlaub", String(todayVacations.length), "heute"),
       dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub"),
+      dashboardV57Card("Events", String(events.length), "kommend")
+    ].join("") : [
+      dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
       dashboardV57Card("Events", String(events.length), "kommend")
     ].join("");
   }
@@ -794,6 +797,18 @@ async function reorderEmployeeBefore(draggedId,targetIdProfile){
 }
 
 
+
+function employeeVisibleScheduleItem(item){
+  if(isManagement()) return true;
+  return !!item && item.status === "arbeit";
+}
+function scheduleCellValueForVisibility(item){
+  if(!item) return "";
+  if(!isManagement() && item.status !== "arbeit") return "";
+  if(item.status === "arbeit") return `${String(item.start_time||"").slice(0,5)}-${String(item.end_time||"").slice(0,5)}`;
+  return item.status || "";
+}
+
 async function loadPlanFiltered(title,week,departments,targetId){
   const from=week,to=addDaysISO(week,6);
   const[{data:schedules},{data:infos},{data:events}]=await Promise.all([
@@ -814,27 +829,36 @@ async function loadPlanFiltered(title,week,departments,targetId){
     eventsByDate[e.event_date].push(e);
   });
 
-  const people=plannable()
+  let people=plannable()
     .filter(p=>departments.includes(p.department))
     .sort((a,b)=>
       (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
       String(a.last_name||"").localeCompare(String(b.last_name||""))
     );
 
+  if(!isManagement()){
+    people = people.filter(p => days.some((_,i)=>{
+      const iso=addDaysISO(week,i);
+      const item=byKey[`${p.id}_${iso}`];
+      return item && item.status === "arbeit";
+    }));
+  }
+
   function cellValue(item){
-    if(!item) return "";
-    return item.status==="arbeit"
-      ? `${item.start_time?.slice(0,5)||""}-${item.end_time?.slice(0,5)||""}`
-      : item.status;
+    return scheduleCellValueForVisibility(item);
   }
 
   let mobile = `<div class="mobilePlanCards"><h3>Mobile Übersicht ${escapeHtml(title)}</h3>`;
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
-    const dayRows=people.map(p=>({p,item:byKey[`${p.id}_${iso}`]})).filter(x=>x.item);
+    const dayRows=people
+      .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
+      .filter(x=>isManagement() ? x.item : (x.item && x.item.status==="arbeit"));
+
     mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><b>${d}, ${fmtDate(iso)}</b></div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     (eventsByDate[iso]||[]).forEach(e=>mobile += `<div class="mobileDayEvent">${escapeHtml(eventPlanLabel(e))}</div>`);
+
     if(dayRows.length){
       mobile += dayRows.map(({p,item})=>`
         <div class="mobileShiftRow ${shiftClass(cellValue(item))}">
@@ -843,7 +867,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
         </div>
       `).join("");
     }else{
-      mobile += `<div class="mobileEmpty">Keine Einträge.</div>`;
+      mobile += `<div class="mobileEmpty">${isManagement() ? "Keine Einträge." : "Keine Arbeitsschichten."}</div>`;
     }
     mobile += `</div>`;
   });
@@ -852,10 +876,12 @@ async function loadPlanFiltered(title,week,departments,targetId){
   let html=mobile;
   html += '<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div>';
   html += '<div class="desktopPlanGrid grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
+
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
     html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
   });
+
   html+='</tr></thead><tbody>';
 
   people.forEach(p=>{
@@ -865,12 +891,15 @@ async function loadPlanFiltered(title,week,departments,targetId){
       const val=cellValue(item);
       html+=isManagement()
         ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)}" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="08:00-16:00 / frei / urlaub / krank"></td>`
-        : `<td>${shiftPill(val)}</td>`;
+        : `<td>${val ? shiftPill(val) : "<span class='small'>—</span>"}</td>`;
     });
     html+="</tr>";
   });
 
-  if(!people.length) html+=`<tr><td colspan="8"><span class="small">Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.</span></td></tr>`;
+  if(!people.length){
+    html+=`<tr><td colspan="8"><span class="small">${isManagement()?`Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.`:`Keine Arbeitsschichten in dieser Woche.`}</span></td></tr>`;
+  }
+
   html+="</tbody></table></div>";
 
   $(targetId).innerHTML=html;
