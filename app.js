@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.12";
+const APP_VERSION="v6.0.13";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -34,6 +34,28 @@ function hoursBetween(start,end,breakMin){
   return Math.max(0,(total-effectiveBreak)/60);
 }
 function euroHours(h){return(Number(h)||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})}
+
+function isOwnProfile(p){
+  return !!profile && !!p && p.id === profile.id;
+}
+function ownShiftBadge(p){
+  return (!isManagement() && isOwnProfile(p)) ? `<span class="ownShiftBadge">Du</span>` : "";
+}
+function ownShiftClass(p){
+  return (!isManagement() && isOwnProfile(p)) ? " ownShiftHighlight" : "";
+}
+function sortOwnShiftFirst(rows){
+  if(isManagement() || !profile) return rows;
+  return rows.slice().sort((a,b)=>{
+    const aOwn = a.p?.id === profile.id ? 1 : 0;
+    const bOwn = b.p?.id === profile.id ? 1 : 0;
+    if(aOwn !== bOwn) return bOwn - aOwn;
+    const aTime = a.s?.start_time || a.item?.start_time || "";
+    const bTime = b.s?.start_time || b.item?.start_time || "";
+    return String(aTime).localeCompare(String(bTime)) || String(a.p?.last_name||"").localeCompare(String(b.p?.last_name||""));
+  });
+}
+
 function isManagement(){return profile?.role==="management"||profile?.role==="admin"}
 function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
@@ -509,14 +531,14 @@ async function loadDashboardV57(){
     ].join("");
   }
 
-  const sortedToday = workToday
+  const sortedToday = sortOwnShiftFirst(workToday
     .map(s=>({s,p:profileById(s.profile_id)}))
-    .sort((a,b)=>String(a.s.start_time||"").localeCompare(String(b.s.start_time||"")) || String(a.p.last_name||"").localeCompare(String(b.p.last_name||"")));
+    .sort((a,b)=>String(a.s.start_time||"").localeCompare(String(b.s.start_time||"")) || String(a.p.last_name||"").localeCompare(String(b.p.last_name||""))));
 
   if($("dashboardTodayWorkersV57")){
     $("dashboardTodayWorkersV57").innerHTML = sortedToday.length ? sortedToday.map(({s,p})=>`
-      <div class="dashItemV57">
-        <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${deptBadge(p.department)}</small></div>
+      <div class="dashItemV57${ownShiftClass(p)}">
+        <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${deptBadge(p.department)}</small></div>
         <strong>${escapeHtml(dashboardV57ShiftText(s))}</strong>
       </div>
     `).join("") : `<div class="dashEmptyV57">Heute sind keine Schichten eingetragen.</div>`;
@@ -897,9 +919,9 @@ async function loadPlanFiltered(title,week,departments,targetId){
   let mobile = `<div class="mobilePlanCards"><h3>Mobile Übersicht ${escapeHtml(title)}</h3>`;
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
-    const dayRows=people
+    const dayRows=sortOwnShiftFirst(people
       .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
-      .filter(x=>isManagement() ? x.item : (x.item && x.item.status==="arbeit"));
+      .filter(x=>isManagement() ? x.item : (x.item && x.item.status==="arbeit")));
 
     mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><b>${d}, ${fmtDate(iso)}</b></div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
@@ -907,8 +929,8 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
     if(dayRows.length){
       mobile += dayRows.map(({p,item})=>`
-        <div class="mobileShiftRow ${shiftClass(cellValue(item))}">
-          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
+        <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}">
+          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small></div>
           <strong>${escapeHtml(cellValue(item))}</strong>
         </div>
       `).join("");
@@ -931,7 +953,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   html+='</tr></thead><tbody>';
 
   people.forEach(p=>{
-    html+=`<tr ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)}</td>`;
+    html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)} ${ownShiftBadge(p)}</td>`;
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
       const val=cellValue(item);
