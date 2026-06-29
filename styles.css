@@ -2362,3 +2362,35 @@ body.employeeMode .shift.sick,
 body.employeeMode .shift.free{
   display:none!important;
 }
+
+
+/* v6.0.12 Meine Stunden Zeitraum */
+.myHoursControls{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0 12px;
+  align-items:end;
+}
+.myHoursControls label{
+  display:grid;
+  gap:5px;
+  font-weight:800;
+  color:#111827;
+}
+.myHoursControls input{
+  min-height:42px;
+}
+.myHoursControls button{
+  min-height:42px;
+}
+@media(max-width:820px){
+  .myHoursControls{
+    grid-template-columns:1fr;
+  }
+  .myHoursControls button,
+  .myHoursControls input{
+    width:100%!important;
+    min-height:52px!important;
+  }
+}

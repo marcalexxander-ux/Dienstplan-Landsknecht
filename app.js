@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.11";
+const APP_VERSION="v6.0.12";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -597,6 +597,51 @@ function currentMonthRangeFromInput(inputId){
   };
 }
 
+
+function myHoursDefaultRange(){
+  const month = monthISO();
+  return {
+    from:firstOfMonthISO(month),
+    to:month+"-"+pad2(lastDayOfMonth(month))
+  };
+}
+function getMyHoursRange(){
+  const def = myHoursDefaultRange();
+  const fromEl = $("myHoursFrom");
+  const toEl = $("myHoursTo");
+
+  if(fromEl && !fromEl.value) fromEl.value = def.from;
+  if(toEl && !toEl.value) toEl.value = def.to;
+
+  const from = fromEl?.value || def.from;
+  const to = toEl?.value || def.to;
+
+  return from <= to ? {from,to} : {from:to,to:from};
+}
+function setupMyHoursRangeControls(){
+  const fromEl = $("myHoursFrom");
+  const toEl = $("myHoursTo");
+  if(fromEl && toEl){
+    const def = myHoursDefaultRange();
+    fromEl.value ||= def.from;
+    toEl.value ||= def.to;
+  }
+  if($("myHoursCalc")) $("myHoursCalc").onclick = loadEmployeeOwnOverview;
+  if($("myHoursThisMonth")) $("myHoursThisMonth").onclick = ()=>{
+    const def = myHoursDefaultRange();
+    if($("myHoursFrom")) $("myHoursFrom").value = def.from;
+    if($("myHoursTo")) $("myHoursTo").value = def.to;
+    loadEmployeeOwnOverview();
+  };
+  if($("myHoursThisWeek")) $("myHoursThisWeek").onclick = ()=>{
+    const from = mondayISO();
+    const to = addDaysISO(from,6);
+    if($("myHoursFrom")) $("myHoursFrom").value = from;
+    if($("myHoursTo")) $("myHoursTo").value = to;
+    loadEmployeeOwnOverview();
+  };
+}
+
 async function loadEmployeeOwnOverview(){
   const targets = ["employeeOwnOverview","myHoursOverview"].map(id=>$(id)).filter(Boolean);
   if(!targets.length || !session || !profile || isManagement()) {
@@ -604,9 +649,10 @@ async function loadEmployeeOwnOverview(){
     return;
   }
 
-  const month = monthISO();
-  const from = firstOfMonthISO(month);
-  const to = month+"-"+pad2(lastDayOfMonth(month));
+  setupMyHoursRangeControls();
+
+  const {from,to} = getMyHoursRange();
+  const rangeLabel = `${fmtDate(from)} bis ${fmtDate(to)}`;
 
   const [scheduleRes,timeRes] = await Promise.all([
     sb.from("schedules").select("*").eq("profile_id",profile.id).gte("work_date",from).lte("work_date",to).order("work_date",{ascending:true}),
@@ -642,20 +688,20 @@ async function loadEmployeeOwnOverview(){
     <div class="ownRow">
       <span>${fmtDate(s.work_date)}</span>
       <b>${String(s.start_time||"").slice(0,5)}-${String(s.end_time||"").slice(0,5)}</b>
-    </div>`).join("") : `<p class="small">Keine geplanten Arbeitsschichten in diesem Monat.</p>`;
+    </div>`).join("") : `<p class="small">Keine geplanten Arbeitsschichten in diesem Zeitraum.</p>`;
 
   const timeList = times.length ? times.map(t=>`
     <div class="ownRow">
       <span>${fmtDate(t.work_date)}</span>
       <b>${String(t.start_time||"").slice(0,5)}-${String(t.end_time||"").slice(0,5)} · ${euroHours(t.hours)} Std.</b>
-    </div>`).join("") : `<p class="small">Keine Zeiteinträge in diesem Monat.</p>`;
+    </div>`).join("") : `<p class="small">Keine Zeiteinträge in diesem Zeitraum.</p>`;
 
   const ownHtml = `
     <div class="ownHoursCard ${cls}">
       <div class="ownHoursHead">
         <div>
           <h3>Meine Stunden</h3>
-          <p>${escapeHtml(month)} · nur deine eigenen Daten</p>
+          <p>${escapeHtml(rangeLabel)} · nur deine eigenen Daten</p>
         </div>
         ${isMini ? `<strong>${status}</strong>` : ""}
       </div>
@@ -2089,6 +2135,7 @@ function setupPlanPublishButtons(){
 }
 
 setupPlanPublishButtons();
+setupMyHoursRangeControls();
 setupDashboardV57();
 setupEvents();
 

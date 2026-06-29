@@ -313,6 +313,18 @@
       <section id="myHours" class="tabPage card hidden">
         <h2>Meine Stunden</h2>
         <p class="small">Hier siehst du nur deine eigenen geplanten Dienste und erfassten Zeiten.</p>
+        
+        <div class="myHoursControls">
+          <button id="myHoursThisWeek" type="button" class="secondary">Diese Woche</button>
+          <button id="myHoursThisMonth" type="button" class="secondary">Dieser Monat</button>
+          <label>Von
+            <input id="myHoursFrom" type="date">
+          </label>
+          <label>Bis
+            <input id="myHoursTo" type="date">
+          </label>
+          <button id="myHoursCalc" type="button">Zeitraum berechnen</button>
+        </div>
         <div id="myHoursOverview" class="employeeOwnOverview"></div>
       </section>
 
