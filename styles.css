@@ -2476,3 +2476,116 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
 .ownShiftBadge{
   display:none!important;
 }
+
+
+/* v6.0.15 Smartphone: Menü durch Touch-Buttons oben ersetzen */
+.mobileTouchNav{display:none;}
+.mobileTouchLogoutBtn{display:none;}
+
+@media(max-width:820px){
+  body.loggedIn #mobileMenuToggle,
+  #mobileMenuToggle{
+    display:none!important;
+    visibility:hidden!important;
+    height:0!important;
+    min-height:0!important;
+    padding:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
+
+  #appView.layout{
+    display:block!important;
+    grid-template-columns:1fr!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-height:0!important;
+    overflow-x:hidden!important;
+  }
+
+  #appView .sidebar,
+  #appView nav.sidebar,
+  .sidebar,
+  nav.sidebar{
+    display:none!important;
+    visibility:hidden!important;
+    transform:none!important;
+    position:static!important;
+    width:0!important;
+    height:0!important;
+    padding:0!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
+
+  body.loggedIn .mobileTouchNav{
+    display:flex!important;
+    gap:10px!important;
+    overflow-x:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    scrollbar-width:none!important;
+    position:sticky!important;
+    top:0!important;
+    z-index:9999!important;
+    width:100%!important;
+    max-width:100%!important;
+    padding:10px 12px 12px!important;
+    background:linear-gradient(180deg,#004634 0%,#0b513f 100%)!important;
+    box-shadow:0 8px 18px rgba(0,0,0,.12)!important;
+    border-bottom:1px solid rgba(255,255,255,.12)!important;
+  }
+  .mobileTouchNav::-webkit-scrollbar{display:none!important;}
+
+  .mobileTouchNav button{
+    flex:0 0 auto!important;
+    width:auto!important;
+    min-width:max-content!important;
+    min-height:48px!important;
+    padding:12px 17px!important;
+    border-radius:999px!important;
+    border:1px solid rgba(255,255,255,.18)!important;
+    background:rgba(255,255,255,.10)!important;
+    color:#fff!important;
+    font-size:15px!important;
+    font-weight:900!important;
+    line-height:1!important;
+    white-space:nowrap!important;
+    text-align:center!important;
+    box-shadow:none!important;
+  }
+  .mobileTouchNav button.active{
+    background:#fff!important;
+    color:#004634!important;
+    border-color:#fff!important;
+    box-shadow:0 4px 14px rgba(0,0,0,.16)!important;
+  }
+
+  .mobileTouchNav .mobileTouchLogoutBtn{
+    display:inline-flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    background:rgba(255,255,255,.08)!important;
+    color:#fff!important;
+  }
+
+  body.employeeMode .mobileTouchNav .managementOnly,
+  .mobileTouchNav .managementOnly.hidden,
+  body.loggedOut .mobileTouchNav{
+    display:none!important;
+  }
+
+  #appView .content,
+  .content{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:10px!important;
+    overflow-x:hidden!important;
+  }
+
+  .topbar{padding:14px 16px!important;height:auto!important;}
+  .brand{gap:12px!important;align-items:center!important;}
+  .brand img{width:58px!important;height:58px!important;object-fit:contain!important;}
+  .brand h1{font-size:27px!important;line-height:1.05!important;}
+  .brand p{font-size:17px!important;}
+}

@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.14";
+const APP_VERSION="v6.0.15";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -62,10 +62,12 @@ function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
 function setActiveTab(tabId){
   const normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
-  document.querySelectorAll(".sidebar button[data-tab], nav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
+  document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
   document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
   const target=$(normalized);
   if(target) target.classList.remove("hidden");
+  const activeTouch = document.querySelector(`#mobileTouchNav button[data-tab="${normalized}"]`);
+  if(activeTouch) activeTouch.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
   if(normalized==="events") loadEvents?.();
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
@@ -270,7 +272,7 @@ $("registerBtn").onclick=async()=>{
 $("logoutBtn").onclick=async()=>{await sb.auth.signOut()};
 if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
 
-document.querySelectorAll(".sidebar button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
+document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
 
 
 
@@ -2067,11 +2069,12 @@ function setupMinijobCenterV6(){
 }
 
 function setupMobileNavigation(){
-  const btn=document.getElementById("mobileMenuToggle");
-  const sidebar=document.querySelector(".sidebar")||document.querySelector("nav");
-  if(!btn||!sidebar)return;
-  btn.onclick=()=>sidebar.classList.toggle("mobileOpen");
-  sidebar.querySelectorAll("button,[data-tab]").forEach(el=>el.addEventListener("click",()=>sidebar.classList.remove("mobileOpen")));
+  const mobileLogout = document.getElementById("mobileTouchLogoutBtn");
+  if(mobileLogout){
+    mobileLogout.onclick = async()=>{
+      if(sb?.auth) await sb.auth.signOut();
+    };
+  }
 }
 
 function applyMobileTableLabels(){
