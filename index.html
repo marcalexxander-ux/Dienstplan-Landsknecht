@@ -59,6 +59,7 @@
       <button data-tab="planKitchen">🍳 Dienstplan Küche</button>
       <button data-tab="month">🗓️ Monatsübersicht</button>
       <button data-tab="infos">📢 Tagesinfos</button>
+      <button data-tab="myHours" class="employeeHoursNav">⏱️ Meine Stunden</button>
         <button data-tab="events" class="managementOnly">📅 Eventkalender</button>
       <button data-tab="vacation">🏝️ Urlaub</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
@@ -306,6 +307,13 @@
           <button id="clearStaff" class="secondary">Felder leeren</button>
         </div>
         <div id="staffList"></div>
+      </section>
+
+
+      <section id="myHours" class="tabPage card hidden">
+        <h2>Meine Stunden</h2>
+        <p class="small">Hier siehst du nur deine eigenen geplanten Dienste und erfassten Zeiten.</p>
+        <div id="myHoursOverview" class="employeeOwnOverview"></div>
       </section>
 
       <section id="time" class="tabPage card hidden">

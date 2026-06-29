@@ -2306,3 +2306,32 @@ body.employeeMode #infos .infoEntryActions{
     gap:2px;
   }
 }
+
+
+/* v6.0.10 Meine Stunden */
+.employeeHoursNav{
+  display:none!important;
+}
+body.employeeMode .employeeHoursNav{
+  display:block!important;
+}
+#myHours .ownHoursCard{
+  margin-top:10px;
+}
+body.employeeMode #employeeOwnOverview{
+  display:none;
+}
+body.employeeMode #myHoursOverview{
+  display:block;
+}
+body.loggedIn:not(.employeeMode) .employeeHoursNav{
+  display:none!important;
+}
+@media(max-width:820px){
+  #myHours.card{
+    padding:18px!important;
+  }
+  #myHours h2{
+    font-size:30px!important;
+  }
+}

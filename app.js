@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.9";
+const APP_VERSION="v6.0.10";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -595,8 +595,9 @@ function currentMonthRangeFromInput(inputId){
 }
 
 async function loadEmployeeOwnOverview(){
-  if(!$("employeeOwnOverview") || !session || !profile || isManagement()) {
-    if($("employeeOwnOverview")) $("employeeOwnOverview").innerHTML="";
+  const targets = ["employeeOwnOverview","myHoursOverview"].map(id=>$(id)).filter(Boolean);
+  if(!targets.length || !session || !profile || isManagement()) {
+    targets.forEach(el=>el.innerHTML="");
     return;
   }
 
@@ -611,7 +612,7 @@ async function loadEmployeeOwnOverview(){
 
   if(scheduleRes.error || timeRes.error){
     const err = scheduleRes.error || timeRes.error;
-    $("employeeOwnOverview").innerHTML = `<div class="entry"><b>Fehler beim Laden deiner Stunden:</b><br>${escapeHtml(err.message)}</div>`;
+    targets.forEach(el=>el.innerHTML = `<div class="entry"><b>Fehler beim Laden deiner Stunden:</b><br>${escapeHtml(err.message)}</div>`);
     return;
   }
 
@@ -646,7 +647,7 @@ async function loadEmployeeOwnOverview(){
       <b>${String(t.start_time||"").slice(0,5)}-${String(t.end_time||"").slice(0,5)} · ${euroHours(t.hours)} Std.</b>
     </div>`).join("") : `<p class="small">Keine Zeiteinträge in diesem Monat.</p>`;
 
-  $("employeeOwnOverview").innerHTML = `
+  const ownHtml = `
     <div class="ownHoursCard ${cls}">
       <div class="ownHoursHead">
         <div>
@@ -672,6 +673,7 @@ async function loadEmployeeOwnOverview(){
       ${timeList}
     </div>
   `;
+  targets.forEach(el=>el.innerHTML = ownHtml);
 }
 
 async function loadAll(){
