@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.13";
+const APP_VERSION="v6.0.14";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -39,7 +39,7 @@ function isOwnProfile(p){
   return !!profile && !!p && p.id === profile.id;
 }
 function ownShiftBadge(p){
-  return (!isManagement() && isOwnProfile(p)) ? `<span class="ownShiftBadge">Du</span>` : "";
+  return "";
 }
 function ownShiftClass(p){
   return (!isManagement() && isOwnProfile(p)) ? " ownShiftHighlight" : "";

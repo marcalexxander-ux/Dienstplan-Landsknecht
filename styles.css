@@ -2470,3 +2470,9 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
     padding-left:18px!important;
   }
 }
+
+
+/* v6.0.14 Ohne „Du“-Badge */
+.ownShiftBadge{
+  display:none!important;
+}
