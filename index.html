@@ -51,6 +51,23 @@
 </section>
 
 
+<section id="passwordUpdateView" class="authScreen hidden">
+  <div class="authCard">
+    <h2>Neues Passwort</h2>
+    <p class="small">Bitte vergib ein neues Passwort für deinen Dienstplan-Zugang.</p>
+
+    <label for="newPassword">Neues Passwort</label>
+    <input id="newPassword" type="password" autocomplete="new-password" placeholder="Neues Passwort">
+
+    <label for="newPasswordRepeat">Passwort wiederholen</label>
+    <input id="newPasswordRepeat" type="password" autocomplete="new-password" placeholder="Passwort wiederholen">
+
+    <button id="updatePasswordBtn" type="button">Passwort speichern</button>
+    <button id="cancelPasswordUpdateBtn" class="secondary" type="button">Zurück zum Login</button>
+  </div>
+</section>
+
+
   <section id="appView" class="hidden layout">
     <button id="mobileMenuToggle" class="mobileMenuToggle" type="button">☰ Menü</button>
     <nav id="mobileTouchNav" class="mobileTouchNav" aria-label="Touch Navigation">

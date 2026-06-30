@@ -1,10 +1,11 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.15";
+const APP_VERSION="v6.0.16";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
 const KITCHEN_DEPARTMENTS=["Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
+let passwordRecoveryMode=false;
 
 function $(id){return document.getElementById(id)}
 function pad2(n){return String(n).padStart(2,"0")}
@@ -179,12 +180,34 @@ function checkConfig(){
 
 async function init(){
   if(!checkConfig())return;
-  sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);
+  sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true,flowType:"pkce"}});
+
+  const url = new URL(window.location.href);
+  const hash = window.location.hash || "";
+  if(hash.includes("type=recovery") || url.searchParams.get("type")==="recovery"){
+    passwordRecoveryMode = true;
+  }
+
+  const code = url.searchParams.get("code");
+  if(code){
+    const exchange = await sb.auth.exchangeCodeForSession(code);
+    if(!exchange.error){
+      passwordRecoveryMode = true;
+      window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+    }
+  }
+
   const res=await sb.auth.getSession();
   session=res.data.session;
   if(session)await loadProfile();
   renderAuth();
-  sb.auth.onAuthStateChange(async(_e,s)=>{session=s;if(session)await loadProfile();else profile=null;renderAuth()});
+
+  sb.auth.onAuthStateChange(async(_e,s)=>{
+    if(_e==="PASSWORD_RECOVERY") passwordRecoveryMode=true;
+    session=s;
+    if(session)await loadProfile();else profile=null;
+    renderAuth();
+  });
 }
 
 async function loadProfile(){
@@ -236,6 +259,14 @@ function renderAuth(){
   const logged=!!session;
   setAuthBodyState(logged);
 
+  if(passwordRecoveryMode){
+    if($("authView")) $("authView").classList.add("hidden");
+    if($("appView")) $("appView").classList.add("hidden");
+    if($("passwordUpdateView")) $("passwordUpdateView").classList.remove("hidden");
+    return;
+  }
+
+  if($("passwordUpdateView")) $("passwordUpdateView").classList.add("hidden");
   if($("authView")) $("authView").classList.toggle("hidden", logged);
   if($("appView")) $("appView").classList.toggle("hidden", !logged);
 
@@ -267,7 +298,16 @@ $("registerBtn").onclick=async()=>{
   const email=$("email").value.trim(),password=$("password").value;
   if(!email||!password)return alert("Bitte E-Mail und Passwort eingeben.");
   const{error}=await sb.auth.signUp({email,password});
-  if(error)alert(error.message);else alert("Registrierung erstellt.");
+  if(error){
+    const msg = String(error.message||"");
+    if(msg.toLowerCase().includes("already") || msg.toLowerCase().includes("registered")){
+      alert("Diese E-Mail ist bereits registriert. Bitte nicht erneut registrieren, sondern „Passwort vergessen?“ nutzen.");
+    }else{
+      alert(msg);
+    }
+  }else{
+    alert("Registrierung erstellt.");
+  }
 };
 $("logoutBtn").onclick=async()=>{await sb.auth.signOut()};
 if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
@@ -1586,8 +1626,49 @@ function editStaff(id){
   const p=profiles.find(x=>x.id===id);
   $("editingStaffId").value=p.id;$("staffFirstName").value=p.first_name||"";$("staffLastName").value=p.last_name||"";$("staffEmail").value=p.email||"";$("staffPhone").value=p.phone||"";$("staffRole").value=p.role==="admin"?"management":p.role;$("staffDepartment").value=p.department||"Service";$("staffPlannable").checked=p.plannable===true;if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
 }
-async function deactivateStaff(id){if(!confirm("Mitarbeiter deaktivieren?"))return;await sb.from("profiles").update({active:false}).eq("id",id);await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth()}
-window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;
+async function deactivateStaff(id){
+  if(!confirm("Mitarbeiter deaktivieren?"))return;
+  await sb.from("profiles").update({active:false}).eq("id",id);
+  await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();
+}
+
+async function deleteStaff(id){
+  if(!isManagement()) return;
+  if(id===profile?.id) return alert("Du kannst deinen eigenen Zugang nicht löschen.");
+
+  const p = profiles.find(x=>x.id===id);
+  const name = `${p?.first_name||""} ${p?.last_name||""}`.trim() || "diesen Mitarbeiter";
+  const confirmText = prompt(`Mitarbeiter endgültig löschen?\n\n${name}\n\nDabei werden App-Daten wie Dienstplan-Einträge, Zeiten und Urlaubsanträge dieses Mitarbeiters gelöscht.\n\nZum Bestätigen bitte LÖSCHEN eingeben.`);
+  if(confirmText !== "LÖSCHEN") return;
+
+  const safeDelete = async(table,column)=>{
+    try{ await sb.from(table).delete().eq(column,id); }catch(e){}
+  };
+  const safeNull = async(table,column)=>{
+    try{ await sb.from(table).update({[column]:null}).eq(column,id); }catch(e){}
+  };
+
+  await safeDelete("schedules","profile_id");
+  await safeDelete("time_entries","profile_id");
+  await safeDelete("vacation_requests","profile_id");
+  await safeNull("vacation_requests","decided_by");
+  await safeNull("daily_infos","created_by");
+  await safeNull("events","created_by");
+  await safeNull("notifications","created_by");
+
+  const res = await sb.from("profiles").delete().eq("id",id);
+
+  if(res.error){
+    alert("Mitarbeiter konnte nicht gelöscht werden: " + res.error.message + "\n\nFalls diese E-Mail bereits registriert war, kann der Auth-Zugang zusätzlich in Supabase Authentication gelöscht werden.");
+    return;
+  }
+
+  alert("Mitarbeiter wurde gelöscht.");
+  clearStaffForm();
+  await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadDashboardV57?.();
+}
+
+window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
 
 function appPublicUrl(){
   return window.location.origin + window.location.pathname;
@@ -1625,7 +1706,7 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button>`:""}</div></div>`).join("");
+  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Löschen</button>`:""}</div></div>`).join("");
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -2091,6 +2172,50 @@ function applyMobileTableLabels(){
 setupMinijobCenterV6();
 setupMobileNavigation();
 
+
+function setupPasswordUpdate(){
+  const saveBtn = $("updatePasswordBtn");
+  const cancelBtn = $("cancelPasswordUpdateBtn");
+
+  if(saveBtn){
+    saveBtn.onclick = async()=>{
+      const p1 = $("newPassword")?.value || "";
+      const p2 = $("newPasswordRepeat")?.value || "";
+
+      if(!p1 || !p2) return alert("Bitte neues Passwort zweimal eingeben.");
+      if(p1.length < 6) return alert("Das Passwort muss mindestens 6 Zeichen haben.");
+      if(p1 !== p2) return alert("Die Passwörter stimmen nicht überein.");
+
+      const {error} = await sb.auth.updateUser({password:p1});
+      if(error){
+        alert("Passwort konnte nicht gespeichert werden: " + error.message);
+        return;
+      }
+
+      alert("Passwort wurde gespeichert. Bitte melde dich jetzt neu an.");
+      passwordRecoveryMode=false;
+      $("newPassword").value="";
+      $("newPasswordRepeat").value="";
+      window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+      await sb.auth.signOut();
+      session=null;
+      profile=null;
+      renderAuth();
+    };
+  }
+
+  if(cancelBtn){
+    cancelBtn.onclick = async()=>{
+      passwordRecoveryMode=false;
+      window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+      if(sb?.auth) await sb.auth.signOut();
+      session=null;
+      profile=null;
+      renderAuth();
+    };
+  }
+}
+
 function setupPasswordReset(){
   const btn = $("resetPasswordBtn");
   if(!btn) return;
@@ -2113,11 +2238,12 @@ function setupPasswordReset(){
       return;
     }
 
-    alert("Passwort-Reset wurde gesendet. Bitte prüfe dein E-Mail-Postfach.");
+    alert("Passwort-Reset wurde gesendet. Bitte öffne den Link in der Mail. Danach kannst du ein neues Passwort speichern.");
   };
 }
 
 setupPasswordReset();
+setupPasswordUpdate();
 
 async function publishPlan(kind){
   if(!isManagement()) return alert("Nur Geschäftsführung kann den Dienstplan veröffentlichen.");

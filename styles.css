@@ -2589,3 +2589,29 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
   .brand h1{font-size:27px!important;line-height:1.05!important;}
   .brand p{font-size:17px!important;}
 }
+
+
+/* v6.0.16 Löschen + Passwort-Reset */
+.deleteStaffBtn{
+  background:#7f1d1d!important;
+  color:#fff!important;
+}
+#passwordUpdateView .authCard p.small{
+  margin-top:-6px;
+  margin-bottom:18px;
+  color:#64748b;
+}
+#passwordUpdateView input{
+  margin-bottom:14px;
+}
+.staffActions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:10px;
+}
+@media(max-width:820px){
+  .staffActions button{
+    width:100%!important;
+  }
+}
