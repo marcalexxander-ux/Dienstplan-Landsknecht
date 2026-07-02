@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.17";
+const APP_VERSION="v6.0.18";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -225,6 +225,7 @@ async function init(){
   const res=await sb.auth.getSession();
   session=res.data.session;
   if(session)await loadProfile();
+  if(await handleInactiveProfileIfNeeded()) return;
   renderAuth();
 
   sb.auth.onAuthStateChange(async(_e,s)=>{
@@ -274,6 +275,19 @@ async function loadProfile(){
   await sb.from("profiles").upsert(profile);
 }
 
+
+
+async function handleInactiveProfileIfNeeded(){
+  if(profile && (profile.active===false || profile.role==="deleted")){
+    alert("Dieser Zugang ist in der App deaktiviert. Bitte melde dich bei der Restaurantleitung.");
+    profile=null;
+    session=null;
+    try{ await sb.auth.signOut(); }catch(e){}
+    renderAuth();
+    return true;
+  }
+  return false;
+}
 
 function setAuthBodyState(logged){
   document.body.classList.toggle("loggedIn", !!logged);
