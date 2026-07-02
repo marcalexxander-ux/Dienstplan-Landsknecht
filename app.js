@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.16";
+const APP_VERSION="v6.0.17";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -180,12 +180,31 @@ function checkConfig(){
 
 async function init(){
   if(!checkConfig())return;
-  sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true,flowType:"pkce"}});
+
+  // Client-only App: implicit flow ist für Passwort-Reset robuster als PKCE,
+  // weil der Mitarbeiter den Mail-Link auch auf einem anderen Gerät öffnen kann.
+  sb=supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true}});
 
   const url = new URL(window.location.href);
-  const hash = window.location.hash || "";
-  if(hash.includes("type=recovery") || url.searchParams.get("type")==="recovery"){
-    passwordRecoveryMode = true;
+  const hashParams = new URLSearchParams((window.location.hash || "").replace(/^#/,""));
+  const queryType = url.searchParams.get("type");
+  const hashType = hashParams.get("type");
+  const hashError = hashParams.get("error_description") || hashParams.get("error");
+
+  if(hashError){
+    const readable = decodeURIComponent(String(hashError).replace(/\+/g," "));
+    setTimeout(()=>alert("Passwort-Link konnte nicht geöffnet werden: " + readable + "\n\nBitte neuen Passwort-Reset anfordern. Wenn der Fehler wiederkommt, in Supabase die Redirect URL prüfen."),300);
+    window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+  }
+
+  const accessToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
+  if((hashType==="recovery" || queryType==="recovery") && accessToken && refreshToken){
+    const setRes = await sb.auth.setSession({access_token:accessToken,refresh_token:refreshToken});
+    if(!setRes.error){
+      passwordRecoveryMode=true;
+      window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+    }
   }
 
   const code = url.searchParams.get("code");
@@ -194,7 +213,13 @@ async function init(){
     if(!exchange.error){
       passwordRecoveryMode = true;
       window.history.replaceState({},document.title,window.location.origin + window.location.pathname);
+    }else{
+      setTimeout(()=>alert("Passwort-Link konnte nicht abgeschlossen werden: " + exchange.error.message + "\n\nBitte direkt auf demselben Gerät/Browser erneut „Passwort vergessen?“ auslösen oder die Redirect URL in Supabase prüfen."),300);
     }
+  }
+
+  if(hashType==="recovery" || queryType==="recovery"){
+    passwordRecoveryMode = true;
   }
 
   const res=await sb.auth.getSession();
@@ -205,7 +230,8 @@ async function init(){
   sb.auth.onAuthStateChange(async(_e,s)=>{
     if(_e==="PASSWORD_RECOVERY") passwordRecoveryMode=true;
     session=s;
-    if(session)await loadProfile();else profile=null;
+    if(session && !passwordRecoveryMode) await loadProfile();
+    if(!session) profile=null;
     renderAuth();
   });
 }
@@ -479,7 +505,7 @@ async function loadEvents(){
       </div>
       <div class="eventEntryActions">
         <button class="secondary" onclick="editEvent('${e.id}')">Bearbeiten</button>
-        <button class="danger" onclick="deleteEvent('${e.id}')">Löschen</button>
+        <button class="danger" onclick="deleteEvent('${e.id}')">Aus App löschen</button>
       </div>
     </div>
   `).join("") || "<p>Keine kommenden Events.</p>";
@@ -1219,7 +1245,7 @@ async function loadInfos(){
       </div>
       ${isManagement()?`<div class="infoEntryActions">
         <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}')">Bearbeiten</button>
-        <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Löschen</button>
+        <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Aus App löschen</button>
       </div>`:""}
     </div>
   `).join("")||"<p>Keine Tagesinfos.</p>";
@@ -1638,8 +1664,11 @@ async function deleteStaff(id){
 
   const p = profiles.find(x=>x.id===id);
   const name = `${p?.first_name||""} ${p?.last_name||""}`.trim() || "diesen Mitarbeiter";
-  const confirmText = prompt(`Mitarbeiter endgültig löschen?\n\n${name}\n\nDabei werden App-Daten wie Dienstplan-Einträge, Zeiten und Urlaubsanträge dieses Mitarbeiters gelöscht.\n\nZum Bestätigen bitte LÖSCHEN eingeben.`);
-  if(confirmText !== "LÖSCHEN") return;
+  const oldEmail = p?.email || "";
+
+  const confirmText = prompt(`Mitarbeiter aus der App löschen?\n\n${name}\n${oldEmail}\n\nDer Mitarbeiter verschwindet aus der App und aus dem Dienstplan.\n\nWichtig: Wenn sich dieselbe E-Mail neu registrieren soll, den User zusätzlich in Supabase → Authentication → Users löschen.\n\nZum Bestätigen bitte LÖSCHEN eingeben.`);
+  const ok = String(confirmText||"").trim().toUpperCase();
+  if(ok!=="LÖSCHEN" && ok!=="LOESCHEN" && ok!=="LOSCHEN") return;
 
   const safeDelete = async(table,column)=>{
     try{ await sb.from(table).delete().eq(column,id); }catch(e){}
@@ -1648,6 +1677,7 @@ async function deleteStaff(id){
     try{ await sb.from(table).update({[column]:null}).eq(column,id); }catch(e){}
   };
 
+  // Abhängige App-Daten löschen, soweit die aktuellen Datenbankrechte es erlauben.
   await safeDelete("schedules","profile_id");
   await safeDelete("time_entries","profile_id");
   await safeDelete("vacation_requests","profile_id");
@@ -1656,14 +1686,37 @@ async function deleteStaff(id){
   await safeNull("events","created_by");
   await safeNull("notifications","created_by");
 
-  const res = await sb.from("profiles").delete().eq("id",id);
+  // 1. Versuch: echtes Löschen aus profiles.
+  let hardError = null;
+  try{
+    const hard = await sb.from("profiles").delete().eq("id",id);
+    hardError = hard.error || null;
+    if(!hardError){
+      alert("Mitarbeiter wurde aus der App gelöscht.\n\nFalls die gleiche E-Mail neu registriert werden soll, den User auch in Supabase Authentication löschen.");
+      clearStaffForm();
+      await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadDashboardV57?.();
+      return;
+    }
+  }catch(e){ hardError = e; }
 
-  if(res.error){
-    alert("Mitarbeiter konnte nicht gelöscht werden: " + res.error.message + "\n\nFalls diese E-Mail bereits registriert war, kann der Auth-Zugang zusätzlich in Supabase Authentication gelöscht werden.");
+  // 2. Fallback: Soft-Löschen. Das funktioniert meist auch dann,
+  // wenn Foreign Keys oder RLS das echte DELETE blockieren.
+  const deletedEmail = `deleted_${Date.now()}_${String(id).slice(0,8)}@deleted.local`;
+  const softPayload = {
+    active:false,
+    plannable:false,
+    email:deletedEmail,
+    phone:null,
+    sort_order:null
+  };
+
+  const soft = await sb.from("profiles").update(softPayload).eq("id",id);
+  if(soft.error){
+    alert("Löschen hat nicht funktioniert.\n\nFehler: " + soft.error.message + "\n\nBitte notfalls zuerst „Deaktivieren“ nutzen und danach den Auth-User in Supabase löschen.");
     return;
   }
 
-  alert("Mitarbeiter wurde gelöscht.");
+  alert("Mitarbeiter wurde aus der App entfernt.\n\nHinweis: Der Auth-Login in Supabase ist dadurch nicht automatisch gelöscht. Für eine neue Registrierung mit derselben E-Mail bitte den User zusätzlich in Supabase → Authentication → Users löschen.");
   clearStaffForm();
   await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadDashboardV57?.();
 }
@@ -1706,7 +1759,7 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Löschen</button>`:""}</div></div>`).join("");
+  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App löschen</button>`:""}</div></div>`).join("");
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -2222,7 +2275,7 @@ function setupPasswordReset(){
 
   btn.onclick = async () => {
     if(!checkConfig()) return;
-    if(!sb) sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+    if(!sb) sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true}});
 
     const email = $("email")?.value?.trim();
     if(!email){

@@ -2615,3 +2615,13 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
     width:100%!important;
   }
 }
+
+
+/* v6.0.17 stabiles Löschen + Passwortreset */
+.deleteStaffBtn{
+  background:#991b1b!important;
+  color:#fff!important;
+}
+@media(max-width:820px){
+  .deleteStaffBtn::before{content:"";}
+}
