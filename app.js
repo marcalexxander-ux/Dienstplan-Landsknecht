@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.19";
+const APP_VERSION="v6.0.20";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -927,8 +927,10 @@ $("weekStartService").onchange=loadPlanService;
 $("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),-1);loadPlanKitchen()};
 $("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);loadPlanKitchen()};
 $("weekStartKitchen").onchange=loadPlanKitchen;
-$("servicePdfBtn").onclick=printServicePlan;$("kitchenPdfBtn").onclick=printKitchenPlan;$("monthPdfBtn").onclick=printMonthPlan;
-$("serviceAddStaffBtn").onclick=openStaffNew;$("kitchenAddStaffBtn").onclick=openStaffNew;$("newStaffBtn").onclick=clearStaffForm;
+if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
+if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
+if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
+if($("newStaffBtn")) if($("newStaffBtn")) $("newStaffBtn").onclick=clearStaffForm;
 
 async function loadPlanService(){await loadPlanFiltered("Service",$("weekStartService").value||mondayISO(),SERVICE_DEPARTMENTS,"planGridService")}
 async function loadPlanKitchen(){await loadPlanFiltered("Küche",$("weekStartKitchen").value||mondayISO(),KITCHEN_DEPARTMENTS,"planGridKitchen")}

@@ -2659,3 +2659,10 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
   color:#7a4b00;
   font-weight:800;
 }
+
+
+/* v6.0.20: Mitarbeiter erstellen nur noch im Bereich Mitarbeiter */
+#serviceAddStaffBtn,
+#kitchenAddStaffBtn{
+  display:none!important;
+}
