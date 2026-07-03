@@ -2643,3 +2643,19 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
     width:100%!important;
   }
 }
+
+
+/* v6.0.19 Veröffentlichung */
+.unpublishedNotice{
+  border:2px solid #c79b32;
+  background:#fff8e6;
+  color:#173f30;
+}
+.publishStateBadge{
+  display:inline-block;
+  padding:6px 10px;
+  border-radius:999px;
+  background:#fff3c4;
+  color:#7a4b00;
+  font-weight:800;
+}

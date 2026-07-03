@@ -1,10 +1,11 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.18";
+const APP_VERSION="v6.0.19";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
 const KITCHEN_DEPARTMENTS=["Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
+let publishedPlanCache={};
 let passwordRecoveryMode=false;
 
 function $(id){return document.getElementById(id)}
@@ -74,6 +75,55 @@ function setActiveTab(tabId){
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="vacation") loadVacationPlanner?.();
 }
+
+function planKindForDepartment(dept){
+  return KITCHEN_DEPARTMENTS.includes(dept) ? "kitchen" : "service";
+}
+function publishedKey(kind,weekStart){
+  return `${kind}_${weekStart}`;
+}
+async function isPlanPublished(kind,weekStart){
+  if(isManagement()) return true;
+  const key=publishedKey(kind,weekStart);
+  if(Object.prototype.hasOwnProperty.call(publishedPlanCache,key)) return !!publishedPlanCache[key];
+  try{
+    const {data,error}=await sb.from("published_plans").select("id").eq("plan_kind",kind).eq("week_start",weekStart).maybeSingle();
+    if(error){ publishedPlanCache[key]=false; return false; }
+    publishedPlanCache[key]=!!data;
+    return !!data;
+  }catch(e){
+    publishedPlanCache[key]=false;
+    return false;
+  }
+}
+async function publishedWeeksMap(from,to){
+  const out={service:{},kitchen:{}};
+  if(isManagement()){
+    let d=from;
+    while(d<=to){
+      const w=mondayISO(parseISODateLocal(d));
+      out.service[w]=true; out.kitchen[w]=true;
+      d=addDaysISO(d,1);
+    }
+    return out;
+  }
+  try{
+    const {data}=await sb.from("published_plans").select("*").lte("week_start",to).gte("week_start",addDaysISO(from,-6));
+    (data||[]).forEach(r=>{
+      if(r.plan_kind==="service" || r.plan_kind==="kitchen") out[r.plan_kind][r.week_start]=true;
+    });
+  }catch(e){}
+  return out;
+}
+async function ensureEmployeeCanSeeWeek(kind,weekStart,targetId,title){
+  if(isManagement()) return true;
+  const ok=await isPlanPublished(kind,weekStart);
+  if(!ok && targetId && $(targetId)){
+    $(targetId).innerHTML=`<div class="entry unpublishedNotice"><b>${escapeHtml(title||"Dienstplan")} noch nicht veröffentlicht.</b><br><span class="small">Diese Woche ist für Mitarbeiter noch nicht freigegeben.</span></div>`;
+  }
+  return ok;
+}
+
 function getISOWeek(iso){
   const d=parseISODateLocal(iso);
   const date=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
@@ -368,7 +418,16 @@ async function loadDashboardLight(){
     $("dashboardGrid").innerHTML=`<div class="dashCard"><h3>Fehler</h3>${escapeHtml(scheduleError.message)}</div>`;
     return;
   }
-  const scheduleList=schedules||[];
+  let scheduleList=schedules||[];
+  if(!isManagement()){
+    const w=mondayISO(parseISODateLocal(today));
+    const pub=await publishedWeeksMap(today,today);
+    scheduleList=scheduleList.filter(s=>{
+      const p=profileById(s.profile_id);
+      const kind=planKindForDepartment(p.department);
+      return pub[kind]?.[w] && s.status==="arbeit";
+    });
+  }
   const serviceDept=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
   const kitchenDept=["Küche","Spüler","Reinigung"];
   const todayInfo=(infos||[]).map(i=>escapeHtml(i.info_text)).join("<br>")||"Keine Tagesinfo für heute." ;
@@ -582,11 +641,29 @@ async function loadDashboardV57(){
   const monthSchedules = await dashboardSafe(sb.from("schedules").select("*").gte("work_date",fromMonth).lte("work_date",toMonth));
   const events = await dashboardSafe(sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).limit(6));
 
-  const workToday = todaySchedules.filter(s=>s.status==="arbeit");
-  const sickToday = todaySchedules.filter(s=>s.status==="krank");
+  let visibleTodaySchedules = todaySchedules;
+  let visibleMonthSchedules = monthSchedules;
+  if(!isManagement()){
+    const todayWeek = mondayISO(parseISODateLocal(today));
+    const pub = await publishedWeeksMap(fromMonth,toMonth);
+    visibleTodaySchedules = todaySchedules.filter(s=>{
+      const p=profileById(s.profile_id);
+      const kind=planKindForDepartment(p.department);
+      return pub[kind]?.[todayWeek];
+    });
+    visibleMonthSchedules = monthSchedules.filter(s=>{
+      const p=profileById(s.profile_id);
+      const kind=planKindForDepartment(p.department);
+      const w=mondayISO(parseISODateLocal(s.work_date));
+      return pub[kind]?.[w];
+    });
+  }
+
+  const workToday = visibleTodaySchedules.filter(s=>s.status==="arbeit");
+  const sickToday = isManagement() ? visibleTodaySchedules.filter(s=>s.status==="krank") : [];
 
   const minijobTotals = {};
-  monthSchedules.forEach(s=>{
+  visibleMonthSchedules.forEach(s=>{
     const p = profileById(s.profile_id);
     if(!p || !isMinijobProfile(p) || s.status !== "arbeit") return;
     minijobTotals[s.profile_id] ||= {hours:0,earned:0,count:0};
@@ -960,6 +1037,8 @@ function scheduleCellValueForVisibility(item){
 }
 
 async function loadPlanFiltered(title,week,departments,targetId){
+  const kind = title==="Küche" ? "kitchen" : "service";
+  if(!(await ensureEmployeeCanSeeWeek(kind,week,targetId,`Dienstplan ${title}`))) return;
   const from=week,to=addDaysISO(week,6);
   const[{data:schedules},{data:infos},{data:events}]=await Promise.all([
     sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to),
@@ -2322,29 +2401,37 @@ async function publishPlan(kind){
   const title = isKitchen ? "Dienstplan Küche veröffentlicht" : "Dienstplan Service veröffentlicht";
   const body = `Der Dienstplan für ${fmtDate(week)} bis ${fmtDate(to)} wurde veröffentlicht. Bitte prüfe deine Schichten.`;
 
-  let errorMessage = "";
+  const pub = await sb.from("published_plans").upsert({
+    plan_kind: kind,
+    week_start: week,
+    published_by: profile?.id || null,
+    published_at: new Date().toISOString()
+  },{onConflict:"plan_kind,week_start"});
 
+  if(pub.error){
+    alert("Dienstplan konnte nicht veröffentlicht werden: " + pub.error.message + "\n\nBitte prüfen, ob das SQL für v6.0.19 in Supabase ausgeführt wurde.");
+    return;
+  }
+
+  publishedPlanCache[publishedKey(kind,week)] = true;
+
+  let errorMessage = "";
   if(typeof createNotification === "function"){
-    try{
-      await createNotification(title, body);
-    }catch(e){
-      errorMessage = e?.message || String(e);
-    }
+    try{ await createNotification(title, body); }catch(e){ errorMessage = e?.message || String(e); }
   }else{
-    const res = await sb.from("notifications").insert({
-      title,
-      body,
-      created_by: profile?.id || null
-    });
+    const res = await sb.from("notifications").insert({title,body,created_by: profile?.id || null});
     if(res.error) errorMessage = res.error.message;
   }
 
   if(errorMessage){
-    alert("Dienstplan wurde nicht veröffentlicht: " + errorMessage);
-    return;
+    alert("Dienstplan wurde veröffentlicht, aber die Benachrichtigung konnte nicht erstellt werden: " + errorMessage);
+  }else{
+    alert("Dienstplan wurde veröffentlicht. Mitarbeiter können diese Woche jetzt sehen.");
   }
 
-  alert("Dienstplan wurde veröffentlicht. Die Benachrichtigung wurde erstellt.");
+  await loadDashboardV57?.();
+  if(kind==="service") await loadPlanService();
+  if(kind==="kitchen") await loadPlanKitchen();
 }
 
 function setupPlanPublishButtons(){
