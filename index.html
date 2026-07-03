@@ -80,8 +80,6 @@
       <button data-tab="month" class="managementOnly">🗓️ Monat</button>
       <button data-tab="events" class="managementOnly">📅 Events</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
-      <button data-tab="time" class="managementOnly">⏱️ Zeiten</button>
-      <button data-tab="summary" class="managementOnly">📊 Auswertung</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob</button>
       <button id="mobileTouchLogoutBtn" type="button" class="mobileTouchLogoutBtn">↩ Abmelden</button>
     </nav>
@@ -95,8 +93,6 @@
         <button data-tab="events" class="managementOnly">📅 Eventkalender</button>
       <button data-tab="vacation">🏝️ Urlaub</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
-      <button data-tab="time" class="managementOnly">⏱️ Zeiterfassung</button>
-      <button data-tab="summary" class="managementOnly">📊 Auswertung</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob-Center</button>
       <div class="spacer"></div>
       <button id="logoutBtn" class="logout">↩ Abmelden</button>
@@ -358,37 +354,7 @@
         </div>
         <div id="myHoursOverview" class="employeeOwnOverview"></div>
       </section>
-
-      <section id="time" class="tabPage card hidden">
-        <h2>Zeiterfassung</h2>
-        <label>Mitarbeiter</label>
-        <select id="timeProfile"></select>
-        <div class="formGrid">
-          <div><label>Datum</label><input id="timeDate" type="date"></div>
-          <div><label>Beginn</label><input id="timeStart" type="time"></div>
-          <div><label>Ende</label><input id="timeEnd" type="time"></div>
-          <div><label>Pause Minuten</label><input id="timeBreak" type="number" min="0" value="0"></div>
-        </div>
-        <button id="saveTime">Zeit speichern</button>
-        <div id="timeList"></div>
-
-      <div id="employeeOwnOverview" class="employeeOwnOverview"></div>
-
-      </section>
-
-      <section id="summary" class="tabPage card hidden">
-        <h2>Stundenauswertung</h2>
-        <div class="formGrid">
-          <div><label>Von</label><input id="sumFrom" type="date"></div>
-          <div><label>Bis</label><input id="sumTo" type="date"></div>
-        </div>
-        <div class="buttonRow">
-          <button id="loadSummary">Auswertung laden</button>
-          <button id="exportCsv" class="secondary">CSV exportieren</button>
-        </div>
-        <div id="summaryList"></div>
-      </section>
-      <section id="minijobCenter" class="tabPage card hidden">
+<section id="minijobCenter" class="tabPage card hidden">
         <div class="sectionHeader">
           <div>
             <h2>Minijob-Center</h2>

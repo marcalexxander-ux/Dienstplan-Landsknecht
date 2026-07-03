@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.21";
+const APP_VERSION="v6.0.22";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -381,13 +381,10 @@ function renderAuth(){
     $("monthSelect").value ||= monthISO();
     $("infoDate").value ||= todayISO();
     $("vacMonthSelect").value ||= monthISO();
-    $("timeDate").value ||= todayISO();
     $("vacFrom").value ||= todayISO();
     $("vacTo").value ||= todayISO();
     if($("eventDate")) $("eventDate").value ||= todayISO();
     if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
-    $("sumFrom").value ||= mondayISO();
-    $("sumTo").value ||= addDaysISO(mondayISO(),6);
     setActiveTab("dashboard");
     loadAll();
   }
@@ -922,14 +919,15 @@ async function loadEmployeeOwnOverview(){
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadTimes(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadSummary(),loadMinijobCenter(),loadEmployeeOwnOverview()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadMinijobCenter(),loadEmployeeOwnOverview()]);
 }
 
 async function loadProfiles(){
   const{data,error}=await sb.from("profiles").select("*").eq("active",true).order("department").order("sort_order").order("last_name");
   if(error)return alert(error.message);
   profiles=data||[];
-  $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");$("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if(isManagement())renderStaff();
 }
 
@@ -1362,7 +1360,7 @@ async function loadInfos(){
   `).join("")||"<p>Keine Tagesinfos.</p>";
 }
 
-$("saveTime").onclick=async()=>{
+if($("saveTime")) $("saveTime").onclick=async()=>{
   const profileId=$("timeProfile").value,date=$("timeDate").value,start=$("timeStart").value,end=$("timeEnd").value;
   let br=Number($("timeBreak").value)||0;
   if(!date||!start||!end)return alert("Datum, Beginn und Ende ausfüllen.");
@@ -1373,6 +1371,7 @@ $("saveTime").onclick=async()=>{
   if(error)alert(error.message);else{await loadTimes();await loadSummary();await loadEmployeeOwnOverview()}
 };
 async function loadTimes(){
+  if(!$("timeList")) return;
   let q=sb.from("time_entries").select("*, profiles(first_name,last_name)").order("work_date",{ascending:false}).limit(50);
   if(!isManagement()) q = q.eq("profile_id",profile.id);
   const{data}=await q;
@@ -1877,8 +1876,8 @@ function renderStaff(){
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
 if($("exportMinijobCsv")) $("exportMinijobCsv").onclick=exportMinijobCsv;
-$("loadSummary").onclick=loadSummary;
-$("exportCsv").onclick=()=>{
+if($("loadSummary")) $("loadSummary").onclick=loadSummary;
+if($("exportCsv")) $("exportCsv").onclick=()=>{
   if(!lastSummaryRows.length)return alert("Bitte zuerst Auswertung laden.");
   const rows=[["Mitarbeiter","Stunden","Einträge"],...lastSummaryRows.map(r=>[r.name,euroHours(r.hours),r.count])];
   const csv=rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(";")).join("\\n");
@@ -1886,6 +1885,7 @@ $("exportCsv").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="stunden-auswertung.csv";a.click()
 };
 async function loadSummary(){
+  if(!$("summaryList")) return;
   if(!isManagement()){
     if($("summaryList")) $("summaryList").innerHTML = "<p>Du siehst hier nur deine eigenen Stunden über die Zeiterfassung.</p>";
     await loadEmployeeOwnOverview();

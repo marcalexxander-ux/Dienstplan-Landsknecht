@@ -2674,3 +2674,12 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
   background:#e8f5ef;
   color:#174d3a;
 }
+
+
+/* v6.0.22: alte Zeiterfassung und alte Auswertung entfernt */
+button[data-tab="time"],
+button[data-tab="summary"],
+#time,
+#summary{
+  display:none!important;
+}
