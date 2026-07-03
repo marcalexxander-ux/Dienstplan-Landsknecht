@@ -76,7 +76,7 @@
       <button data-tab="infos">📢 Tagesinfos</button>
       <button data-tab="myHours" class="employeeHoursNav">⏱️ Meine Stunden</button>
       <button data-tab="vacation">🏝️ Urlaub</button>
-      <button data-tab="planKitchen" class="managementOnly">🍳 Küche</button>
+      <button data-tab="planKitchen" class="kitchenLeadOnly">🍳 Küche</button>
       <button data-tab="month" class="managementOnly">🗓️ Monat</button>
       <button data-tab="events" class="managementOnly">📅 Events</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
@@ -149,11 +149,11 @@
         <div class="sectionHeader">
           <div>
             <h2>Dienstplan Küche</h2>
-            <p class="subline">Küche, Spüler, Reinigung</p>
+            <p class="subline">Küchenleitung, Küche, Spüler, Reinigung</p>
           </div>
           <div class="navButtons">
-            <button id="kitchenPdfBtn" class="secondary managementOnly">📄 PDF Küche</button>
-            <button id="publishKitchenPlanBtn" class="publishBtn managementOnly" type="button">📣 Dienstplan veröffentlichen</button>
+            <button id="kitchenPdfBtn" class="secondary kitchenLeadOnly">📄 PDF Küche</button>
+            <button id="publishKitchenPlanBtn" class="publishBtn kitchenLeadOnly" type="button">📣 Dienstplan veröffentlichen</button>
             <button id="prevWeekKitchen" class="secondary">← Vorwoche</button>
             <input id="weekStartKitchen" type="date">
             <button id="nextWeekKitchen" class="secondary">Nächste Woche →</button>
@@ -307,6 +307,7 @@
               <option>Minijob Service</option>
               <option>Bar</option>
               <option>Minijob Bar</option>
+              <option>Küchenleitung</option>
               <option>Küche</option>
               <option>Minijob Küche</option>
               <option>Reinigung</option>

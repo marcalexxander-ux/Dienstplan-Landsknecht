@@ -1,9 +1,9 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.20";
+const APP_VERSION="v6.0.21";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
-const KITCHEN_DEPARTMENTS=["Küche","Minijob Küche","Spüler","Reinigung"];
+const KITCHEN_DEPARTMENTS=["Küchenleitung","Küchen Leitung","Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
 let publishedPlanCache={};
 let passwordRecoveryMode=false;
@@ -59,6 +59,18 @@ function sortOwnShiftFirst(rows){
 }
 
 function isManagement(){return profile?.role==="management"||profile?.role==="admin"}
+
+function isKitchenLead(){
+  const dept = String(profile?.department || "").trim().toLowerCase();
+  return dept === "küchenleitung" || dept === "küchen leitung";
+}
+function canEditPlan(kind){
+  return isManagement() || (kind === "kitchen" && isKitchenLead());
+}
+function canPublishPlan(kind){
+  return isManagement() || (kind === "kitchen" && isKitchenLead());
+}
+
 function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
@@ -83,7 +95,7 @@ function publishedKey(kind,weekStart){
   return `${kind}_${weekStart}`;
 }
 async function isPlanPublished(kind,weekStart){
-  if(isManagement()) return true;
+  if(canEditPlan(kind)) return true;
   const key=publishedKey(kind,weekStart);
   if(Object.prototype.hasOwnProperty.call(publishedPlanCache,key)) return !!publishedPlanCache[key];
   try{
@@ -361,6 +373,7 @@ function renderAuth(){
   if($("appView")) $("appView").classList.toggle("hidden", !logged);
 
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
+  document.querySelectorAll(".kitchenLeadOnly").forEach(el=>el.classList.toggle("hidden",!logged||!(isManagement()||isKitchenLead())));
 
   if(logged){
     $("weekStartService").value ||= mondayISO();
@@ -425,7 +438,7 @@ async function loadDashboardLight(){
     scheduleList=scheduleList.filter(s=>{
       const p=profileById(s.profile_id);
       const kind=planKindForDepartment(p.department);
-      return pub[kind]?.[w] && s.status==="arbeit";
+      return (pub[kind]?.[w] || canEditPlan(kind)) && s.status==="arbeit";
     });
   }
   const serviceDept=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -649,13 +662,13 @@ async function loadDashboardV57(){
     visibleTodaySchedules = todaySchedules.filter(s=>{
       const p=profileById(s.profile_id);
       const kind=planKindForDepartment(p.department);
-      return pub[kind]?.[todayWeek];
+      return pub[kind]?.[todayWeek] || canEditPlan(kind);
     });
     visibleMonthSchedules = monthSchedules.filter(s=>{
       const p=profileById(s.profile_id);
       const kind=planKindForDepartment(p.department);
       const w=mondayISO(parseISODateLocal(s.work_date));
-      return pub[kind]?.[w];
+      return pub[kind]?.[w] || canEditPlan(kind);
     });
   }
 
@@ -1067,7 +1080,9 @@ async function loadPlanFiltered(title,week,departments,targetId){
       String(a.last_name||"").localeCompare(String(b.last_name||""))
     );
 
-  if(!isManagement()){
+  const editablePlan = canEditPlan(kind);
+
+  if(!editablePlan){
     people = people.filter(p => days.some((_,i)=>{
       const iso=addDaysISO(week,i);
       const item=byKey[`${p.id}_${iso}`];
@@ -1084,7 +1099,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
     const iso=addDaysISO(week,i);
     const dayRows=sortOwnShiftFirst(people
       .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
-      .filter(x=>isManagement() ? x.item : (x.item && x.item.status==="arbeit")));
+      .filter(x=>editablePlan ? x.item : (x.item && x.item.status==="arbeit")));
 
     mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><b>${d}, ${fmtDate(iso)}</b></div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
@@ -1120,7 +1135,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
       const val=cellValue(item);
-      html+=isManagement()
+      html+=editablePlan
         ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)}" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="08:00-16:00 / frei / urlaub / krank"></td>`
         : `<td>${val ? shiftPill(val) : "<span class='small'>—</span>"}</td>`;
     });
@@ -1128,7 +1143,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   });
 
   if(!people.length){
-    html+=`<tr><td colspan="8"><span class="small">${isManagement()?`Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.`:`Keine Arbeitsschichten in dieser Woche.`}</span></td></tr>`;
+    html+=`<tr><td colspan="8"><span class="small">${editablePlan?`Keine einplanbaren Mitarbeiter für ${escapeHtml(title)}.`:`Keine Arbeitsschichten in dieser Woche.`}</span></td></tr>`;
   }
 
   html+="</tbody></table></div>";
@@ -1141,9 +1156,10 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
 
 async function saveScheduleCell(inp){
-  if(!isManagement()) return;
-
   const profileId = inp.dataset.profile;
+  const targetProfile = profileById(profileId);
+  const targetKind = planKindForDepartment(targetProfile.department);
+  if(!canEditPlan(targetKind)) return alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten.");
   const workDate = inp.dataset.date;
   const rawOriginal = (inp.value || "").trim();
   const raw = rawOriginal.toLowerCase();
@@ -1734,6 +1750,7 @@ async function loadVacationOverlap(){
 }
 
 $("saveStaff").onclick=async()=>{
+  if(!isManagement()) return alert("Nur Geschäftsführung kann Mitarbeiter verwalten.");
   const id=$("editingStaffId").value,first=$("staffFirstName").value.trim(),last=$("staffLastName").value.trim(),email=$("staffEmail").value.trim(),phone=$("staffPhone").value.trim(),role=$("staffRole").value,department=$("staffDepartment").value,plannableValue=$("staffPlannable").checked;
   if(!first||!last||!email)return alert("Vorname, Nachname und E-Mail sind Pflicht.");
   if(!id&&plannable().length>=MAX_EMPLOYEES&&plannableValue)return alert("Maximal 20 einplanbare Mitarbeiter erreicht.");
@@ -1748,6 +1765,7 @@ function editStaff(id){
   $("editingStaffId").value=p.id;$("staffFirstName").value=p.first_name||"";$("staffLastName").value=p.last_name||"";$("staffEmail").value=p.email||"";$("staffPhone").value=p.phone||"";$("staffRole").value=p.role==="admin"?"management":p.role;$("staffDepartment").value=p.department||"Service";$("staffPlannable").checked=p.plannable===true;if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
 }
 async function deactivateStaff(id){
+  if(!isManagement()) return;
   if(!confirm("Mitarbeiter deaktivieren?"))return;
   await sb.from("profiles").update({active:false}).eq("id",id);
   await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();
@@ -1886,7 +1904,7 @@ async function loadSummary(){
   lastSummaryRows.forEach(r=>html+=`<tr><td>${escapeHtml(r.name)}</td><td><b>${euroHours(r.hours)}</b></td><td>${r.count}</td></tr>`);
   $("summaryList").innerHTML=html+"</tbody></table></div>";
 }
-async function createNotification(title,body){if(isManagement())await sb.from("notifications").insert({title,body,created_by:profile.id})}
+async function createNotification(title,body){if(isManagement()||isKitchenLead())await sb.from("notifications").insert({title,body,created_by:profile.id})}
 
 
 
@@ -2394,7 +2412,7 @@ setupPasswordReset();
 setupPasswordUpdate();
 
 async function publishPlan(kind){
-  if(!isManagement()) return alert("Nur Geschäftsführung kann den Dienstplan veröffentlichen.");
+  if(!canPublishPlan(kind)) return alert("Du hast keine Berechtigung, diesen Dienstplan zu veröffentlichen.");
 
   const isKitchen = kind === "kitchen";
   const weekInput = isKitchen ? $("weekStartKitchen") : $("weekStartService");

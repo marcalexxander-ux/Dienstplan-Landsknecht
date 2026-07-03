@@ -2666,3 +2666,11 @@ body.employeeMode tr.ownShiftHighlight td:last-child{
 #kitchenAddStaffBtn{
   display:none!important;
 }
+
+
+/* v6.0.21 Küchenleitung */
+.deptBadge.dept-Küchenleitung,
+.deptBadge.dept-KüchenLeitung{
+  background:#e8f5ef;
+  color:#174d3a;
+}
