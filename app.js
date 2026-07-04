@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.25";
+const APP_VERSION="v6.0.26";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1913,6 +1913,11 @@ async function createNotification(title,body){if(isManagement()||isKitchenLead()
 
 
 
+
+const CLOCK_ALLOWED_IPV4S=["84.181.139.221"];
+const CLOCK_ALLOWED_IPV6_PREFIXES=["2003:ee:d737:2300:"];
+let clockNetworkState={checked:false,allowed:false,ip:"",reason:"Noch nicht geprüft"};
+
 const MINIJOB_DEPARTMENTS=["Minijob Service","Minijob Bar","Minijob Küche"];
 
 function scheduleHoursForMinijobEntry(entry){
@@ -2647,6 +2652,87 @@ function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
   return `${base}?stempeluhr=1`;
 }
+
+function normalizeIpValue(ip){
+  return String(ip||"").trim().toLowerCase();
+}
+function isAllowedClockIp(ip){
+  const normalized = normalizeIpValue(ip);
+  if(!normalized) return false;
+  if(CLOCK_ALLOWED_IPV4S.includes(normalized)) return true;
+  return CLOCK_ALLOWED_IPV6_PREFIXES.some(prefix => normalized.startsWith(String(prefix).toLowerCase()));
+}
+function renderClockNetworkStatus(){
+  const el = $("clockNetworkStatus");
+  if(!el) return;
+  const state = clockNetworkState || {};
+  el.classList.remove("allowed","blocked","unknown");
+  el.classList.add(state.allowed ? "allowed" : state.checked ? "blocked" : "unknown");
+
+  const ipLine = state.ip ? `<br><span>Erkannte IP: <b>${escapeHtml(state.ip)}</b></span>` : "";
+  const allowedLine = `<br><span>Erlaubt: IPv4 ${escapeHtml(CLOCK_ALLOWED_IPV4S.join(", "))}${CLOCK_ALLOWED_IPV6_PREFIXES.length ? " · IPv6-Präfix " + escapeHtml(CLOCK_ALLOWED_IPV6_PREFIXES.join(", ")) : ""}</span>`;
+
+  el.innerHTML = state.allowed
+    ? `✅ <b>Restaurantnetz erkannt.</b> Stempeln ist freigegeben.${ipLine}`
+    : `⛔ <b>Stempeln blockiert.</b> Bitte im Landsknecht-WLAN öffnen.${ipLine}${allowedLine}<br><small>${escapeHtml(state.reason||"")}</small>`;
+
+  document.querySelectorAll("#clockInBtn,#breakStartBtn,#breakEndBtn,#clockOutBtn").forEach(btn=>{
+    btn.disabled = !state.allowed;
+    btn.classList.toggle("disabled", !state.allowed);
+  });
+}
+async function checkClockNetwork(force=false){
+  if(clockNetworkState.checked && !force) return clockNetworkState;
+
+  clockNetworkState={checked:false,allowed:false,ip:"",reason:"Prüfung läuft..."};
+  renderClockNetworkStatus();
+
+  try{
+    const res = await fetch(`/api/check-clock-network?ts=${Date.now()}`,{cache:"no-store"});
+    if(res.ok){
+      const data = await res.json();
+      const ip = normalizeIpValue(data.ip || "");
+      clockNetworkState={
+        checked:true,
+        allowed:!!data.allowed || isAllowedClockIp(ip),
+        ip,
+        reason:data.reason || "Prüfung über Cloudflare Function"
+      };
+      renderClockNetworkStatus();
+      return clockNetworkState;
+    }
+  }catch(e){
+    // Fallback unten
+  }
+
+  try{
+    const res = await fetch(`https://api.ipify.org?format=json&ts=${Date.now()}`,{cache:"no-store"});
+    if(res.ok){
+      const data = await res.json();
+      const ip = normalizeIpValue(data.ip || "");
+      clockNetworkState={
+        checked:true,
+        allowed:isAllowedClockIp(ip),
+        ip,
+        reason:"Prüfung über Browser-Fallback"
+      };
+      renderClockNetworkStatus();
+      return clockNetworkState;
+    }
+  }catch(e){
+    // ignore
+  }
+
+  clockNetworkState={
+    checked:true,
+    allowed:false,
+    ip:"",
+    reason:"IP konnte nicht geprüft werden. Bitte Internetverbindung und Restaurant-WLAN prüfen."
+  };
+  renderClockNetworkStatus();
+  return clockNetworkState;
+}
+
 function setupClockQr(){
   if(!$("clockQrImg")) return;
   const url = clockQrUrl();
@@ -2667,6 +2753,7 @@ async function loadTimeClock(){
   if($("clockEvalFrom") && !$("clockEvalFrom").value) $("clockEvalFrom").value = firstOfMonthISO(monthISO());
   if($("clockEvalTo") && !$("clockEvalTo").value) $("clockEvalTo").value = todayISO();
   setupClockQr();
+  await checkClockNetwork(true);
 
   await loadClockEvents();
   await loadClockEvaluation();
@@ -2741,6 +2828,8 @@ async function loadClockEvents(){
 }
 async function saveClockEvent(eventType){
   if(!isManagement()) return alert("Die Stempeluhr ist aktuell nur für Geschäftsführung freigegeben.");
+  const network = await checkClockNetwork(true);
+  if(!network.allowed) return alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
   const profileId = $("clockProfile")?.value;
   if(!profileId) return alert("Bitte Mitarbeiter auswählen.");
 

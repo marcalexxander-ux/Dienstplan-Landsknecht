@@ -2969,3 +2969,34 @@ button[data-tab="summary"],
     grid-column:1/-1;
   }
 }
+
+
+/* v6.0.26 Restaurantnetz-Prüfung für Stempeluhr */
+.clockNetworkStatus{
+  border-radius:16px;
+  padding:14px 16px;
+  margin:14px 0 18px;
+  border:1px solid #dfe6e1;
+  background:#f8faf9;
+  color:#10231c;
+  line-height:1.45;
+}
+.clockNetworkStatus.allowed{
+  border-color:#7fdc97;
+  background:#effff4;
+  color:#174d3a;
+}
+.clockNetworkStatus.blocked{
+  border-color:#d9a534;
+  background:#fff8e6;
+  color:#5c3a00;
+}
+.clockNetworkStatus.unknown{
+  border-color:#dfe6e1;
+  background:#f8faf9;
+}
+button.disabled,
+button:disabled{
+  opacity:.55;
+  cursor:not-allowed!important;
+}
