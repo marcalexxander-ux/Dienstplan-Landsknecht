@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.29";
+const APP_VERSION="v6.0.30";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -2659,7 +2659,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6028`;
+  return `${base}?stempeluhr=1&v=6030`;
 }
 
 function normalizeIpValue(ip){
@@ -2673,21 +2673,29 @@ function isAllowedClockIp(ip){
 }
 function renderClockNetworkStatus(){
   const el = $("clockNetworkStatus");
-  if(!el) return;
   const state = clockNetworkState || {};
-  el.classList.remove("allowed","blocked","unknown");
-  el.classList.add(state.allowed ? "allowed" : state.checked ? "blocked" : "unknown");
+  const managementOverride = isManagement();
 
-  const ipLine = state.ip ? `<br><span>Erkannte IP: <b>${escapeHtml(state.ip)}</b></span>` : "";
-  const allowedLine = `<br><span>Erlaubt: IPv4 ${escapeHtml(CLOCK_ALLOWED_IPV4S.join(", "))}${CLOCK_ALLOWED_IPV6_PREFIXES.length ? " · IPv6-Präfix " + escapeHtml(CLOCK_ALLOWED_IPV6_PREFIXES.join(", ")) : ""}</span>`;
+  if(el){
+    el.classList.remove("allowed","blocked","unknown");
+    el.classList.add(managementOverride ? "allowed" : state.allowed ? "allowed" : state.checked ? "blocked" : "unknown");
 
-  el.innerHTML = state.allowed
-    ? `✅ <b>Restaurantnetz erkannt.</b> Stempeln ist freigegeben.${ipLine}`
-    : `⛔ <b>Stempeln blockiert.</b> Bitte im Landsknecht-WLAN öffnen.${ipLine}${allowedLine}<br><small>${escapeHtml(state.reason||"")}</small>`;
+    const ipLine = state.ip ? `<br><span>Erkannte IP: <b>${escapeHtml(state.ip)}</b></span>` : "";
+    const allowedLine = `<br><span>Erlaubt für Mitarbeiter: IPv4 ${escapeHtml(CLOCK_ALLOWED_IPV4S.join(", "))}${CLOCK_ALLOWED_IPV6_PREFIXES.length ? " · IPv6-Präfix " + escapeHtml(CLOCK_ALLOWED_IPV6_PREFIXES.join(", ")) : ""}</span>`;
+
+    if(managementOverride){
+      el.innerHTML = `✅ <b>Geschäftsführung freigegeben.</b> Manuelle Stempelung ist unabhängig vom Restaurantnetz möglich.${ipLine}<br><small>Die Netzprüfung gilt weiterhin für Mitarbeiter über den QR-Code.</small>`;
+    }else{
+      el.innerHTML = state.allowed
+        ? `✅ <b>Restaurantnetz erkannt.</b> Stempeln ist freigegeben.${ipLine}`
+        : `⛔ <b>Stempeln blockiert.</b> Bitte im Landsknecht-WLAN öffnen.${ipLine}${allowedLine}<br><small>${escapeHtml(state.reason||"")}</small>`;
+    }
+  }
 
   document.querySelectorAll("#clockInBtn,#breakStartBtn,#breakEndBtn,#clockOutBtn").forEach(btn=>{
-    btn.disabled = !state.allowed;
-    btn.classList.toggle("disabled", !state.allowed);
+    const block = !managementOverride && !state.allowed;
+    btn.disabled = block;
+    btn.classList.toggle("disabled", block);
   });
 }
 async function checkClockNetwork(force=false){
@@ -2927,10 +2935,15 @@ async function saveClockEvent(eventType){
   document.querySelectorAll("#clockInBtn,#breakStartBtn,#breakEndBtn,#clockOutBtn").forEach(btn=>btn.disabled=true);
 
   try{
-    const network = await checkClockNetwork(true);
-    if(!network.allowed){
-      alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
-      return;
+    if(!isManagement()){
+      const network = await checkClockNetwork(true);
+      if(!network.allowed){
+        alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
+        return;
+      }
+    }else{
+      // Geschäftsführung darf Mitarbeiter manuell unabhängig von der IP stempeln.
+      await checkClockNetwork(true);
     }
 
     const profileId = isManagement() ? $("clockProfile")?.value : profile.id;

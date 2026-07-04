@@ -3053,3 +3053,10 @@ body.employeeMode #timeClock .sectionHeader h2::after{
 #clockEventsProfileFilter{
   max-width:420px;
 }
+
+
+/* v6.0.30 Geschäftsführung darf unabhängig vom Restaurantnetz manuell stempeln */
+.managementManualNotice{
+  background:#eef8f1;
+  border-color:#a9edba;
+}
