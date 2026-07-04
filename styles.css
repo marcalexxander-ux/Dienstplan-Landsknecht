@@ -3000,3 +3000,31 @@ button:disabled{
   opacity:.55;
   cursor:not-allowed!important;
 }
+
+
+/* v6.0.27 Mitarbeiter-Stempeluhr */
+.clockEmployeeInfo{
+  background:#effff4;
+  border:1px solid #a9edba;
+  border-radius:16px;
+  padding:14px;
+  margin:10px 0 14px;
+  color:#174d3a;
+}
+.clockEmployeeName{
+  font-size:1.25rem;
+  font-weight:900;
+  margin-bottom:6px;
+}
+#timeClock .clockActions{
+  margin-top:14px;
+}
+body.employeeMode #timeClock .clockActions{
+  display:grid;
+  grid-template-columns:1fr;
+}
+body.employeeMode #timeClock .clockActions button{
+  width:100%;
+  min-height:58px;
+  font-size:1.05rem;
+}

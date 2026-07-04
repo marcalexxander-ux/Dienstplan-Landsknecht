@@ -72,7 +72,7 @@
     <button id="mobileMenuToggle" class="mobileMenuToggle" type="button">☰ Menü</button>
     <nav id="mobileTouchNav" class="mobileTouchNav" aria-label="Touch Navigation">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
-      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
+      <button data-tab="timeClock">🕒 Stempeluhr</button>
       <button data-tab="planService">🍽️ Dienstplan</button>
       <button data-tab="infos">📢 Tagesinfos</button>
       <button data-tab="myHours" class="employeeHoursNav">⏱️ Meine Stunden</button>
@@ -86,7 +86,7 @@
     </nav>
     <aside class="sidebar">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
-      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
+      <button data-tab="timeClock">🕒 Stempeluhr</button>
       <button data-tab="planService">🍽️ Dienstplan Service</button>
       <button data-tab="planKitchen">🍳 Dienstplan Küche</button>
       <button data-tab="month">🗓️ Monatsübersicht</button>
@@ -357,11 +357,11 @@
         <div id="myHoursOverview" class="employeeOwnOverview"></div>
       </section>
 
-      <section id="timeClock" class="tabPage card hidden managementOnly">
+      <section id="timeClock" class="tabPage card hidden">
         <div class="sectionHeader">
           <div>
             <h2>Stempeluhr</h2>
-            <p class="subline">QR-Anmeldung und erste Stempel-Erfassung. Aktuell nur für Geschäftsführung sichtbar.</p>
+            <p class="subline">QR-Stempeluhr im Landsknecht-Netz. Mitarbeiter stempeln nur sich selbst, Geschäftsführung sieht die Verwaltung.</p>
           </div>
           <button id="refreshClockBtn" class="secondary" type="button">Aktualisieren</button>
         </div>
@@ -377,7 +377,7 @@
 
 
         <div class="clockGrid">
-          <div class="clockPanel">
+          <div class="clockPanel managementOnly">
             <h3>QR-Anmeldung</h3>
             <p>Der QR-Code öffnet die Stempeluhr-Adresse dieser App. Später können Mitarbeiter darüber direkt zur Stempeluhr gelangen.</p>
             <div class="qrBox">
@@ -391,8 +391,9 @@
           </div>
 
           <div class="clockPanel">
-            <h3>Manuelle Stempelung</h3>
-            <div class="formGrid compactForm">
+            <h3 id="clockStampTitle">Stempeluhr</h3>
+            <div id="clockEmployeeInfo" class="clockEmployeeInfo employeeClockOnly"></div>
+            <div class="formGrid compactForm managementOnly">
               <div>
                 <label>Mitarbeiter</label>
                 <select id="clockProfile"></select>
@@ -418,7 +419,7 @@
         </div>
 
 
-        <div class="clockPanel">
+        <div class="clockPanel managementOnly">
           <h3>Zeiten auswerten</h3>
           <p class="subline">Auswertung aus den Stempel-Ereignissen: Kommen, Pause, Gehen. Offene oder unvollständige Stempelungen werden markiert.</p>
 
@@ -455,12 +456,12 @@
         </div>
 
         <div class="clockPanel">
-          <h3>Heute gestempelt</h3>
+          <h3 id="clockTodayTitle">Heute gestempelt</h3>
           <div id="clockTodayList"></div>
         </div>
 
         <div class="clockPanel">
-          <h3>Letzte Stempel-Ereignisse</h3>
+          <h3 id="clockRecentTitle">Letzte Stempel-Ereignisse</h3>
           <div id="clockEventList"></div>
         </div>
       </section>

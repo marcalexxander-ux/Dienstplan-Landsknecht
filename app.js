@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.26";
+const APP_VERSION="v6.0.27";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -376,6 +376,7 @@ function renderAuth(){
 
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
   document.querySelectorAll(".kitchenLeadOnly").forEach(el=>el.classList.toggle("hidden",!logged||!(isManagement()||isKitchenLead())));
+  document.querySelectorAll(".employeeClockOnly").forEach(el=>el.classList.toggle("hidden",!logged||isManagement()));
 
   if(logged){
     $("weekStartService").value ||= mondayISO();
@@ -387,7 +388,7 @@ function renderAuth(){
     $("vacTo").value ||= todayISO();
     if($("eventDate")) $("eventDate").value ||= todayISO();
     if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
-    setActiveTab(new URLSearchParams(window.location.search).has("stempeluhr") && isManagement() ? "timeClock" : "dashboard");
+    setActiveTab(new URLSearchParams(window.location.search).has("stempeluhr") ? "timeClock" : "dashboard");
     loadAll();
   }
 }
@@ -2743,12 +2744,15 @@ function selectedClockProfile(){
   return profiles.find(p=>p.id===$("clockProfile")?.value) || {};
 }
 async function loadTimeClock(){
-  if(!$("timeClock") || !session || !isManagement()) return;
+  if(!$("timeClock") || !session) return;
   if(!profiles.length) await loadProfiles();
 
-  if($("clockProfile") && !$("clockProfile").innerHTML){
+  if(isManagement() && $("clockProfile") && !$("clockProfile").innerHTML){
     $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   }
+  if($("clockStampTitle")) $("clockStampTitle").textContent = isManagement() ? "Manuelle Stempelung" : "Meine Stempeluhr";
+  if($("clockTodayTitle")) $("clockTodayTitle").textContent = isManagement() ? "Heute gestempelt" : "Meine Stempelungen heute";
+  if($("clockRecentTitle")) $("clockRecentTitle").textContent = isManagement() ? "Letzte Stempel-Ereignisse" : "Meine letzten Stempelungen";
   if($("clockDateTime") && !$("clockDateTime").value) $("clockDateTime").value = localDateTimeInputValue();
   if($("clockEvalFrom") && !$("clockEvalFrom").value) $("clockEvalFrom").value = firstOfMonthISO(monthISO());
   if($("clockEvalTo") && !$("clockEvalTo").value) $("clockEvalTo").value = todayISO();
@@ -2756,22 +2760,26 @@ async function loadTimeClock(){
   await checkClockNetwork(true);
 
   await loadClockEvents();
-  await loadClockEvaluation();
+  if(isManagement()) await loadClockEvaluation();
 }
 async function loadClockEvents(){
-  if(!$("clockEventList") || !isManagement()) return;
+  if(!$("clockEventList")) return;
+  if(!profiles.length) await loadProfiles();
 
   const today = todayISO();
-  const from = today + "T00:00:00";
-  const to = addDaysISO(today,1) + "T00:00:00";
-
-  const recent = await sb.from("time_clock_events")
+  let q = sb.from("time_clock_events")
     .select("*")
     .order("event_time",{ascending:false})
-    .limit(80);
+    .limit(isManagement() ? 100 : 30);
+
+  if(!isManagement()){
+    q = q.eq("profile_id", profile?.id || "");
+  }
+
+  const recent = await q;
 
   if(recent.error){
-    $("clockEventList").innerHTML = `<div class="entry"><b>Fehler:</b><br>${escapeHtml(recent.error.message)}<br><span class="small">Bitte prüfen, ob das SQL für v6.0.23 ausgeführt wurde.</span></div>`;
+    $("clockEventList").innerHTML = `<div class="entry"><b>Fehler:</b><br>${escapeHtml(recent.error.message)}<br><span class="small">Bitte prüfen, ob das SQL für v6.0.27 ausgeführt wurde.</span></div>`;
     if($("clockTodayList")) $("clockTodayList").innerHTML = "";
     return;
   }
@@ -2779,16 +2787,22 @@ async function loadClockEvents(){
   const rows = recent.data || [];
   const todayRows = rows.filter(e => localISODate(new Date(e.event_time)) === today);
 
-  const lastByProfile = {};
-  rows.slice().reverse().forEach(e=>{ lastByProfile[e.profile_id] = e; });
-
-  const selected = $("clockProfile")?.value;
+  const selected = isManagement() ? $("clockProfile")?.value : profile?.id;
   const selectedLast = rows.find(e=>e.profile_id===selected);
+
   if($("clockSelectedStatus")){
-    const p=selectedClockProfile();
+    const p = isManagement() ? selectedClockProfile() : (profile || {});
     $("clockSelectedStatus").innerHTML = selected
       ? `<b>${escapeHtml((p.first_name||"")+" "+(p.last_name||""))}</b>: ${escapeHtml(clockStatusFromLast(selectedLast?.event_type))}`
       : "Bitte Mitarbeiter auswählen.";
+  }
+
+  if($("clockEmployeeInfo") && !isManagement()){
+    $("clockEmployeeInfo").innerHTML = `
+      <div class="clockEmployeeName">${escapeHtml((profile?.first_name||"")+" "+(profile?.last_name||""))}</div>
+      <div>${deptBadge(profile?.department)} · ${escapeHtml(clockStatusFromLast(selectedLast?.event_type))}</div>
+      <small>Stempeln ist nur im Landsknecht-Netz möglich. Die Uhrzeit wird automatisch gespeichert.</small>
+    `;
   }
 
   if($("clockTodayList")){
@@ -2813,7 +2827,7 @@ async function loadClockEvents(){
           ${list.map(e=>`<span>${new Date(e.event_time).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} ${escapeHtml(clockEventLabel(e.event_type))}</span>`).join("")}
         </div>
       </div>`;
-    }).join("") : `<p>Heute wurde noch nicht gestempelt.</p>`;
+    }).join("") : `<p>${isManagement() ? "Heute wurde noch nicht gestempelt." : "Du hast heute noch nicht gestempelt."}</p>`;
   }
 
   $("clockEventList").innerHTML = rows.length ? rows.map(e=>{
@@ -2824,17 +2838,20 @@ async function loadClockEvents(){
       ${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${deptBadge(p.department)}
       ${e.note ? `<br><span class="small">Notiz: ${escapeHtml(e.note)}</span>` : ""}
     </div>`;
-  }).join("") : `<p>Keine Stempel-Ereignisse vorhanden.</p>`;
+  }).join("") : `<p>${isManagement() ? "Keine Stempel-Ereignisse vorhanden." : "Noch keine eigenen Stempelungen vorhanden."}</p>`;
 }
 async function saveClockEvent(eventType){
-  if(!isManagement()) return alert("Die Stempeluhr ist aktuell nur für Geschäftsführung freigegeben.");
+  if(!session || !profile?.id) return alert("Bitte zuerst einloggen.");
   const network = await checkClockNetwork(true);
   if(!network.allowed) return alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
-  const profileId = $("clockProfile")?.value;
+
+  const profileId = isManagement() ? $("clockProfile")?.value : profile.id;
   if(!profileId) return alert("Bitte Mitarbeiter auswählen.");
 
-  const dtValue = $("clockDateTime")?.value || localDateTimeInputValue();
-  const eventDate = new Date(dtValue);
+  const eventDate = isManagement()
+    ? new Date($("clockDateTime")?.value || localDateTimeInputValue())
+    : new Date();
+
   if(Number.isNaN(eventDate.getTime())) return alert("Bitte gültigen Zeitpunkt eingeben.");
 
   const payload = {
@@ -2842,8 +2859,8 @@ async function saveClockEvent(eventType){
     event_type: eventType,
     event_time: eventDate.toISOString(),
     work_date: localISODate(eventDate),
-    source: "management",
-    note: $("clockNote")?.value || "",
+    source: isManagement() ? "management" : "employee_qr",
+    note: isManagement() ? ($("clockNote")?.value || "") : "",
     created_by: profile?.id || null
   };
 
