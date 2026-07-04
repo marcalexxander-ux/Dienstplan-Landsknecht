@@ -3047,3 +3047,9 @@ body.employeeMode #timeClock .sectionHeader{
 body.employeeMode #timeClock .sectionHeader h2::after{
   content:"";
 }
+
+
+/* v6.0.29 Stempelungen nach Mitarbeiter filtern */
+#clockEventsProfileFilter{
+  max-width:420px;
+}

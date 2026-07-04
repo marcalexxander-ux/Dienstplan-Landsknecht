@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.28";
+const APP_VERSION="v6.0.29";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -937,6 +937,7 @@ async function loadProfiles(){
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("clockProfile")) $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").innerHTML=`<option value="">Alle Mitarbeiter</option>`+plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if(isManagement())renderStaff();
 }
 
@@ -2778,13 +2779,15 @@ async function loadClockEvents(){
   if(!profiles.length) await loadProfiles();
 
   const today = todayISO();
+  const viewFilter = isManagement() ? ($("clockEventsProfileFilter")?.value || "") : (profile?.id || "");
+
   let q = sb.from("time_clock_events")
     .select("*")
     .order("event_time",{ascending:false})
-    .limit(isManagement() ? 100 : 30);
+    .limit(isManagement() ? 120 : 30);
 
-  if(!isManagement()){
-    q = q.eq("profile_id", profile?.id || "");
+  if(viewFilter){
+    q = q.eq("profile_id", viewFilter);
   }
 
   const recent = await q;
@@ -2798,12 +2801,12 @@ async function loadClockEvents(){
   const rows = recent.data || [];
   const todayRows = rows.filter(e => localISODate(new Date(e.event_time)) === today);
 
-  const selected = isManagement() ? $("clockProfile")?.value : profile?.id;
-  const selectedLast = rows.find(e=>e.profile_id===selected);
+  const selectedForStatus = isManagement() ? ($("clockProfile")?.value || viewFilter) : profile?.id;
+  const selectedLast = rows.find(e=>e.profile_id===selectedForStatus);
 
   if($("clockSelectedStatus")){
-    const p = isManagement() ? selectedClockProfile() : (profile || {});
-    $("clockSelectedStatus").innerHTML = selected
+    const p = isManagement() ? (profileById(selectedForStatus) || selectedClockProfile()) : (profile || {});
+    $("clockSelectedStatus").innerHTML = selectedForStatus
       ? `<b>${escapeHtml((p.first_name||"")+" "+(p.last_name||""))}</b>: ${escapeHtml(clockStatusFromLast(selectedLast?.event_type))}`
       : "Bitte Mitarbeiter auswählen.";
   }
@@ -2826,6 +2829,10 @@ async function loadClockEvents(){
     const people = Object.keys(byEmployee).map(id=>profileById(id)).filter(p=>p.id);
     people.sort((a,b)=>String(a.last_name||"").localeCompare(String(b.last_name||"")));
 
+    const emptyText = isManagement()
+      ? (viewFilter ? "Für diesen Mitarbeiter wurde heute noch nicht gestempelt." : "Heute wurde noch nicht gestempelt.")
+      : "Du hast heute noch nicht gestempelt.";
+
     $("clockTodayList").innerHTML = people.length ? people.map(p=>{
       const list = byEmployee[p.id].sort((a,b)=>String(a.event_time).localeCompare(String(b.event_time)));
       const last = list[list.length-1];
@@ -2838,7 +2845,14 @@ async function loadClockEvents(){
           ${list.map(e=>`<span>${new Date(e.event_time).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} ${escapeHtml(clockEventLabel(e.event_type))}</span>`).join("")}
         </div>
       </div>`;
-    }).join("") : `<p>${isManagement() ? "Heute wurde noch nicht gestempelt." : "Du hast heute noch nicht gestempelt."}</p>`;
+    }).join("") : `<p>${emptyText}</p>`;
+  }
+
+  if($("clockRecentTitle") && isManagement()){
+    const p = viewFilter ? profileById(viewFilter) : null;
+    $("clockRecentTitle").textContent = p?.id
+      ? `Letzte Stempel-Ereignisse · ${p.first_name||""} ${p.last_name||""}`.trim()
+      : "Letzte Stempel-Ereignisse";
   }
 
   $("clockEventList").innerHTML = rows.length ? rows.map(e=>{
@@ -2849,7 +2863,7 @@ async function loadClockEvents(){
       ${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${deptBadge(p.department)}
       ${e.note ? `<br><span class="small">Notiz: ${escapeHtml(e.note)}</span>` : ""}
     </div>`;
-  }).join("") : `<p>${isManagement() ? "Keine Stempel-Ereignisse vorhanden." : "Noch keine eigenen Stempelungen vorhanden."}</p>`;
+  }).join("") : `<p>${isManagement() ? "Keine Stempel-Ereignisse für diese Auswahl vorhanden." : "Noch keine eigenen Stempelungen vorhanden."}</p>`;
 }
 
 async function getLastClockEvent(profileId){
@@ -3336,6 +3350,7 @@ function setClockEvalRange(kind){
 function setupTimeClock(){
   if($("refreshClockBtn")) $("refreshClockBtn").onclick = loadTimeClock;
   if($("clockProfile")) $("clockProfile").onchange = loadClockEvents;
+  if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").onchange = loadClockEvents;
   if($("clockInBtn")) $("clockInBtn").onclick = ()=>saveClockEvent("clock_in");
   if($("breakStartBtn")) $("breakStartBtn").onclick = ()=>saveClockEvent("break_start");
   if($("breakEndBtn")) $("breakEndBtn").onclick = ()=>saveClockEvent("break_end");
