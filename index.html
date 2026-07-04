@@ -72,7 +72,7 @@
     <button id="mobileMenuToggle" class="mobileMenuToggle" type="button">☰ Menü</button>
     <nav id="mobileTouchNav" class="mobileTouchNav" aria-label="Touch Navigation">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
-      <button data-tab="timeClock">🕒 Stempeluhr</button>
+      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
       <button data-tab="planService">🍽️ Dienstplan</button>
       <button data-tab="infos">📢 Tagesinfos</button>
       <button data-tab="myHours" class="employeeHoursNav">⏱️ Meine Stunden</button>
@@ -86,7 +86,7 @@
     </nav>
     <aside class="sidebar">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
-      <button data-tab="timeClock">🕒 Stempeluhr</button>
+      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
       <button data-tab="planService">🍽️ Dienstplan Service</button>
       <button data-tab="planKitchen">🍳 Dienstplan Küche</button>
       <button data-tab="month">🗓️ Monatsübersicht</button>
@@ -361,17 +361,17 @@
         <div class="sectionHeader">
           <div>
             <h2>Stempeluhr</h2>
-            <p class="subline">QR-Stempeluhr im Landsknecht-Netz. Mitarbeiter stempeln nur sich selbst, Geschäftsführung sieht die Verwaltung.</p>
+            <p class="subline">QR-Stempeluhr im Landsknecht-Netz. Mitarbeiter stempeln nur über den QR-Link und nur sich selbst.</p>
           </div>
           <button id="refreshClockBtn" class="secondary" type="button">Aktualisieren</button>
         </div>
 
-        <div class="clockNotice">
+        <div class="clockNotice managementOnly">
           <b>Aufbauphase:</b> Dieses Modul ersetzt die alte Zeiterfassung Schritt für Schritt.
           Erstmal werden nur Stempel-Ereignisse gespeichert: Kommen, Pause starten, Pause beenden, Gehen.
         </div>
 
-        <div id="clockNetworkStatus" class="clockNetworkStatus">
+        <div id="clockNetworkStatus" class="clockNetworkStatus managementOnly">
           Netzwerkprüfung wird geladen...
         </div>
 

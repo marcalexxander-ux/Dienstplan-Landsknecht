@@ -3028,3 +3028,22 @@ body.employeeMode #timeClock .clockActions button{
   min-height:58px;
   font-size:1.05rem;
 }
+
+
+/* v6.0.28 Mitarbeiter-Stempeluhr nur über QR-Link */
+body:not(.clockRouteMode):not(.loggedOut) #mobileTouchNav button[data-tab="timeClock"]:not(.managementOnly){
+  display:none!important;
+}
+body.employeeMode #timeClock .clockNotice,
+body.employeeMode #timeClock #clockNetworkStatus{
+  display:none!important;
+}
+body.employeeMode #timeClock .sectionHeader .subline{
+  display:none;
+}
+body.employeeMode #timeClock .sectionHeader{
+  margin-bottom:8px;
+}
+body.employeeMode #timeClock .sectionHeader h2::after{
+  content:"";
+}

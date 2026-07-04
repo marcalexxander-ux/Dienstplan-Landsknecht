@@ -1,11 +1,12 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.27";
+const APP_VERSION="v6.0.28";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
 const KITCHEN_DEPARTMENTS=["Küchenleitung","Küchen Leitung","Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
 let lastClockEvaluationRows=[];
+let clockSaving=false;
 let publishedPlanCache={};
 let passwordRecoveryMode=false;
 
@@ -76,7 +77,8 @@ function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
 function setActiveTab(tabId){
-  const normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
+  let normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
+  if(normalized==="timeClock" && session && !isManagement() && !isClockRoute()) normalized = "dashboard";
   document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
   document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
   const target=$(normalized);
@@ -362,6 +364,8 @@ function setAuthBodyState(logged){
 function renderAuth(){
   const logged=!!session;
   setAuthBodyState(logged);
+  document.body.classList.toggle("employeeMode", !!logged && !isManagement());
+  document.body.classList.toggle("clockRouteMode", !!logged && isClockRoute());
 
   if(passwordRecoveryMode){
     if($("authView")) $("authView").classList.add("hidden");
@@ -2649,9 +2653,12 @@ function clockStatusFromLast(type){
   if(type==="clock_out") return "Ausgestempelt";
   return "Noch nicht gestempelt";
 }
+function isClockRoute(){
+  return new URLSearchParams(window.location.search).has("stempeluhr");
+}
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1`;
+  return `${base}?stempeluhr=1&v=6028`;
 }
 
 function normalizeIpValue(ip){
@@ -2745,6 +2752,10 @@ function selectedClockProfile(){
 }
 async function loadTimeClock(){
   if(!$("timeClock") || !session) return;
+  if(!isManagement() && !isClockRoute()){
+    setActiveTab("dashboard");
+    return;
+  }
   if(!profiles.length) await loadProfiles();
 
   if(isManagement() && $("clockProfile") && !$("clockProfile").innerHTML){
@@ -2840,40 +2851,127 @@ async function loadClockEvents(){
     </div>`;
   }).join("") : `<p>${isManagement() ? "Keine Stempel-Ereignisse vorhanden." : "Noch keine eigenen Stempelungen vorhanden."}</p>`;
 }
-async function saveClockEvent(eventType){
-  if(!session || !profile?.id) return alert("Bitte zuerst einloggen.");
-  const network = await checkClockNetwork(true);
-  if(!network.allowed) return alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
 
-  const profileId = isManagement() ? $("clockProfile")?.value : profile.id;
-  if(!profileId) return alert("Bitte Mitarbeiter auswählen.");
+async function getLastClockEvent(profileId){
+  if(!profileId) return {data:null,error:null};
+  const res = await sb.from("time_clock_events")
+    .select("*")
+    .eq("profile_id",profileId)
+    .order("event_time",{ascending:false})
+    .limit(1);
+  return {data:(res.data||[])[0]||null,error:res.error||null};
+}
+function validateClockAction(eventType,lastEvent){
+  const lastType = lastEvent?.event_type || "";
 
-  const eventDate = isManagement()
-    ? new Date($("clockDateTime")?.value || localDateTimeInputValue())
-    : new Date();
-
-  if(Number.isNaN(eventDate.getTime())) return alert("Bitte gültigen Zeitpunkt eingeben.");
-
-  const payload = {
-    profile_id: profileId,
-    event_type: eventType,
-    event_time: eventDate.toISOString(),
-    work_date: localISODate(eventDate),
-    source: isManagement() ? "management" : "employee_qr",
-    note: isManagement() ? ($("clockNote")?.value || "") : "",
-    created_by: profile?.id || null
-  };
-
-  const {error} = await sb.from("time_clock_events").insert(payload);
-  if(error){
-    alert("Stempelung konnte nicht gespeichert werden: " + error.message);
-    return;
+  if(eventType==="clock_in"){
+    if(["clock_in","break_start","break_end"].includes(lastType)){
+      return isManagement()
+        ? "Dieser Mitarbeiter ist bereits angemeldet. Bitte erst „Gehen“ stempeln."
+        : "Du bist bereits angemeldet. Bitte erst „Gehen“ stempeln.";
+    }
+    return "";
   }
 
-  if($("clockNote")) $("clockNote").value = "";
-  if($("clockDateTime")) $("clockDateTime").value = localDateTimeInputValue();
-  await loadClockEvents();
-  await loadClockEvaluation();
+  if(eventType==="break_start"){
+    if(lastType==="break_start") return "Die Pause wurde bereits gestartet.";
+    if(!["clock_in","break_end"].includes(lastType)){
+      return isManagement()
+        ? "Pause kann nur gestartet werden, wenn der Mitarbeiter angemeldet ist."
+        : "Pause kann nur gestartet werden, wenn du angemeldet bist.";
+    }
+    return "";
+  }
+
+  if(eventType==="break_end"){
+    if(lastType!=="break_start") return "Pause beenden ist nur möglich, wenn vorher Pause gestartet wurde.";
+    return "";
+  }
+
+  if(eventType==="clock_out"){
+    if(lastType==="break_start") return "Bitte zuerst „Pause beenden“ und danach „Gehen“ stempeln.";
+    if(!["clock_in","break_end"].includes(lastType)){
+      return isManagement()
+        ? "Dieser Mitarbeiter ist aktuell nicht angemeldet."
+        : "Du bist aktuell nicht angemeldet.";
+    }
+    return "";
+  }
+
+  return "";
+}
+
+async function saveClockEvent(eventType){
+  if(!session || !profile?.id) return alert("Bitte zuerst einloggen.");
+
+  if(!isManagement() && !isClockRoute()){
+    return alert("Stempeln ist nur über den QR-Code im Restaurant möglich.");
+  }
+
+  if(clockSaving) return;
+  clockSaving = true;
+  document.querySelectorAll("#clockInBtn,#breakStartBtn,#breakEndBtn,#clockOutBtn").forEach(btn=>btn.disabled=true);
+
+  try{
+    const network = await checkClockNetwork(true);
+    if(!network.allowed){
+      alert("Stempeln ist nur im Landsknecht-WLAN möglich. Erkannte IP: " + (network.ip || "unbekannt"));
+      return;
+    }
+
+    const profileId = isManagement() ? $("clockProfile")?.value : profile.id;
+    if(!profileId){
+      alert("Bitte Mitarbeiter auswählen.");
+      return;
+    }
+
+    const last = await getLastClockEvent(profileId);
+    if(last.error){
+      alert("Letzte Stempelung konnte nicht geprüft werden: " + last.error.message);
+      return;
+    }
+
+    const actionError = validateClockAction(eventType,last.data);
+    if(actionError){
+      alert(actionError);
+      return;
+    }
+
+    const eventDate = isManagement()
+      ? new Date($("clockDateTime")?.value || localDateTimeInputValue())
+      : new Date();
+
+    if(Number.isNaN(eventDate.getTime())){
+      alert("Bitte gültigen Zeitpunkt eingeben.");
+      return;
+    }
+
+    const payload = {
+      profile_id: profileId,
+      event_type: eventType,
+      event_time: eventDate.toISOString(),
+      work_date: localISODate(eventDate),
+      source: isManagement() ? "management" : "employee_qr",
+      note: isManagement() ? ($("clockNote")?.value || "") : "",
+      created_by: profile?.id || null
+    };
+
+    const {error} = await sb.from("time_clock_events").insert(payload);
+    if(error){
+      alert("Stempelung konnte nicht gespeichert werden: " + error.message);
+      return;
+    }
+
+    if($("clockNote")) $("clockNote").value = "";
+    if($("clockDateTime")) $("clockDateTime").value = localDateTimeInputValue();
+
+    await loadClockEvents();
+    if(isManagement()) await loadClockEvaluation();
+
+  }finally{
+    clockSaving = false;
+    renderClockNetworkStatus();
+  }
 }
 
 function minutesBetweenDates(a,b){
