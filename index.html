@@ -72,6 +72,8 @@
     <button id="mobileMenuToggle" class="mobileMenuToggle" type="button">☰ Menü</button>
     <nav id="mobileTouchNav" class="mobileTouchNav" aria-label="Touch Navigation">
       <button data-tab="dashboard" class="active">🏠 Heute</button>
+      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
+      <button data-tab="timeClock" class="managementOnly">🕒 Stempeluhr</button>
       <button data-tab="planService">🍽️ Dienstplan</button>
       <button data-tab="infos">📢 Tagesinfos</button>
       <button data-tab="myHours" class="employeeHoursNav">⏱️ Meine Stunden</button>
@@ -354,7 +356,75 @@
         </div>
         <div id="myHoursOverview" class="employeeOwnOverview"></div>
       </section>
-<section id="minijobCenter" class="tabPage card hidden">
+
+      <section id="timeClock" class="tabPage card hidden managementOnly">
+        <div class="sectionHeader">
+          <div>
+            <h2>Stempeluhr</h2>
+            <p class="subline">QR-Anmeldung und erste Stempel-Erfassung. Aktuell nur für Geschäftsführung sichtbar.</p>
+          </div>
+          <button id="refreshClockBtn" class="secondary" type="button">Aktualisieren</button>
+        </div>
+
+        <div class="clockNotice">
+          <b>Aufbauphase:</b> Dieses Modul ersetzt die alte Zeiterfassung Schritt für Schritt.
+          Erstmal werden nur Stempel-Ereignisse gespeichert: Kommen, Pause starten, Pause beenden, Gehen.
+        </div>
+
+        <div class="clockGrid">
+          <div class="clockPanel">
+            <h3>QR-Anmeldung</h3>
+            <p>Der QR-Code öffnet die Stempeluhr-Adresse dieser App. Später können Mitarbeiter darüber direkt zur Stempeluhr gelangen.</p>
+            <div class="qrBox">
+              <img id="clockQrImg" alt="QR-Code Stempeluhr">
+            </div>
+            <input id="clockQrUrl" readonly>
+            <div class="buttonRow">
+              <button id="copyClockQrUrl" type="button" class="secondary">Link kopieren</button>
+              <button id="printClockQr" type="button" class="secondary">QR drucken</button>
+            </div>
+          </div>
+
+          <div class="clockPanel">
+            <h3>Manuelle Stempelung</h3>
+            <div class="formGrid compactForm">
+              <div>
+                <label>Mitarbeiter</label>
+                <select id="clockProfile"></select>
+              </div>
+              <div>
+                <label>Zeitpunkt</label>
+                <input id="clockDateTime" type="datetime-local">
+              </div>
+              <div class="full">
+                <label>Notiz optional</label>
+                <input id="clockNote" placeholder="z. B. Korrektur, Test, vergessen auszustempeln">
+              </div>
+            </div>
+
+            <div class="clockActions">
+              <button id="clockInBtn" type="button" class="ok">Kommen</button>
+              <button id="breakStartBtn" type="button" class="secondary">Pause starten</button>
+              <button id="breakEndBtn" type="button" class="secondary">Pause beenden</button>
+              <button id="clockOutBtn" type="button" class="danger">Gehen</button>
+            </div>
+            <div id="clockSelectedStatus" class="clockSelectedStatus">Bitte Mitarbeiter auswählen.</div>
+          </div>
+        </div>
+
+        <div class="clockPanel">
+          <h3>Heute gestempelt</h3>
+          <div id="clockTodayList"></div>
+        </div>
+
+        <div class="clockPanel">
+          <h3>Letzte Stempel-Ereignisse</h3>
+          <div id="clockEventList"></div>
+        </div>
+      </section>
+
+
+      <section id="minijobCenter" class="tabPage card hidden">
         <div class="sectionHeader">
           <div>
             <h2>Minijob-Center</h2>

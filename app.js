@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.22";
+const APP_VERSION="v6.0.23";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -85,6 +85,7 @@ function setActiveTab(tabId){
   if(normalized==="events") loadEvents?.();
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
+  if(normalized==="timeClock") loadTimeClock?.();
   if(normalized==="vacation") loadVacationPlanner?.();
 }
 
@@ -385,7 +386,7 @@ function renderAuth(){
     $("vacTo").value ||= todayISO();
     if($("eventDate")) $("eventDate").value ||= todayISO();
     if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
-    setActiveTab("dashboard");
+    setActiveTab(new URLSearchParams(window.location.search).has("stempeluhr") && isManagement() ? "timeClock" : "dashboard");
     loadAll();
   }
 }
@@ -919,7 +920,7 @@ async function loadEmployeeOwnOverview(){
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadMinijobCenter(),loadEmployeeOwnOverview()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadMinijobCenter(),loadEmployeeOwnOverview(),loadTimeClock()]);
 }
 
 async function loadProfiles(){
@@ -928,6 +929,7 @@ async function loadProfiles(){
   profiles=data||[];
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("clockProfile")) $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if(isManagement())renderStaff();
 }
 
@@ -2611,6 +2613,182 @@ async function loadVacationYearOverview(){
   $("vacYearGrid").innerHTML = mobile + html;
 }
 
+
+function localDateTimeInputValue(d=new Date()){
+  const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+  return x.toISOString().slice(0,16);
+}
+function clockEventLabel(type){
+  return ({
+    clock_in:"Kommen",
+    break_start:"Pause Start",
+    break_end:"Pause Ende",
+    clock_out:"Gehen"
+  })[type] || type || "—";
+}
+function clockEventClass(type){
+  return ({
+    clock_in:"clockIn",
+    break_start:"clockPause",
+    break_end:"clockPauseEnd",
+    clock_out:"clockOut"
+  })[type] || "";
+}
+function clockStatusFromLast(type){
+  if(type==="clock_in") return "Im Dienst";
+  if(type==="break_start") return "In Pause";
+  if(type==="break_end") return "Im Dienst";
+  if(type==="clock_out") return "Ausgestempelt";
+  return "Noch nicht gestempelt";
+}
+function clockQrUrl(){
+  const base = window.location.origin + window.location.pathname;
+  return `${base}?stempeluhr=1`;
+}
+function setupClockQr(){
+  if(!$("clockQrImg")) return;
+  const url = clockQrUrl();
+  $("clockQrUrl").value = url;
+  $("clockQrImg").src = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=" + encodeURIComponent(url);
+}
+function selectedClockProfile(){
+  return profiles.find(p=>p.id===$("clockProfile")?.value) || {};
+}
+async function loadTimeClock(){
+  if(!$("timeClock") || !session || !isManagement()) return;
+  if(!profiles.length) await loadProfiles();
+
+  if($("clockProfile") && !$("clockProfile").innerHTML){
+    $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  }
+  if($("clockDateTime") && !$("clockDateTime").value) $("clockDateTime").value = localDateTimeInputValue();
+  setupClockQr();
+
+  await loadClockEvents();
+}
+async function loadClockEvents(){
+  if(!$("clockEventList") || !isManagement()) return;
+
+  const today = todayISO();
+  const from = today + "T00:00:00";
+  const to = addDaysISO(today,1) + "T00:00:00";
+
+  const recent = await sb.from("time_clock_events")
+    .select("*")
+    .order("event_time",{ascending:false})
+    .limit(80);
+
+  if(recent.error){
+    $("clockEventList").innerHTML = `<div class="entry"><b>Fehler:</b><br>${escapeHtml(recent.error.message)}<br><span class="small">Bitte prüfen, ob das SQL für v6.0.23 ausgeführt wurde.</span></div>`;
+    if($("clockTodayList")) $("clockTodayList").innerHTML = "";
+    return;
+  }
+
+  const rows = recent.data || [];
+  const todayRows = rows.filter(e => String(e.event_time||"").slice(0,10) === today);
+
+  const lastByProfile = {};
+  rows.slice().reverse().forEach(e=>{ lastByProfile[e.profile_id] = e; });
+
+  const selected = $("clockProfile")?.value;
+  const selectedLast = rows.find(e=>e.profile_id===selected);
+  if($("clockSelectedStatus")){
+    const p=selectedClockProfile();
+    $("clockSelectedStatus").innerHTML = selected
+      ? `<b>${escapeHtml((p.first_name||"")+" "+(p.last_name||""))}</b>: ${escapeHtml(clockStatusFromLast(selectedLast?.event_type))}`
+      : "Bitte Mitarbeiter auswählen.";
+  }
+
+  if($("clockTodayList")){
+    const byEmployee = {};
+    todayRows.forEach(e=>{
+      byEmployee[e.profile_id] ||= [];
+      byEmployee[e.profile_id].push(e);
+    });
+
+    const people = Object.keys(byEmployee).map(id=>profileById(id)).filter(p=>p.id);
+    people.sort((a,b)=>String(a.last_name||"").localeCompare(String(b.last_name||"")));
+
+    $("clockTodayList").innerHTML = people.length ? people.map(p=>{
+      const list = byEmployee[p.id].sort((a,b)=>String(a.event_time).localeCompare(String(b.event_time)));
+      const last = list[list.length-1];
+      return `<div class="clockTodayCard ${clockEventClass(last?.event_type)}">
+        <div>
+          <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br>
+          <small>${deptBadge(p.department)} · ${escapeHtml(clockStatusFromLast(last?.event_type))}</small>
+        </div>
+        <div class="clockTodayEvents">
+          ${list.map(e=>`<span>${new Date(e.event_time).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"})} ${escapeHtml(clockEventLabel(e.event_type))}</span>`).join("")}
+        </div>
+      </div>`;
+    }).join("") : `<p>Heute wurde noch nicht gestempelt.</p>`;
+  }
+
+  $("clockEventList").innerHTML = rows.length ? rows.map(e=>{
+    const p=profileById(e.profile_id);
+    return `<div class="entry clockEntry ${clockEventClass(e.event_type)}">
+      <b>${escapeHtml(clockEventLabel(e.event_type))}</b>
+      <span class="clockTime">${new Date(e.event_time).toLocaleString("de-DE")}</span><br>
+      ${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${deptBadge(p.department)}
+      ${e.note ? `<br><span class="small">Notiz: ${escapeHtml(e.note)}</span>` : ""}
+    </div>`;
+  }).join("") : `<p>Keine Stempel-Ereignisse vorhanden.</p>`;
+}
+async function saveClockEvent(eventType){
+  if(!isManagement()) return alert("Die Stempeluhr ist aktuell nur für Geschäftsführung freigegeben.");
+  const profileId = $("clockProfile")?.value;
+  if(!profileId) return alert("Bitte Mitarbeiter auswählen.");
+
+  const dtValue = $("clockDateTime")?.value || localDateTimeInputValue();
+  const eventDate = new Date(dtValue);
+  if(Number.isNaN(eventDate.getTime())) return alert("Bitte gültigen Zeitpunkt eingeben.");
+
+  const payload = {
+    profile_id: profileId,
+    event_type: eventType,
+    event_time: eventDate.toISOString(),
+    work_date: localISODate(eventDate),
+    source: "management",
+    note: $("clockNote")?.value || "",
+    created_by: profile?.id || null
+  };
+
+  const {error} = await sb.from("time_clock_events").insert(payload);
+  if(error){
+    alert("Stempelung konnte nicht gespeichert werden: " + error.message);
+    return;
+  }
+
+  if($("clockNote")) $("clockNote").value = "";
+  if($("clockDateTime")) $("clockDateTime").value = localDateTimeInputValue();
+  await loadClockEvents();
+}
+function setupTimeClock(){
+  if($("refreshClockBtn")) $("refreshClockBtn").onclick = loadTimeClock;
+  if($("clockProfile")) $("clockProfile").onchange = loadClockEvents;
+  if($("clockInBtn")) $("clockInBtn").onclick = ()=>saveClockEvent("clock_in");
+  if($("breakStartBtn")) $("breakStartBtn").onclick = ()=>saveClockEvent("break_start");
+  if($("breakEndBtn")) $("breakEndBtn").onclick = ()=>saveClockEvent("break_end");
+  if($("clockOutBtn")) $("clockOutBtn").onclick = ()=>saveClockEvent("clock_out");
+  if($("copyClockQrUrl")) $("copyClockQrUrl").onclick = async()=>{
+    const url = $("clockQrUrl")?.value || clockQrUrl();
+    try{
+      await navigator.clipboard.writeText(url);
+      alert("Stempeluhr-Link kopiert.");
+    }catch(e){
+      prompt("Stempeluhr-Link kopieren:", url);
+    }
+  };
+  if($("printClockQr")) $("printClockQr").onclick = ()=>{
+    document.body.classList.add("printClockQr");
+    setupClockQr();
+    setTimeout(()=>{
+      window.print();
+      setTimeout(()=>document.body.classList.remove("printClockQr"),500);
+    },150);
+  };
+}
+
 function setupVacationYearOverview(){
   if($("vacYearSelect")) $("vacYearSelect").value ||= new Date().getFullYear();
   if($("calcVacYear")) $("calcVacYear").onclick = loadVacationYearOverview;
@@ -2624,6 +2802,7 @@ function setupVacationYearOverview(){
   };
 }
 
+setupTimeClock();
 setupVacationYearOverview();
 setupVacationPlanner();
 init();
