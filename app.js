@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.30";
+const APP_VERSION="v6.0.31";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -929,15 +929,27 @@ async function loadAll(){
   await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadMinijobCenter(),loadEmployeeOwnOverview(),loadTimeClock()]);
 }
 
+
+function alphaProfiles(){
+  return plannable().slice().sort((a,b)=>{
+    const ak = `${a.last_name||""} ${a.first_name||""}`.trim().toLowerCase();
+    const bk = `${b.last_name||""} ${b.first_name||""}`.trim().toLowerCase();
+    return ak.localeCompare(bk, "de", {sensitivity:"base"});
+  });
+}
+function profileOptionHtml(p){
+  return `<option value="${p.id}">${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} (${escapeHtml(p.department||"")})</option>`;
+}
+
 async function loadProfiles(){
   const{data,error}=await sb.from("profiles").select("*").eq("active",true).order("department").order("sort_order").order("last_name");
   if(error)return alert(error.message);
   profiles=data||[];
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
-  if($("clockProfile")) $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
-  if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
-  if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").innerHTML=`<option value="">Alle Mitarbeiter</option>`+plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("clockProfile")) $("clockProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
+  if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
+  if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
   if(isManagement())renderStaff();
 }
 
@@ -2659,7 +2671,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6030`;
+  return `${base}?stempeluhr=1&v=6031`;
 }
 
 function normalizeIpValue(ip){
@@ -2768,7 +2780,7 @@ async function loadTimeClock(){
   if(!profiles.length) await loadProfiles();
 
   if(isManagement() && $("clockProfile") && !$("clockProfile").innerHTML){
-    $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+    $("clockProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
   }
   if($("clockStampTitle")) $("clockStampTitle").textContent = isManagement() ? "Manuelle Stempelung" : "Meine Stempeluhr";
   if($("clockTodayTitle")) $("clockTodayTitle").textContent = isManagement() ? "Heute gestempelt" : "Meine Stempelungen heute";
