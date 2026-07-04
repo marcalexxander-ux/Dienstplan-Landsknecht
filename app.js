@@ -1,10 +1,11 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.24";
+const APP_VERSION="v6.0.25";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
 const KITCHEN_DEPARTMENTS=["Küchenleitung","Küchen Leitung","Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
+let lastClockEvaluationRows=[];
 let publishedPlanCache={};
 let passwordRecoveryMode=false;
 
@@ -930,6 +931,7 @@ async function loadProfiles(){
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("clockProfile")) $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if(isManagement())renderStaff();
 }
 
@@ -2662,9 +2664,12 @@ async function loadTimeClock(){
     $("clockProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   }
   if($("clockDateTime") && !$("clockDateTime").value) $("clockDateTime").value = localDateTimeInputValue();
+  if($("clockEvalFrom") && !$("clockEvalFrom").value) $("clockEvalFrom").value = firstOfMonthISO(monthISO());
+  if($("clockEvalTo") && !$("clockEvalTo").value) $("clockEvalTo").value = todayISO();
   setupClockQr();
 
   await loadClockEvents();
+  await loadClockEvaluation();
 }
 async function loadClockEvents(){
   if(!$("clockEventList") || !isManagement()) return;
@@ -2685,7 +2690,7 @@ async function loadClockEvents(){
   }
 
   const rows = recent.data || [];
-  const todayRows = rows.filter(e => String(e.event_time||"").slice(0,10) === today);
+  const todayRows = rows.filter(e => localISODate(new Date(e.event_time)) === today);
 
   const lastByProfile = {};
   rows.slice().reverse().forEach(e=>{ lastByProfile[e.profile_id] = e; });
@@ -2762,7 +2767,368 @@ async function saveClockEvent(eventType){
   if($("clockNote")) $("clockNote").value = "";
   if($("clockDateTime")) $("clockDateTime").value = localDateTimeInputValue();
   await loadClockEvents();
+  await loadClockEvaluation();
 }
+
+function minutesBetweenDates(a,b){
+  if(!a || !b) return 0;
+  return Math.max(0, Math.round((b.getTime()-a.getTime())/60000));
+}
+function clockMinutesText(minutes){
+  const m = Math.max(0, Math.round(Number(minutes)||0));
+  const h = Math.floor(m/60);
+  const rest = m % 60;
+  return `${h}:${pad2(rest)}`;
+}
+function clockDecimalHours(minutes){
+  return ((Number(minutes)||0)/60).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function clockMoney(amount){
+  return (Number(amount)||0).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}) + " €";
+}
+function clockEventTimeShort(iso){
+  if(!iso) return "—";
+  return new Date(iso).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+}
+function clockEvalStatus(row){
+  if(row.errors?.length) return "Prüfen";
+  if(!row.outISO) return "Offen";
+  return "OK";
+}
+function clockEvalStatusClass(row){
+  const s = clockEvalStatus(row);
+  if(s==="OK") return "ok";
+  if(s==="Offen") return "open";
+  return "warn";
+}
+function buildClockEvaluationRows(events,from,to,profileFilter){
+  const byProfile = {};
+  (events||[]).forEach(e=>{
+    if(profileFilter && e.profile_id !== profileFilter) return;
+    byProfile[e.profile_id] ||= [];
+    byProfile[e.profile_id].push(e);
+  });
+
+  const rows = [];
+
+  Object.entries(byProfile).forEach(([profileId,list])=>{
+    list.sort((a,b)=>String(a.event_time).localeCompare(String(b.event_time)));
+
+    let active = null;
+    let activeBreakStart = null;
+
+    function finishActive(forceError){
+      if(!active) return;
+      if(forceError) active.errors.push(forceError);
+      const shiftDate = localISODate(active.startDate);
+      if(shiftDate >= from && shiftDate <= to){
+        active.date = shiftDate;
+        active.status = clockEvalStatus(active);
+        active.netMinutes = active.outDate ? Math.max(0, active.grossMinutes - active.pauseMinutes) : 0;
+        rows.push(active);
+      }
+      active = null;
+      activeBreakStart = null;
+    }
+
+    list.forEach(e=>{
+      const dt = new Date(e.event_time);
+      const type = e.event_type;
+
+      if(type === "clock_in"){
+        if(active){
+          finishActive("Neues Kommen ohne vorheriges Gehen");
+        }
+        active = {
+          profile_id: profileId,
+          date: localISODate(dt),
+          inISO: e.event_time,
+          outISO: null,
+          startDate: dt,
+          outDate: null,
+          grossMinutes: 0,
+          pauseMinutes: 0,
+          netMinutes: 0,
+          errors: [],
+          notes: e.note ? [e.note] : []
+        };
+        return;
+      }
+
+      if(type === "break_start"){
+        if(!active){
+          const orphanDate = localISODate(dt);
+          if(orphanDate >= from && orphanDate <= to){
+            rows.push({
+              profile_id: profileId,
+              date: orphanDate,
+              inISO: null,
+              outISO: null,
+              startDate: dt,
+              outDate: null,
+              grossMinutes: 0,
+              pauseMinutes: 0,
+              netMinutes: 0,
+              errors: ["Pause Start ohne Kommen"],
+              notes: e.note ? [e.note] : []
+            });
+          }
+          return;
+        }
+        if(activeBreakStart){
+          active.errors.push("Pause doppelt gestartet");
+          return;
+        }
+        activeBreakStart = dt;
+        if(e.note) active.notes.push(e.note);
+        return;
+      }
+
+      if(type === "break_end"){
+        if(!active){
+          const orphanDate = localISODate(dt);
+          if(orphanDate >= from && orphanDate <= to){
+            rows.push({
+              profile_id: profileId,
+              date: orphanDate,
+              inISO: null,
+              outISO: null,
+              startDate: dt,
+              outDate: null,
+              grossMinutes: 0,
+              pauseMinutes: 0,
+              netMinutes: 0,
+              errors: ["Pause Ende ohne Kommen"],
+              notes: e.note ? [e.note] : []
+            });
+          }
+          return;
+        }
+        if(!activeBreakStart){
+          active.errors.push("Pause Ende ohne Pause Start");
+          return;
+        }
+        active.pauseMinutes += minutesBetweenDates(activeBreakStart,dt);
+        activeBreakStart = null;
+        if(e.note) active.notes.push(e.note);
+        return;
+      }
+
+      if(type === "clock_out"){
+        if(!active){
+          const orphanDate = localISODate(dt);
+          if(orphanDate >= from && orphanDate <= to){
+            rows.push({
+              profile_id: profileId,
+              date: orphanDate,
+              inISO: null,
+              outISO: e.event_time,
+              startDate: dt,
+              outDate: dt,
+              grossMinutes: 0,
+              pauseMinutes: 0,
+              netMinutes: 0,
+              errors: ["Gehen ohne Kommen"],
+              notes: e.note ? [e.note] : []
+            });
+          }
+          return;
+        }
+        if(activeBreakStart){
+          active.pauseMinutes += minutesBetweenDates(activeBreakStart,dt);
+          active.errors.push("Pause wurde nicht beendet");
+          activeBreakStart = null;
+        }
+        active.outISO = e.event_time;
+        active.outDate = dt;
+        active.grossMinutes = minutesBetweenDates(active.startDate,dt);
+        active.netMinutes = Math.max(0, active.grossMinutes - active.pauseMinutes);
+        if(e.note) active.notes.push(e.note);
+        finishActive();
+      }
+    });
+
+    if(active){
+      finishActive("Gehen fehlt");
+    }
+  });
+
+  rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)) || String(profileById(a.profile_id).last_name||"").localeCompare(String(profileById(b.profile_id).last_name||"")) || String(a.inISO||"").localeCompare(String(b.inISO||"")));
+  return rows;
+}
+function groupClockEvaluation(rows){
+  const summary = {};
+  rows.forEach(r=>{
+    const p = profileById(r.profile_id);
+    const key = r.profile_id;
+    summary[key] ||= {
+      profile_id:key,
+      name:`${p.first_name||""} ${p.last_name||""}`.trim(),
+      department:p.department||"",
+      hourly_rate:Number(p.hourly_rate||0),
+      shifts:0,
+      grossMinutes:0,
+      pauseMinutes:0,
+      netMinutes:0,
+      errors:0,
+      rows:[]
+    };
+    summary[key].rows.push(r);
+    if(r.inISO) summary[key].shifts += 1;
+    summary[key].grossMinutes += Number(r.grossMinutes||0);
+    summary[key].pauseMinutes += Number(r.pauseMinutes||0);
+    summary[key].netMinutes += Number(r.netMinutes||0);
+    if(r.errors?.length) summary[key].errors += 1;
+  });
+  return Object.values(summary).sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+}
+async function loadClockEvaluation(){
+  if(!$("clockEvaluationList") || !isManagement()) return;
+  if(!profiles.length) await loadProfiles();
+
+  const from = $("clockEvalFrom")?.value || firstOfMonthISO(monthISO());
+  const to = $("clockEvalTo")?.value || todayISO();
+  const profileFilter = $("clockEvalProfile")?.value || "";
+
+  if(from > to){
+    alert("Der Zeitraum ist ungültig.");
+    return;
+  }
+
+  $("clockEvaluationList").innerHTML = `<div class="entry">Zeiten werden ausgewertet...</div>`;
+
+  const queryFrom = addDaysISO(from,-1);
+  const queryTo = addDaysISO(to,1);
+
+  let q = sb.from("time_clock_events")
+    .select("*")
+    .gte("work_date",queryFrom)
+    .lte("work_date",queryTo)
+    .order("event_time",{ascending:true});
+
+  if(profileFilter) q = q.eq("profile_id",profileFilter);
+
+  const {data,error} = await q;
+
+  if(error){
+    $("clockEvaluationList").innerHTML = `<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}<br><span class="small">Bitte prüfen, ob das SQL für v6.0.23 ausgeführt wurde.</span></div>`;
+    if($("clockEvalStats")) $("clockEvalStats").innerHTML = "";
+    return;
+  }
+
+  const rows = buildClockEvaluationRows(data||[],from,to,profileFilter);
+  lastClockEvaluationRows = rows;
+
+  const groups = groupClockEvaluation(rows);
+  const totalNet = groups.reduce((s,g)=>s+g.netMinutes,0);
+  const totalPause = groups.reduce((s,g)=>s+g.pauseMinutes,0);
+  const totalErrors = groups.reduce((s,g)=>s+g.errors,0);
+  const totalShifts = groups.reduce((s,g)=>s+g.shifts,0);
+
+  if($("clockEvalStats")){
+    $("clockEvalStats").innerHTML = `
+      <div class="clockEvalStat"><span>Schichten</span><b>${totalShifts}</b></div>
+      <div class="clockEvalStat"><span>Netto</span><b>${clockDecimalHours(totalNet)} Std.</b></div>
+      <div class="clockEvalStat"><span>Pause</span><b>${clockMinutesText(totalPause)}</b></div>
+      <div class="clockEvalStat ${totalErrors ? "warn" : ""}"><span>Prüfen</span><b>${totalErrors}</b></div>
+    `;
+  }
+
+  if(!groups.length){
+    $("clockEvaluationList").innerHTML = `<p>Keine auswertbaren Stempelungen im gewählten Zeitraum.</p>`;
+    return;
+  }
+
+  $("clockEvaluationList").innerHTML = groups.map(g=>{
+    const pay = g.hourly_rate ? g.netMinutes/60*g.hourly_rate : 0;
+    return `<div class="clockEvalEmployeeCard ${g.errors ? "hasErrors" : ""}">
+      <div class="clockEvalEmployeeHead">
+        <div>
+          <h4>${escapeHtml(g.name || "Unbekannt")}</h4>
+          <small>${deptBadge(g.department)}</small>
+        </div>
+        <div class="clockEvalNet">${clockDecimalHours(g.netMinutes)} Std.</div>
+      </div>
+      <div class="clockEvalMiniStats">
+        <span>Schichten <b>${g.shifts}</b></span>
+        <span>Brutto <b>${clockDecimalHours(g.grossMinutes)}</b></span>
+        <span>Pause <b>${clockMinutesText(g.pauseMinutes)}</b></span>
+        <span>Netto <b>${clockDecimalHours(g.netMinutes)}</b></span>
+        ${g.hourly_rate ? `<span>Lohn <b>${clockMoney(pay)}</b></span>` : ""}
+        <span class="${g.errors ? "warn" : "ok"}">Prüfen <b>${g.errors}</b></span>
+      </div>
+      <div class="clockEvalShiftList">
+        ${g.rows.map(r=>`
+          <div class="clockEvalShiftRow ${clockEvalStatusClass(r)}">
+            <div>
+              <b>${fmtDate(r.date)}</b><br>
+              <small>${escapeHtml(clockEvalStatus(r))}${r.errors?.length ? " · " + escapeHtml(r.errors.join(", ")) : ""}</small>
+            </div>
+            <div>
+              <span>Kommen</span><b>${clockEventTimeShort(r.inISO)}</b>
+            </div>
+            <div>
+              <span>Gehen</span><b>${clockEventTimeShort(r.outISO)}</b>
+            </div>
+            <div>
+              <span>Pause</span><b>${clockMinutesText(r.pauseMinutes)}</b>
+            </div>
+            <div>
+              <span>Netto</span><b>${r.outISO ? clockDecimalHours(r.netMinutes) : "—"}</b>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>`;
+  }).join("");
+}
+function exportClockEvaluationCsv(){
+  if(!lastClockEvaluationRows.length){
+    alert("Bitte zuerst die Auswertung laden.");
+    return;
+  }
+  const rows = [["Mitarbeiter","Bereich","Datum","Kommen","Gehen","Brutto Stunden","Pause","Netto Stunden","Status","Hinweis","Stundenlohn","Lohn"]];
+  lastClockEvaluationRows.forEach(r=>{
+    const p=profileById(r.profile_id);
+    const rate=Number(p.hourly_rate||0);
+    const pay=rate ? (Number(r.netMinutes||0)/60*rate) : 0;
+    rows.push([
+      `${p.first_name||""} ${p.last_name||""}`.trim(),
+      p.department||"",
+      fmtDate(r.date),
+      clockEventTimeShort(r.inISO),
+      clockEventTimeShort(r.outISO),
+      clockDecimalHours(r.grossMinutes),
+      clockMinutesText(r.pauseMinutes),
+      r.outISO ? clockDecimalHours(r.netMinutes) : "",
+      clockEvalStatus(r),
+      (r.errors||[]).join(", "),
+      rate ? rate.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}) : "",
+      pay ? pay.toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""
+    ]);
+  });
+  const csv = rows.map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(";")).join("\n");
+  const blob = new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`stempeluhr-auswertung-${$("clockEvalFrom")?.value||""}-bis-${$("clockEvalTo")?.value||""}.csv`;
+  a.click();
+}
+function setClockEvalRange(kind){
+  const today = todayISO();
+  if(kind==="today"){
+    $("clockEvalFrom").value = today;
+    $("clockEvalTo").value = today;
+  }else if(kind==="week"){
+    $("clockEvalFrom").value = mondayISO();
+    $("clockEvalTo").value = addDaysISO(mondayISO(),6);
+  }else{
+    $("clockEvalFrom").value = firstOfMonthISO(monthISO());
+    $("clockEvalTo").value = today;
+  }
+  loadClockEvaluation();
+}
+
 function setupTimeClock(){
   if($("refreshClockBtn")) $("refreshClockBtn").onclick = loadTimeClock;
   if($("clockProfile")) $("clockProfile").onchange = loadClockEvents;
@@ -2779,6 +3145,12 @@ function setupTimeClock(){
       prompt("Stempeluhr-Link kopieren:", url);
     }
   };
+  if($("loadClockEvaluation")) $("loadClockEvaluation").onclick = loadClockEvaluation;
+  if($("exportClockEvaluationCsv")) $("exportClockEvaluationCsv").onclick = exportClockEvaluationCsv;
+  if($("clockEvalToday")) $("clockEvalToday").onclick = ()=>setClockEvalRange("today");
+  if($("clockEvalWeek")) $("clockEvalWeek").onclick = ()=>setClockEvalRange("week");
+  if($("clockEvalMonth")) $("clockEvalMonth").onclick = ()=>setClockEvalRange("month");
+  if($("clockEvalProfile")) $("clockEvalProfile").onchange = loadClockEvaluation;
   if($("printClockQr")) $("printClockQr").onclick = ()=>{
     document.body.classList.add("printClockQr");
     setupClockQr();

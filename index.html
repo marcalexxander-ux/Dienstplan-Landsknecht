@@ -412,6 +412,43 @@
           </div>
         </div>
 
+
+        <div class="clockPanel">
+          <h3>Zeiten auswerten</h3>
+          <p class="subline">Auswertung aus den Stempel-Ereignissen: Kommen, Pause, Gehen. Offene oder unvollständige Stempelungen werden markiert.</p>
+
+          <div class="quickRangeButtons">
+            <button id="clockEvalToday" type="button" class="secondary">Heute</button>
+            <button id="clockEvalWeek" type="button" class="secondary">Diese Woche</button>
+            <button id="clockEvalMonth" type="button" class="secondary">Dieser Monat</button>
+          </div>
+
+          <div class="formGrid compactForm">
+            <div>
+              <label>Von</label>
+              <input id="clockEvalFrom" type="date">
+            </div>
+            <div>
+              <label>Bis</label>
+              <input id="clockEvalTo" type="date">
+            </div>
+            <div>
+              <label>Mitarbeiter</label>
+              <select id="clockEvalProfile">
+                <option value="">Alle Mitarbeiter</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="buttonRow">
+            <button id="loadClockEvaluation" type="button">Auswertung laden</button>
+            <button id="exportClockEvaluationCsv" type="button" class="secondary">CSV exportieren</button>
+          </div>
+
+          <div id="clockEvalStats" class="clockEvalStats"></div>
+          <div id="clockEvaluationList"></div>
+        </div>
+
         <div class="clockPanel">
           <h3>Heute gestempelt</h3>
           <div id="clockTodayList"></div>
