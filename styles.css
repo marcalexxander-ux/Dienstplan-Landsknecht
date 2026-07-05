@@ -3063,3 +3063,135 @@ body.employeeMode #timeClock .sectionHeader h2::after{
 
 
 /* v6.0.31 Mitarbeiter-Dropdowns alphabetisch sortiert */
+
+
+/* v6.0.32 Monatsübersicht mobil */
+.monthMobileList{
+  display:none;
+}
+.monthMobileHintText{
+  margin-top:4px;
+}
+.monthMobileTop{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  background:#f8faf9;
+  border:1px solid #dfe6e1;
+  border-radius:18px;
+  padding:16px;
+  margin:14px 0;
+}
+.monthMobileTop h3{
+  margin:0 0 4px;
+  color:#174d3a;
+  font-size:1.3rem;
+}
+.monthMobileTop p{
+  margin:0;
+  color:#667085;
+}
+.monthMobileStats{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:95px;
+  align-items:flex-end;
+}
+.monthMobileStats span{
+  background:#eef8f1;
+  color:#174d3a;
+  border-radius:999px;
+  padding:6px 10px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.monthMobileCard{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:12px;
+  border:1px solid #dfe6e1;
+  border-radius:18px;
+  padding:14px;
+  margin:12px 0;
+  background:#fff;
+}
+.monthMobileDate{
+  border-right:1px solid #e5ebe7;
+  padding-right:10px;
+}
+.monthMobileDate span{
+  display:block;
+  color:#667085;
+  font-weight:900;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+.monthMobileDate b{
+  display:block;
+  color:#10231c;
+  font-size:1.05rem;
+  line-height:1.25;
+}
+.monthMobileItems{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.monthMobileItem{
+  border-radius:14px;
+  padding:10px 12px;
+  font-weight:900;
+  line-height:1.25;
+}
+.monthMobileItem.info{
+  background:#eef8f1;
+  color:#174d3a;
+}
+.monthMobileItem.event{
+  background:#fff7e1;
+  color:#6d4b0f;
+}
+.monthMobileEmpty{
+  background:#f8faf9;
+  border:1px solid #dfe6e1;
+  border-radius:18px;
+  padding:18px;
+  color:#667085;
+  font-weight:800;
+}
+@media(max-width:820px){
+  #month .sectionHeader{
+    display:block;
+  }
+  #month .sectionHeader .navButtons{
+    display:grid!important;
+    grid-template-columns:1fr;
+    gap:10px;
+    margin-top:14px;
+  }
+  #month .sectionHeader .navButtons button,
+  #month .sectionHeader .navButtons input{
+    width:100%;
+    min-height:52px;
+  }
+  #monthGrid{
+    overflow-x:visible!important;
+  }
+  #monthGrid .monthDesktopGrid{
+    display:none!important;
+  }
+  .monthMobileList{
+    display:block;
+  }
+}
+@media print{
+  .monthMobileList,
+  .monthMobileHintText{
+    display:none!important;
+  }
+  .monthDesktopGrid{
+    display:block!important;
+  }
+}

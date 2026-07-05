@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.31";
+const APP_VERSION="v6.0.32";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1278,29 +1278,74 @@ async function loadMonth(){
     });
   }
 
-  let html='<div class="grid"><table class="monthTable"><thead><tr>'+days.map(d=>`<th>${d}</th>`).join("")+'</tr></thead><tbody><tr>';
+  let tableHtml='<div class="grid monthDesktopGrid"><table class="monthTable"><thead><tr>'+days.map(d=>`<th>${d}</th>`).join("")+'</tr></thead><tbody><tr>';
   const total=lastDayOfMonth(month),first=weekdayMondayFirst(from);
 
-  for(let i=0;i<first;i++)html+='<td class="monthCell"></td>';
+  for(let i=0;i<first;i++)tableHtml+='<td class="monthCell"></td>';
+
+  const mobileDays = [];
+  let eventCount = 0;
+  let infoCount = 0;
 
   for(let day=1;day<=total;day++){
     const iso=month+"-"+pad2(day);
-    if(day>1&&weekdayMondayFirst(iso)===0)html+="</tr><tr>";
+    if(day>1&&weekdayMondayFirst(iso)===0)tableHtml+="</tr><tr>";
+
+    const dayInfos = infoByDate[iso] ? [infoByDate[iso]] : [];
+    const dayEvents = eventsByDate[iso] || [];
+
+    if(dayInfos.length) infoCount += dayInfos.length;
+    if(dayEvents.length) eventCount += dayEvents.length;
 
     let c=`<div class="monthDate">${fmtDate(iso)}</div>`;
     if(infoByDate[iso]){
       c+=`<div class="monthInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     }
-    (eventsByDate[iso]||[]).forEach(e=>{
+    dayEvents.forEach(e=>{
       c+=`<div class="monthInfo eventMonthInfo">${escapeHtml(eventPlanLabel(e))}</div>`;
     });
 
-    html+=`<td class="monthCell">${c}</td>`;
+    tableHtml+=`<td class="monthCell">${c}</td>`;
+
+    if(dayInfos.length || dayEvents.length){
+      mobileDays.push({iso, infos:dayInfos, events:dayEvents});
+    }
   }
 
-  for(let i=weekdayMondayFirst(to)+1;i<7;i++)html+='<td class="monthCell"></td>';
-  html+="</tr></tbody></table></div>";
-  $("monthGrid").innerHTML=html;
+  for(let i=weekdayMondayFirst(to)+1;i<7;i++)tableHtml+='<td class="monthCell"></td>';
+  tableHtml+="</tr></tbody></table></div>";
+
+  const mobileHtml = `
+    <div class="monthMobileList">
+      <div class="monthMobileTop">
+        <div>
+          <h3>${escapeHtml(new Date(from+"T12:00:00").toLocaleDateString("de-DE",{month:"long",year:"numeric"}))}</h3>
+          <p>Nur Tage mit Tagesinfo oder Event.</p>
+        </div>
+        <div class="monthMobileStats">
+          <span>${eventCount} Events</span>
+          <span>${infoCount} Infos</span>
+        </div>
+      </div>
+      ${mobileDays.length ? mobileDays.map(day=>{
+        const d = new Date(day.iso+"T12:00:00");
+        const weekday = d.toLocaleDateString("de-DE",{weekday:"short"});
+        const dateLabel = d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+        return `<div class="monthMobileCard">
+          <div class="monthMobileDate">
+            <span>${escapeHtml(weekday)}</span>
+            <b>${escapeHtml(dateLabel)}</b>
+          </div>
+          <div class="monthMobileItems">
+            ${day.infos.map(txt=>`<div class="monthMobileItem info">📢 ${escapeHtml(txt)}</div>`).join("")}
+            ${day.events.map(e=>`<div class="monthMobileItem event">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}
+          </div>
+        </div>`;
+      }).join("") : `<div class="monthMobileEmpty">Keine Tagesinfos oder Events in diesem Monat.</div>`}
+    </div>
+  `;
+
+  $("monthGrid").innerHTML=tableHtml+mobileHtml;
 }
 
 $("saveInfo").onclick=async()=>{
@@ -2671,7 +2716,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6031`;
+  return `${base}?stempeluhr=1&v=6032`;
 }
 
 function normalizeIpValue(ip){
