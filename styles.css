@@ -3217,3 +3217,11 @@ body.employeeMode #dashboardVacationsV57.closest{
 body.employeeMode .dashboardColumnV57 .dashPanelV57.managementOnly{
   display:none!important;
 }
+
+
+/* v6.0.35: Geburtstage nur anzeigen, wenn es wirklich Einträge gibt */
+#dashboardBirthdaysPanelV57.hidden,
+body.employeeMode #dashboardVacationsPanelV57,
+body.employeeMode .dashPanelV57.managementOnly{
+  display:none!important;
+}

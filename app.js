@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.34";
+const APP_VERSION="v6.0.35";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -742,11 +742,17 @@ async function loadDashboardV57(){
     `).join("") : `<div class="dashEmptyV57">Keine Minijobber gefunden.</div>`;
   }
 
+  const vacationPanelV57 = $("dashboardVacationsPanelV57") || ($("dashboardVacationsV57") ? $("dashboardVacationsV57").closest(".dashPanelV57") : null);
+  if(vacationPanelV57){
+    vacationPanelV57.classList.toggle("hidden", !isManagement());
+  }
   if($("dashboardVacationsV57")){
-    $("dashboardVacationsV57").innerHTML = openVacations.length ? openVacations.map(v=>{
-      const p=profileById(v.profile_id);
-      return `<div class="dashItemV57"><div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}</small></div><strong>Offen</strong></div>`;
-    }).join("") : `<div class="dashEmptyV57">Keine offenen Urlaubsanträge.</div>`;
+    $("dashboardVacationsV57").innerHTML = isManagement()
+      ? (openVacations.length ? openVacations.map(v=>{
+          const p=profileById(v.profile_id);
+          return `<div class="dashItemV57"><div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}</small></div><strong>Offen</strong></div>`;
+        }).join("") : `<div class="dashEmptyV57">Keine offenen Urlaubsanträge.</div>`)
+      : "";
   }
 
   const upcomingBirthdays = profiles.filter(p=>p.birthday).map(p=>{
@@ -759,10 +765,14 @@ async function loadDashboardV57(){
     return {p,next,diff};
   }).filter(Boolean).filter(x=>x.diff>=0 && x.diff<=30).sort((a,b)=>a.diff-b.diff).slice(0,6);
 
+  const birthdayPanelV57 = $("dashboardBirthdaysPanelV57") || ($("dashboardBirthdaysV57") ? $("dashboardBirthdaysV57").closest(".dashPanelV57") : null);
+  if(birthdayPanelV57){
+    birthdayPanelV57.classList.toggle("hidden", !upcomingBirthdays.length);
+  }
   if($("dashboardBirthdaysV57")){
     $("dashboardBirthdaysV57").innerHTML = upcomingBirthdays.length ? upcomingBirthdays.map(x=>`
       <div class="dashItemV57"><div><b>${escapeHtml(x.p.first_name||"")} ${escapeHtml(x.p.last_name||"")}</b><br><small>${fmtDate(x.next)}</small></div><strong>${x.diff===0?"Heute":x.diff+" Tage"}</strong></div>
-    `).join("") : `<div class="dashEmptyV57">Keine Geburtstage in den nächsten 30 Tagen.</div>`;
+    `).join("") : "";
   }
 
   if($("dashboardEventsV57")){
@@ -2716,7 +2726,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6034`;
+  return `${base}?stempeluhr=1&v=6035`;
 }
 
 function normalizeIpValue(ip){
