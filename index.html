@@ -231,6 +231,20 @@
 
         <h2>Urlaub</h2>
 
+        <div class="vacationAccountCard">
+          <div class="sectionHeader">
+            <div>
+              <h3>Urlaubskonto</h3>
+              <p class="subline">Vorbereitete Anspruchsübersicht. Die neuen Felder sind freiwillig und können später gepflegt werden. Mitarbeiter sehen nur den eigenen Stand.</p>
+            </div>
+            <div class="navButtons managementOnly">
+              <input id="vacAccountYear" type="number" min="2020" max="2100" step="1">
+              <button id="refreshVacationAccount" type="button" class="secondary">Urlaubskonto berechnen</button>
+            </div>
+          </div>
+          <div id="vacationAccountOverview"></div>
+        </div>
+
         <div class="managementOnly vacationAdmin">
           <div class="sectionHeader">
             <div>
@@ -323,6 +337,45 @@
             <label>Stundenlohn €</label>
             <input id="staffHourlyRate" type="number" min="0" step="0.01" placeholder="z. B. 14.50">
           </div>
+
+          <div class="formGridTitle full">Urlaub & Stammdaten</div>
+          <div>
+            <label>Geburtsdatum optional</label>
+            <input id="staffBirthday" type="date">
+          </div>
+          <div>
+            <label>Eintrittsdatum optional</label>
+            <input id="staffHireDate" type="date">
+          </div>
+          <div>
+            <label>Austrittsdatum optional</label>
+            <input id="staffTerminationDate" type="date">
+          </div>
+          <div>
+            <label>Arbeitstage pro Woche optional</label>
+            <input id="staffWeeklyWorkdays" type="number" min="0" max="7" step="0.5" placeholder="z. B. 5">
+          </div>
+          <div>
+            <label>Jahresurlaub vertraglich optional</label>
+            <input id="staffAnnualVacationDays" type="number" min="0" step="0.5" placeholder="z. B. 20">
+          </div>
+          <div>
+            <label>Resturlaub Vorjahr optional</label>
+            <input id="staffCarryoverDays" type="number" min="0" step="0.5" placeholder="z. B. 3">
+          </div>
+          <div>
+            <label>Übertrag gültig bis optional</label>
+            <input id="staffCarryoverExpires" type="date">
+          </div>
+          <div>
+            <label>Hinweis auf Verfall gesendet am optional</label>
+            <input id="staffVacationNoticeSentAt" type="date">
+          </div>
+          <div class="full">
+            <label>Grund / Notiz Übertrag</label>
+            <input id="staffCarryoverReason" placeholder="z. B. betriebliche Gründe, Krankheit, manuell übertragen">
+          </div>
+
           <label class="checkLine">
             <input id="staffPlannable" type="checkbox" checked>
             Im Dienstplan einplanen

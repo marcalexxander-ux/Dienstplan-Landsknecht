@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.36";
+const APP_VERSION="v6.0.38";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -89,7 +89,7 @@ function setActiveTab(tabId){
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
-  if(normalized==="vacation") loadVacationPlanner?.();
+  if(normalized==="vacation"){ loadVacationPlanner?.(); loadVacationAccountOverview?.(); }
 }
 
 function planKindForDepartment(dept){
@@ -936,7 +936,7 @@ async function loadEmployeeOwnOverview(){
 async function loadAll(){
   await loadProfiles();
   await loadDashboardV57();
-  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadMinijobCenter(),loadEmployeeOwnOverview(),loadTimeClock()]);
+  await Promise.all([loadDashboardLight(),loadPlanService(),loadPlanKitchen(),loadMonth(),loadInfos(),loadVacations(),loadVacationCalendar(),loadVacationPlanner(),loadVacationYearOverview(),loadVacationAccountOverview(),loadMinijobCenter(),loadEmployeeOwnOverview(),loadTimeClock()]);
 }
 
 
@@ -956,7 +956,7 @@ async function loadProfiles(){
   if(error)return alert(error.message);
   profiles=data||[];
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
-  if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
+  if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
   if($("clockProfile")) $("clockProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
   if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
   if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
@@ -1550,10 +1550,205 @@ function vacationDaysInRange(v, monthFrom, monthTo){
   }
   return out;
 }
-function vacationEntitlement(p){
-  const raw = p.vacation_days ?? p.urlaubstage ?? p.annual_vacation_days ?? p.vacation_entitlement;
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : 30;
+function valueOrNull(id){
+  const el=$(id);
+  if(!el) return null;
+  const val=String(el.value||"").trim();
+  return val ? val : null;
+}
+function numberOrNull(id){
+  const el=$(id);
+  if(!el) return null;
+  const val=String(el.value||"").trim().replace(",",".");
+  if(!val) return null;
+  const n=Number(val);
+  return Number.isFinite(n) ? n : null;
+}
+function numberFromProfile(p, keys, fallback=null){
+  for(const key of keys){
+    const n=Number(p?.[key]);
+    if(Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+function vacationWorkdaysPerWeek(p){
+  const n = numberFromProfile(p, ["weekly_workdays","workdays_per_week","arbeitstage_pro_woche"], null);
+  if(Number.isFinite(n) && n >= 0) return n;
+  return 5;
+}
+function vacationLegalMinimum(p){
+  return vacationWorkdaysPerWeek(p) * 4;
+}
+function vacationBaseAnnual(p){
+  const configured = numberFromProfile(p, ["annual_vacation_days","vacation_days","urlaubstage","vacation_entitlement"], null);
+  const minimum = vacationLegalMinimum(p);
+  if(Number.isFinite(configured) && configured > 0) return Math.max(configured, minimum);
+  return minimum;
+}
+function vacationCarryoverDays(p, year=new Date().getFullYear()){
+  const days = numberFromProfile(p, ["vacation_carryover_days","carryover_vacation_days","resturlaub_vorjahr"], 0) || 0;
+  if(days <= 0) return 0;
+  const expires = p?.vacation_carryover_expires_at || p?.carryover_expires_at || "";
+  if(expires && String(expires) < `${year}-01-01`) return 0;
+  return days;
+}
+function employmentFullMonthsInYear(p, year){
+  const yearStart = `${year}-01-01`;
+  const yearEnd = `${year}-12-31`;
+  const hire = p?.hire_date || p?.employment_start || p?.start_date || "";
+  const term = p?.termination_date || p?.employment_end || p?.end_date || "";
+  if((!hire || hire <= yearStart) && (!term || term >= yearEnd)) return 12;
+  let count=0;
+  for(let m=1;m<=12;m++){
+    const month = `${year}-${pad2(m)}`;
+    const first = `${month}-01`;
+    const last = `${month}-${pad2(lastDayOfMonth(month))}`;
+    const employedAtMonthStart = !hire || hire <= first;
+    const employedAtMonthEnd = !term || term >= last;
+    if(employedAtMonthStart && employedAtMonthEnd) count++;
+  }
+  return count;
+}
+function vacationRoundDays(n){
+  return Math.round((Number(n)||0)*100)/100;
+}
+function vacationEntitlement(p, year=new Date().getFullYear(), includeCarryover=true){
+  const base = vacationBaseAnnual(p);
+  const months = employmentFullMonthsInYear(p, year);
+  const annual = months >= 12 ? base : base * (months/12);
+  const carry = includeCarryover ? vacationCarryoverDays(p, year) : 0;
+  return vacationRoundDays(annual + carry);
+}
+function vacationCountableWeekday(p, iso){
+  const wd = weekdayMondayFirst(iso); // 0 Mo ... 6 So
+  const workdays = vacationWorkdaysPerWeek(p);
+  if(workdays >= 6) return wd <= 5; // Mo-Sa
+  return wd <= 4; // Standard Mo-Fr; genaue Teilzeit-Tage können später ergänzt werden.
+}
+function vacationDateRangeDaysForProfile(v,p,rangeFrom,rangeTo,value=1){
+  const out = {};
+  let d = v.date_from < rangeFrom ? rangeFrom : v.date_from;
+  const end = v.date_to > rangeTo ? rangeTo : v.date_to;
+  while(d <= end){
+    if(vacationCountableWeekday(p,d)) out[d] = value;
+    d = addDaysISO(d,1);
+  }
+  return out;
+}
+function vacationDaysText(n){
+  const val = vacationRoundDays(n);
+  return euroHours(val).replace(",00","");
+}
+function vacationAccountWarnings(p, year, rest){
+  const warnings=[];
+  const expires = p?.vacation_carryover_expires_at || "";
+  const carry = vacationCarryoverDays(p, year);
+  if(carry > 0 && !expires) warnings.push("Übertrag ohne Frist");
+  if(carry > 0 && expires && expires < todayISO()) warnings.push("Übertrag abgelaufen");
+  if(carry > 0 && expires && !p?.vacation_notice_sent_at) warnings.push("Hinweis auf Verfall fehlt");
+  if(rest < 0) warnings.push("Resturlaub überschritten");
+  return warnings;
+}
+async function loadVacationAccountOverview(){
+  if(!$("vacationAccountOverview") || !session || !profiles.length) return;
+
+  const currentYear = new Date().getFullYear();
+  const year = Number($("vacAccountYear")?.value || currentYear);
+  if($("vacAccountYear")) $("vacAccountYear").value = year;
+
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const rows = isManagement()
+    ? alphaProfiles()
+    : (profile ? [profile] : []);
+
+  if(!rows.length){
+    $("vacationAccountOverview").innerHTML = `<div class="entry">Keine Mitarbeiter gefunden.</div>`;
+    return;
+  }
+
+  $("vacationAccountOverview").innerHTML = `<div class="entry">Urlaubskonto wird berechnet...</div>`;
+
+  let vacQuery = sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]);
+  let schedQuery = sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to);
+  if(!isManagement() && profile?.id){
+    vacQuery = vacQuery.eq("profile_id",profile.id);
+    schedQuery = schedQuery.eq("profile_id",profile.id);
+  }
+
+  const [vacRes, schedRes] = await Promise.all([vacQuery, schedQuery]);
+  if(vacRes.error || schedRes.error){
+    const err = vacRes.error || schedRes.error;
+    $("vacationAccountOverview").innerHTML = `<div class="entry"><b>Fehler beim Berechnen:</b><br>${escapeHtml(err.message)}</div>`;
+    return;
+  }
+
+  const vacations = vacRes.data || [];
+  const schedules = schedRes.data || [];
+
+  const htmlRows = rows.map(p=>{
+    const approvedDays = {};
+    const requestedDays = {};
+
+    vacations.filter(v=>v.profile_id===p.id).forEach(v=>{
+      const val = vacationDayValue(v,v.date_from);
+      const range = vacationDateRangeDaysForProfile(v,p,from,to,val);
+      Object.entries(range).forEach(([iso,dayVal])=>{
+        if(v.status==="genehmigt") approvedDays[iso] = dayVal;
+        if(v.status==="beantragt") requestedDays[iso] = dayVal;
+      });
+    });
+
+    schedules
+      .filter(s=>s.profile_id===p.id)
+      .filter(s=>String(s.status||"").toLowerCase().includes("urlaub"))
+      .forEach(s=>{
+        const iso=s.work_date;
+        if(!iso || iso<from || iso>to) return;
+        if(vacationCountableWeekday(p,iso) && !approvedDays[iso]) approvedDays[iso]=1;
+      });
+
+    const base = vacationBaseAnnual(p);
+    const months = employmentFullMonthsInYear(p, year);
+    const prorated = vacationRoundDays(months>=12 ? base : base*(months/12));
+    const carry = vacationCarryoverDays(p, year);
+    const entitlement = vacationEntitlement(p, year, true);
+    const approved = Object.values(approvedDays).reduce((a,b)=>a+Number(b||0),0);
+    const requested = Object.values(requestedDays).reduce((a,b)=>a+Number(b||0),0);
+    const rest = vacationRoundDays(entitlement - approved);
+    const warnings = vacationAccountWarnings(p, year, rest);
+    const cls = rest < 0 ? "danger" : warnings.length ? "warn" : "ok";
+
+    return `
+      <div class="vacAccountRow ${cls}">
+        <div class="vacAccountPerson">
+          <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b>
+          <small>${escapeHtml(p.department||"")} · ${vacationDaysText(vacationWorkdaysPerWeek(p))} Arbeitstage/Woche</small>
+        </div>
+        <div class="vacAccountStats">
+          <span><small>Basis</small><b>${vacationDaysText(base)}</b></span>
+          <span><small>Anspruch ${year}</small><b>${vacationDaysText(prorated)}</b></span>
+          <span><small>Übertrag</small><b>${vacationDaysText(carry)}</b></span>
+          <span><small>Genehmigt</small><b>${vacationDaysText(approved)}</b></span>
+          <span><small>Beantragt</small><b>${vacationDaysText(requested)}</b></span>
+          <span><small>Rest</small><b>${vacationDaysText(rest)}</b></span>
+        </div>
+        ${warnings.length ? `<div class="vacAccountWarnings">${warnings.map(w=>`<span>${escapeHtml(w)}</span>`).join("")}</div>` : ""}
+      </div>`;
+  }).join("");
+
+  $("vacationAccountOverview").innerHTML = `
+    <div class="vacAccountIntro">
+      <b>Berechnung ${year}</b>
+      <span>Vorbereitung: Fehlende Urlaubsdaten blockieren nichts. Ohne gepflegte Werte rechnet die App vorläufig mit Standardwerten.</span>
+    </div>
+    <div class="vacAccountList">${htmlRows}</div>
+  `;
+}
+function setupVacationAccountOverview(){
+  if($("vacAccountYear")) $("vacAccountYear").value ||= new Date().getFullYear();
+  if($("refreshVacationAccount")) $("refreshVacationAccount").onclick = loadVacationAccountOverview;
+  if($("vacAccountYear")) $("vacAccountYear").onchange = loadVacationAccountOverview;
 }
 
 
@@ -1670,7 +1865,7 @@ async function loadVacationPlanner(){
       }
     });
 
-    const entitlement = vacationEntitlement(p);
+    const entitlement = vacationEntitlement(p, year, true);
     const takenMonth = Object.values(dayMap)
       .filter(x => x.status === "genehmigt" || x.status === "dienstplan")
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
@@ -1748,6 +1943,8 @@ async function refreshVacationViews(){
   await loadVacations();
   await loadVacationCalendar();
   await loadVacationPlanner();
+  await loadVacationAccountOverview();
+  await loadVacationYearOverview();
   await loadPlanService();
   await loadPlanKitchen();
   await loadMonth();
@@ -1830,15 +2027,61 @@ $("saveStaff").onclick=async()=>{
   const id=$("editingStaffId").value,first=$("staffFirstName").value.trim(),last=$("staffLastName").value.trim(),email=$("staffEmail").value.trim(),phone=$("staffPhone").value.trim(),role=$("staffRole").value,department=$("staffDepartment").value,plannableValue=$("staffPlannable").checked;
   if(!first||!last||!email)return alert("Vorname, Nachname und E-Mail sind Pflicht.");
   if(!id&&plannable().length>=MAX_EMPLOYEES&&plannableValue)return alert("Maximal 20 einplanbare Mitarbeiter erreicht.");
-  const contract_type=$("staffContractType")?$("staffContractType").value:"minijob",hourly_rate=$("staffHourlyRate")?Number($("staffHourlyRate").value||0):0;const payload={first_name:first,last_name:last,email,phone,role,department:role==="management"?null:department,plannable:plannableValue,contract_type,hourly_rate,active:true};
+  const contract_type=$("staffContractType")?$("staffContractType").value:"minijob",hourly_rate=$("staffHourlyRate")?Number($("staffHourlyRate").value||0):0;
+  const payload={
+    first_name:first,
+    last_name:last,
+    email,
+    phone,
+    role,
+    department:role==="management"?null:department,
+    plannable:plannableValue,
+    contract_type,
+    hourly_rate,
+    active:true,
+    birthday:valueOrNull("staffBirthday"),
+    hire_date:valueOrNull("staffHireDate"),
+    termination_date:valueOrNull("staffTerminationDate"),
+    weekly_workdays:numberOrNull("staffWeeklyWorkdays"),
+    annual_vacation_days:numberOrNull("staffAnnualVacationDays"),
+    vacation_carryover_days:numberOrNull("staffCarryoverDays"),
+    vacation_carryover_expires_at:valueOrNull("staffCarryoverExpires"),
+    vacation_carryover_reason:valueOrNull("staffCarryoverReason"),
+    vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt")
+  };
   const res=id?await sb.from("profiles").update(payload).eq("id",id):await sb.from("profiles").insert(payload);
-  if(res.error)alert(res.error.message);else{clearStaffForm();await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth()}
+  if(res.error)alert(res.error.message);else{clearStaffForm();await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadVacationAccountOverview?.();}
 };
 $("clearStaff").onclick=clearStaffForm;
-function clearStaffForm(){["editingStaffId","staffFirstName","staffLastName","staffEmail","staffPhone"].forEach(id=>$(id).value="");$("staffRole").value="employee";$("staffDepartment").value="Service";if($("staffContractType"))$("staffContractType").value="minijob";if($("staffHourlyRate"))$("staffHourlyRate").value="";$("staffPlannable").checked=true}
+function clearStaffForm(){
+  ["editingStaffId","staffFirstName","staffLastName","staffEmail","staffPhone","staffBirthday","staffHireDate","staffTerminationDate","staffWeeklyWorkdays","staffAnnualVacationDays","staffCarryoverDays","staffCarryoverExpires","staffVacationNoticeSentAt","staffCarryoverReason"].forEach(id=>{if($(id))$(id).value=""});
+  $("staffRole").value="employee";
+  $("staffDepartment").value="Service";
+  if($("staffContractType"))$("staffContractType").value="minijob";
+  if($("staffHourlyRate"))$("staffHourlyRate").value="";
+  $("staffPlannable").checked=true;
+}
 function editStaff(id){
   const p=profiles.find(x=>x.id===id);
-  $("editingStaffId").value=p.id;$("staffFirstName").value=p.first_name||"";$("staffLastName").value=p.last_name||"";$("staffEmail").value=p.email||"";$("staffPhone").value=p.phone||"";$("staffRole").value=p.role==="admin"?"management":p.role;$("staffDepartment").value=p.department||"Service";$("staffPlannable").checked=p.plannable===true;if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
+  $("editingStaffId").value=p.id;
+  $("staffFirstName").value=p.first_name||"";
+  $("staffLastName").value=p.last_name||"";
+  $("staffEmail").value=p.email||"";
+  $("staffPhone").value=p.phone||"";
+  $("staffRole").value=p.role==="admin"?"management":p.role;
+  $("staffDepartment").value=p.department||"Service";
+  $("staffPlannable").checked=p.plannable===true;
+  if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";
+  if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
+  if($("staffBirthday"))$("staffBirthday").value=p.birthday||"";
+  if($("staffHireDate"))$("staffHireDate").value=p.hire_date||"";
+  if($("staffTerminationDate"))$("staffTerminationDate").value=p.termination_date||"";
+  if($("staffWeeklyWorkdays"))$("staffWeeklyWorkdays").value=p.weekly_workdays??"";
+  if($("staffAnnualVacationDays"))$("staffAnnualVacationDays").value=p.annual_vacation_days??"";
+  if($("staffCarryoverDays"))$("staffCarryoverDays").value=p.vacation_carryover_days??"";
+  if($("staffCarryoverExpires"))$("staffCarryoverExpires").value=p.vacation_carryover_expires_at||"";
+  if($("staffCarryoverReason"))$("staffCarryoverReason").value=p.vacation_carryover_reason||"";
+  if($("staffVacationNoticeSentAt"))$("staffVacationNoticeSentAt").value=p.vacation_notice_sent_at||"";
 }
 async function deactivateStaff(id){
   if(!isManagement()) return;
@@ -2657,7 +2900,7 @@ async function loadVacationYearOverview(){
     });
 
     const taken = monthly.reduce((a,b)=>a+b,0);
-    const entitlement = vacationEntitlement(p);
+    const entitlement = vacationEntitlement(p, year, true);
     const rest = Math.max(0, entitlement - taken);
 
     html += `<tr>
@@ -2726,7 +2969,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6036`;
+  return `${base}?stempeluhr=1&v=6038`;
 }
 
 function normalizeIpValue(ip){
@@ -3476,4 +3719,5 @@ function setupVacationYearOverview(){
 setupTimeClock();
 setupVacationYearOverview();
 setupVacationPlanner();
+setupVacationAccountOverview();
 init();
