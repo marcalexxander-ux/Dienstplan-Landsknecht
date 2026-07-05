@@ -3225,3 +3225,10 @@ body.employeeMode #dashboardVacationsPanelV57,
 body.employeeMode .dashPanelV57.managementOnly{
   display:none!important;
 }
+
+
+/* v6.0.36: Aktualisieren-Button auf Home/Heute entfernt */
+#refreshDashboardV57,
+#refreshDashboard{
+  display:none!important;
+}
