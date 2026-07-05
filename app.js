@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.38";
+const APP_VERSION="v6.0.39";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -89,7 +89,7 @@ function setActiveTab(tabId){
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
-  if(normalized==="vacation"){ loadVacationPlanner?.(); loadVacationAccountOverview?.(); }
+  if(normalized==="vacation"){ loadVacationPlanner?.(); loadVacationAccountOverview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
 }
 
 function planKindForDepartment(dept){
@@ -957,6 +957,7 @@ async function loadProfiles(){
   profiles=data||[];
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
+  updateVacationAdminCalc?.();
   if($("clockProfile")) $("clockProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
   if($("clockEvalProfile")) $("clockEvalProfile").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
   if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").innerHTML=`<option value="">Alle Mitarbeiter</option>`+alphaProfiles().map(profileOptionHtml).join("");
@@ -1019,6 +1020,8 @@ async function moveEmployee(id,direction){
   await loadPlanService();
   await loadPlanKitchen();
   await loadMonth();
+  await updateVacationRequestCalc?.();
+  await updateVacationAdminCalc?.();
 }
 window.moveEmployee=moveEmployee;
 
@@ -1460,14 +1463,17 @@ async function loadTimes(){
 
 async function syncVacationToSchedule(profileId, from, to){
   if(!profileId || !from || !to) return;
+  const p = profileById(profileId);
   let d = from;
   while(d <= to){
-    const existing = await sb.from("schedules").select("*").eq("profile_id",profileId).eq("work_date",d).maybeSingle();
-    const payload = {profile_id:profileId,work_date:d,status:"urlaub",start_time:null,end_time:null};
-    if(existing.data){
-      await sb.from("schedules").update(payload).eq("id",existing.data.id);
-    }else{
-      await sb.from("schedules").insert(payload);
+    if(vacationCountableWeekday(p,d)){
+      const existing = await sb.from("schedules").select("*").eq("profile_id",profileId).eq("work_date",d).maybeSingle();
+      const payload = {profile_id:profileId,work_date:d,status:"urlaub",start_time:null,end_time:null};
+      if(existing.data){
+        await sb.from("schedules").update(payload).eq("id",existing.data.id);
+      }else{
+        await sb.from("schedules").insert(payload);
+      }
     }
     d = addDaysISO(d,1);
   }
@@ -1492,32 +1498,55 @@ async function syncApprovedVacationsToPlan(){
 }
 
 $("requestVacation").onclick=async()=>{
-  const from=$("vacFrom").value,to=$("vacTo").value;
+  const from=$("vacFrom").value,to=$("vacTo").value,note=$("vacNote").value;
   if(!from||!to)return alert("Von und Bis ausfüllen.");
-  const{error}=await sb.from("vacation_requests").insert({profile_id:profile.id,date_from:from,date_to:to,note:$("vacNote").value,status:"beantragt"});
-  if(error)alert(error.message);else{await createNotification("Urlaub beantragt",`${profile.first_name} ${profile.last_name} hat Urlaub beantragt.`);await loadVacations();await loadVacationCalendar();await loadVacationPlanner()}
+  if(to < from)return alert("Bis-Datum darf nicht vor Von-Datum liegen.");
+  const ok = await confirmVacationCalculation(profile.id,from,to,note,"request");
+  if(!ok) return;
+  const{error}=await sb.from("vacation_requests").insert({profile_id:profile.id,date_from:from,date_to:to,note,status:"beantragt"});
+  if(error)alert(error.message);else{
+    await createNotification("Urlaub beantragt",`${profile.first_name} ${profile.last_name} hat Urlaub beantragt.`);
+    $("vacNote").value="";
+    await refreshVacationViews();
+    await updateVacationRequestCalc();
+  }
 };
 
 $("prevVacMonth").onclick=()=>{const[y,m]=($("vacMonthSelect").value||monthISO()).split("-").map(Number);$("vacMonthSelect").value=monthISO(new Date(y,m-2,1));loadVacationCalendar()};
 $("nextVacMonth").onclick=()=>{const[y,m]=($("vacMonthSelect").value||monthISO()).split("-").map(Number);$("vacMonthSelect").value=monthISO(new Date(y,m,1));loadVacationCalendar()};
 $("vacMonthSelect").onchange=loadVacationCalendar;
-$("vacAdminFrom").onchange=loadVacationOverlap;
-$("vacAdminTo").onchange=loadVacationOverlap;
+if($("vacAdminProfile")) $("vacAdminProfile").onchange=async()=>{await loadVacationOverlap();await updateVacationAdminCalc();};
+if($("vacAdminFrom")) $("vacAdminFrom").onchange=async()=>{await loadVacationOverlap();await updateVacationAdminCalc();};
+if($("vacAdminTo")) $("vacAdminTo").onchange=async()=>{await loadVacationOverlap();await updateVacationAdminCalc();};
+if($("vacAdminNote")) $("vacAdminNote").oninput=updateVacationAdminCalc;
+if($("vacFrom")) $("vacFrom").onchange=updateVacationRequestCalc;
+if($("vacTo")) $("vacTo").onchange=updateVacationRequestCalc;
+if($("vacNote")) $("vacNote").oninput=updateVacationRequestCalc;
 
 $("addVacationAdmin").onclick=async()=>{
   if(!isManagement()) return;
-  const profileId=$("vacAdminProfile").value, from=$("vacAdminFrom").value, to=$("vacAdminTo").value;
+  const profileId=$("vacAdminProfile").value, from=$("vacAdminFrom").value, to=$("vacAdminTo").value, note=$("vacAdminNote").value;
   if(!profileId||!from||!to)return alert("Mitarbeiter, Von und Bis ausfüllen.");
+  if(to < from)return alert("Bis-Datum darf nicht vor Von-Datum liegen.");
+  const ok = await confirmVacationCalculation(profileId,from,to,note,"admin");
+  if(!ok) return;
   const{error}=await sb.from("vacation_requests").insert({
     profile_id:profileId,
     date_from:from,
     date_to:to,
-    note:$("vacAdminNote").value,
+    note,
     status:"genehmigt",
     decided_by:profile.id,
     decided_at:new Date().toISOString()
   });
-  if(error)alert(error.message);else{await syncVacationToSchedule(profileId,from,to);$("vacAdminNote").value="";await createNotification("Urlaub eingetragen","Ein Urlaub wurde eingetragen.");await loadVacations();await loadVacationCalendar();await loadVacationPlanner();await loadVacationOverlap();await loadPlanService();await loadPlanKitchen();await loadMonth()}
+  if(error)alert(error.message);else{
+    await syncVacationToSchedule(profileId,from,to);
+    $("vacAdminNote").value="";
+    await createNotification("Urlaub eingetragen","Ein Urlaub wurde eingetragen.");
+    await refreshVacationViews();
+    await loadVacationOverlap();
+    await updateVacationAdminCalc();
+  }
 };
 
 async function setVacationStatus(id,status){
@@ -1527,7 +1556,7 @@ async function setVacationStatus(id,status){
     if(status==="genehmigt") await syncVacationToSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
     if(status==="abgelehnt") await removeVacationFromSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
   }
-  await loadVacations();await loadVacationCalendar();await loadVacationPlanner();await loadPlanService();await loadPlanKitchen();await loadMonth();
+  await refreshVacationViews();await updateVacationAdminCalc?.();await updateVacationRequestCalc?.();
 }
 window.setVacationStatus=setVacationStatus;
 
@@ -1540,7 +1569,8 @@ function vacationDayValue(v, iso){
   if(note.includes("halb") || note.includes("0,5") || note.includes("0.5")) return 0.5;
   return 1;
 }
-function vacationDaysInRange(v, monthFrom, monthTo){
+function vacationDaysInRange(v, monthFrom, monthTo, p=null){
+  if(p) return vacationDateRangeDaysForProfile(v,p,monthFrom,monthTo,vacationDayValue(v,v.date_from));
   const out = {};
   let d = v.date_from < monthFrom ? monthFrom : v.date_from;
   const end = v.date_to > monthTo ? monthTo : v.date_to;
@@ -1549,6 +1579,174 @@ function vacationDaysInRange(v, monthFrom, monthTo){
     d = addDaysISO(d,1);
   }
   return out;
+}
+
+function sumVacationDaysMap(map){
+  return Object.values(map||{}).reduce((sum,val)=>sum+Number(val||0),0);
+}
+function vacationSelectionDetails(p, from, to, note=""){
+  const out = {valid:false, days:0, countedDates:[], skippedDates:[], calendarDays:0, map:{}};
+  if(!p || !from || !to || to < from) return out;
+  let d = from;
+  const value = vacationDayValue({note},from);
+  while(d <= to){
+    out.calendarDays++;
+    if(vacationCountableWeekday(p,d)){
+      out.map[d]=value;
+      out.countedDates.push(d);
+      out.days += value;
+    }else{
+      out.skippedDates.push(d);
+    }
+    d = addDaysISO(d,1);
+  }
+  out.days = vacationRoundDays(out.days);
+  out.valid = true;
+  return out;
+}
+function vacationDatesPreview(dates, max=6){
+  if(!dates || !dates.length) return "";
+  const shown = dates.slice(0,max).map(fmtDate).join(", ");
+  return dates.length > max ? `${shown} +${dates.length-max}` : shown;
+}
+async function vacationBalanceForProfile(p, year){
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+  const [collected, requestedRes] = await Promise.all([
+    collectVacationDaysForYear(year),
+    sb.from("vacation_requests")
+      .select("*")
+      .eq("profile_id",p.id)
+      .lte("date_from",to)
+      .gte("date_to",from)
+      .eq("status","beantragt")
+  ]);
+  if(requestedRes.error) throw new Error(requestedRes.error.message);
+
+  const approvedMap = collected.byProfile[p.id] || {};
+  const approved = vacationRoundDays(sumVacationDaysMap(approvedMap));
+  let requested = 0;
+  (requestedRes.data||[]).forEach(v=>{
+    requested += sumVacationDaysMap(vacationDateRangeDaysForProfile(v,p,from,to,vacationDayValue(v,v.date_from)));
+  });
+  requested = vacationRoundDays(requested);
+
+  const entitlement = vacationEntitlement(p, year, true);
+  const rest = vacationRoundDays(entitlement - approved);
+  const restIfRequestedApproved = vacationRoundDays(entitlement - approved - requested);
+  return {entitlement, approved, requested, rest, restIfRequestedApproved};
+}
+async function buildVacationCalculation(profileId, from, to, note=""){
+  const p = profileById(profileId);
+  if(!p?.id) return {ok:false,error:"Mitarbeiter nicht gefunden."};
+  if(!from || !to) return {ok:false,error:"Zeitraum auswählen."};
+  if(to < from) return {ok:false,error:"Bis-Datum darf nicht vor Von-Datum liegen."};
+
+  const year = Number(String(from).slice(0,4)) || new Date().getFullYear();
+  const selected = vacationSelectionDetails(p,from,to,note);
+  const balance = await vacationBalanceForProfile(p,year);
+
+  const overlapRes = await sb.from("vacation_requests")
+    .select("*")
+    .eq("profile_id",profileId)
+    .lte("date_from",to)
+    .gte("date_to",from)
+    .in("status",["beantragt","genehmigt"]);
+  if(overlapRes.error) throw new Error(overlapRes.error.message);
+
+  const overlaps = (overlapRes.data||[]).map(v=>`${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)} (${v.status})`);
+  return {
+    ok:true,
+    p,
+    year,
+    selected,
+    balance,
+    overlaps,
+    restAfter: vacationRoundDays(balance.rest - selected.days),
+    restAfterAllPending: vacationRoundDays(balance.restIfRequestedApproved - selected.days)
+  };
+}
+function renderVacationCalculation(targetId, calc, mode="request"){
+  const el=$(targetId);
+  if(!el) return;
+  if(!calc || !calc.ok){
+    el.className="vacCalcBox";
+    el.innerHTML = escapeHtml(calc?.error || "Zeitraum auswählen.");
+    return;
+  }
+  const selected = calc.selected;
+  const b = calc.balance;
+  const danger = calc.restAfter < 0;
+  const warn = danger || calc.overlaps.length || selected.days <= 0;
+  el.className = `vacCalcBox ${danger ? "danger" : warn ? "warn" : "ok"}`;
+
+  const afterLabel = mode==="admin" ? "Rest nach Eintrag" : "Rest nach Antrag";
+  const skipped = selected.skippedDates.length
+    ? `<div class="vacCalcLine muted">Nicht berechnet: ${selected.skippedDates.length} Tag(e) · ${escapeHtml(vacationDatesPreview(selected.skippedDates))}</div>`
+    : "";
+  const counted = selected.countedDates.length
+    ? `<div class="vacCalcLine muted">Berechnete Tage: ${escapeHtml(vacationDatesPreview(selected.countedDates))}</div>`
+    : `<div class="vacCalcLine warnText">In diesem Zeitraum wurde kein Urlaubstag berechnet.</div>`;
+  const overlaps = calc.overlaps.length
+    ? `<div class="vacCalcLine warnText"><b>Überschneidung:</b> ${calc.overlaps.map(escapeHtml).join("<br>")}</div>`
+    : "";
+  const overRest = danger
+    ? `<div class="vacCalcLine dangerText"><b>Achtung:</b> Resturlaub würde um ${vacationDaysText(Math.abs(calc.restAfter))} Tag(e) überschritten.</div>`
+    : "";
+
+  el.innerHTML = `
+    <div class="vacCalcMain">
+      <div><small>Berechnet</small><b>${vacationDaysText(selected.days)} Urlaubstag(e)</b></div>
+      <div><small>Kalendertage</small><b>${selected.calendarDays}</b></div>
+      <div><small>Anspruch ${calc.year}</small><b>${vacationDaysText(b.entitlement)}</b></div>
+      <div><small>Genehmigt</small><b>${vacationDaysText(b.approved)}</b></div>
+      <div><small>Beantragt offen</small><b>${vacationDaysText(b.requested)}</b></div>
+      <div><small>${afterLabel}</small><b>${vacationDaysText(calc.restAfter)}</b></div>
+    </div>
+    ${counted}
+    ${skipped}
+    ${overlaps}
+    ${overRest}
+    <div class="vacCalcLine muted">Hinweis: Halber Tag wird erkannt, wenn in der Notiz „halb“, „0,5“ oder „0.5“ steht.</div>
+  `;
+}
+async function updateVacationRequestCalc(){
+  if(!$("vacRequestCalc") || !profile?.id) return;
+  try{
+    const calc = await buildVacationCalculation(profile.id,$("vacFrom")?.value,$("vacTo")?.value,$("vacNote")?.value||"");
+    renderVacationCalculation("vacRequestCalc",calc,"request");
+  }catch(e){
+    renderVacationCalculation("vacRequestCalc",{ok:false,error:e.message||"Berechnung nicht möglich."},"request");
+  }
+}
+async function updateVacationAdminCalc(){
+  if(!$("vacAdminCalc") || !isManagement()) return;
+  try{
+    const calc = await buildVacationCalculation($("vacAdminProfile")?.value,$("vacAdminFrom")?.value,$("vacAdminTo")?.value,$("vacAdminNote")?.value||"");
+    renderVacationCalculation("vacAdminCalc",calc,"admin");
+  }catch(e){
+    renderVacationCalculation("vacAdminCalc",{ok:false,error:e.message||"Berechnung nicht möglich."},"admin");
+  }
+}
+async function confirmVacationCalculation(profileId, from, to, note, mode){
+  let calc;
+  try{
+    calc = await buildVacationCalculation(profileId,from,to,note||"");
+  }catch(e){
+    alert(e.message || "Urlaubsberechnung nicht möglich.");
+    return false;
+  }
+  if(!calc.ok){
+    alert(calc.error || "Urlaubsberechnung nicht möglich.");
+    return false;
+  }
+  if(calc.selected.days <= 0){
+    return confirm("In diesem Zeitraum wurden 0 Urlaubstage berechnet. Trotzdem speichern?");
+  }
+  if(calc.restAfter < 0){
+    return confirm(`Der Resturlaub würde überschritten.\n\nBerechnet: ${vacationDaysText(calc.selected.days)} Tag(e)\nRest aktuell: ${vacationDaysText(calc.balance.rest)} Tag(e)\nRest danach: ${vacationDaysText(calc.restAfter)} Tag(e)\n\nTrotzdem ${mode==="admin"?"eintragen":"beantragen"}?`);
+  }
+  return true;
 }
 function valueOrNull(id){
   const el=$(id);
@@ -1792,11 +1990,14 @@ async function loadVacationPlanner(){
 
   const from = firstOfMonthISO(month);
   const to = month + "-" + pad2(lastDayOfMonth(month));
+  const year = Number(month.slice(0,4)) || new Date().getFullYear();
+  const yearFrom = `${year}-01-01`;
+  const yearTo = `${year}-12-31`;
   const today = todayISO();
 
   $("vacPlannerGrid").innerHTML = `<div class="entry">Urlaub wird berechnet...</div>`;
 
-  const [vacRes, scheduleRes] = await Promise.all([
+  const [vacRes, scheduleRes, yearData] = await Promise.all([
     sb.from("vacation_requests")
       .select("*")
       .lte("date_from",to)
@@ -1805,7 +2006,8 @@ async function loadVacationPlanner(){
     sb.from("schedules")
       .select("*")
       .gte("work_date",from)
-      .lte("work_date",to)
+      .lte("work_date",to),
+    collectVacationDaysForYear(year)
   ]);
 
   if(vacRes.error || scheduleRes.error){
@@ -1819,13 +2021,7 @@ async function loadVacationPlanner(){
     String(s.status || "").toLowerCase().includes("urlaub")
   );
 
-  const rows = plannable()
-    .slice()
-    .sort((a,b)=>
-      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
-      String(a.department||"").localeCompare(String(b.department||"")) ||
-      String(a.last_name||"").localeCompare(String(b.last_name||""))
-    );
+  const rows = alphaProfiles();
 
   const requestsByProfile = {};
   vacationRequests.forEach(v=>{
@@ -1845,13 +2041,13 @@ async function loadVacationPlanner(){
     html += `<th class="vacDayHead ${cls}"><span>${wd}</span><b>${day}</b></th>`;
   }
 
-  html += `<th class="vacSumHead">Anspruch</th><th class="vacTakenHead">Genommen</th><th class="vacRestHead">Rest</th></tr></thead><tbody>`;
+  html += `<th class="vacSumHead">Anspruch</th><th class="vacTakenHead">Monat</th><th class="vacRestHead">Rest Jahr</th></tr></thead><tbody>`;
 
   rows.forEach(p=>{
     const dayMap = {};
 
     (requestsByProfile[p.id] || []).forEach(v=>{
-      const range = vacationDaysInRange(v,from,to);
+      const range = vacationDateRangeDaysForProfile(v,p,from,to,vacationDayValue(v,v.date_from));
       Object.entries(range).forEach(([iso,val])=>{
         dayMap[iso] = {value:val,status:v.status,source:"urlaubsliste",note:v.note||"",id:v.id};
       });
@@ -1860,16 +2056,18 @@ async function loadVacationPlanner(){
     scheduleVacations.filter(s=>s.profile_id===p.id).forEach(s=>{
       const iso = s.work_date;
       if(!iso || iso < from || iso > to) return;
+      if(!vacationCountableWeekday(p,iso)) return;
       if(!dayMap[iso] || dayMap[iso].status==="beantragt"){
         dayMap[iso] = {value:1,status:"dienstplan",source:"dienstplan",note:"Direkt im Dienstplan als Urlaub eingetragen",id:s.id};
       }
     });
 
     const entitlement = vacationEntitlement(p, year, true);
+    const takenYear = sumVacationDaysMap(yearData.byProfile[p.id] || {});
     const takenMonth = Object.values(dayMap)
       .filter(x => x.status === "genehmigt" || x.status === "dienstplan")
       .reduce((sum,x) => sum + Number(x.value || 0), 0);
-    const rest = Math.max(0, entitlement - takenMonth);
+    const rest = vacationRoundDays(entitlement - takenYear);
 
     const vacDays = vacationRangeSummaries(dayMap);
 
@@ -1877,12 +2075,12 @@ async function loadVacationPlanner(){
       <div class="vacMobileCard ${takenMonth>0 ? "hasVacation" : ""}">
         <div class="vacMobileHead">
           <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></div>
-          <strong>${takenMonth > 0 ? euroHours(takenMonth).replace(",00","") + " genommen" : "Kein Urlaub"}</strong>
+          <strong>${takenMonth > 0 ? vacationDaysText(takenMonth) + " im Monat" : "Kein Urlaub"}</strong>
         </div>
         <div class="vacMobileStats">
-          <span><small>Anspruch</small><b>${euroHours(entitlement).replace(",00","")}</b></span>
-          <span><small>Genommen</small><b>${euroHours(takenMonth).replace(",00","")}</b></span>
-          <span><small>Rest</small><b>${euroHours(rest).replace(",00","")}</b></span>
+          <span><small>Anspruch</small><b>${vacationDaysText(entitlement)}</b></span>
+          <span><small>Genommen Jahr</small><b>${vacationDaysText(takenYear)}</b></span>
+          <span><small>Rest Jahr</small><b>${vacationDaysText(rest)}</b></span>
         </div>
         <div class="vacMobileDays">${vacDays.length ? vacDays.map(x=>`<em>${escapeHtml(x)}</em>`).join("") : "<em>Kein Urlaub im Monat</em>"}</div>
       </div>`;
@@ -1903,9 +2101,9 @@ async function loadVacationPlanner(){
       html += `<td class="vacDayCell ${cls}" title="${escapeHtml(title)}">${label}</td>`;
     }
 
-    html += `<td class="vacSumCell">${euroHours(entitlement).replace(",00","")}</td>`;
-    html += `<td class="vacTakenCell">${euroHours(takenMonth).replace(",00","")}</td>`;
-    html += `<td class="vacRestCell">${euroHours(rest).replace(",00","")}</td></tr>`;
+    html += `<td class="vacSumCell">${vacationDaysText(entitlement)}</td>`;
+    html += `<td class="vacTakenCell">${vacationDaysText(takenMonth)}</td>`;
+    html += `<td class="vacRestCell">${vacationDaysText(rest)}</td></tr>`;
   });
 
   if(!rows.length){
@@ -1960,9 +2158,13 @@ async function loadVacations(){
   }
   $("vacList").innerHTML=(data||[]).map(v=>{
     const p=profileById(v.profile_id);
+    const year = Number(String(v.date_from||"").slice(0,4)) || new Date().getFullYear();
+    const daysMap = vacationDateRangeDaysForProfile(v,p,`${year}-01-01`,`${year}-12-31`,vacationDayValue(v,v.date_from));
+    const calcDays = vacationRoundDays(sumVacationDaysMap(daysMap));
     return `<div class="entry">
       <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b> ${deptBadge(p.department)}
       <br>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}
+      <br>Berechnet: <b>${vacationDaysText(calcDays)} Urlaubstag(e)</b>
       <br>Status: <b>${escapeHtml(v.status)}</b>
       <br>${escapeHtml(v.note||"")}
       ${isManagement()&&v.status==="beantragt"?`<br><button class="ok" onclick="setVacationStatus('${v.id}','genehmigt')">Genehmigen</button> <button class="danger" onclick="setVacationStatus('${v.id}','abgelehnt')">Ablehnen</button>`:""}
@@ -2007,17 +2209,21 @@ async function loadVacationCalendar(){
 }
 
 async function loadVacationOverlap(){
-  if(!isManagement()) return;
-  const from=$("vacAdminFrom").value, to=$("vacAdminTo").value;
+  if(!isManagement() || !$("vacOverlapInfo")) return;
+  const from=$("vacAdminFrom").value, to=$("vacAdminTo").value, profileId=$("vacAdminProfile")?.value;
   if(!from||!to){$("vacOverlapInfo").innerHTML="Zeitraum auswählen.";return}
-  const{data,error}=await sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]);
+  let query = sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]);
+  if(profileId) query = query.eq("profile_id",profileId);
+  const{data,error}=await query;
   if(error){
     $("vacOverlapInfo").innerHTML=`Fehler: ${escapeHtml(error.message)}`;
     return;
   }
   const rows=(data||[]).map(v=>{
     const p=profileById(v.profile_id);
-    return `${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} – ${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)} (${escapeHtml(v.status)})`;
+    const y = Number(String(v.date_from||"").slice(0,4)) || new Date().getFullYear();
+    const days = sumVacationDaysMap(vacationDateRangeDaysForProfile(v,p,`${y}-01-01`,`${y}-12-31`,vacationDayValue(v,v.date_from)));
+    return `${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} – ${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)} · ${vacationDaysText(days)} Tag(e) (${escapeHtml(v.status)})`;
   });
   $("vacOverlapInfo").innerHTML=rows.length?`<b>${rows.length} Überschneidung(en):</b><br>${rows.join("<br>")}`:"Keine Überschneidungen im gewählten Zeitraum.";
 }
@@ -2829,8 +3035,9 @@ async function collectVacationDaysForYear(year){
   }
 
   (vacRes.data || []).forEach(v=>{
+    const p = profileById(v.profile_id);
     ensure(v.profile_id);
-    const range = vacationDateRangeDays(v.date_from,v.date_to,from,to,vacationDayValue(v,v.date_from));
+    const range = vacationDateRangeDaysForProfile(v,p,from,to,vacationDayValue(v,v.date_from));
     Object.entries(range).forEach(([iso,val])=>{
       byProfile[v.profile_id][iso] = val;
       sourceInfo[v.profile_id][iso] = "Urlaubsliste";
@@ -2840,9 +3047,11 @@ async function collectVacationDaysForYear(year){
   (scheduleRes.data || [])
     .filter(s=>String(s.status || "").toLowerCase().includes("urlaub"))
     .forEach(s=>{
+      const p = profileById(s.profile_id);
       ensure(s.profile_id);
       const iso = s.work_date;
       if(!iso || iso < from || iso > to) return;
+      if(!vacationCountableWeekday(p,iso)) return;
       if(!byProfile[s.profile_id][iso]){
         byProfile[s.profile_id][iso] = 1;
         sourceInfo[s.profile_id][iso] = "Dienstplan";
@@ -2901,7 +3110,7 @@ async function loadVacationYearOverview(){
 
     const taken = monthly.reduce((a,b)=>a+b,0);
     const entitlement = vacationEntitlement(p, year, true);
-    const rest = Math.max(0, entitlement - taken);
+    const rest = vacationRoundDays(entitlement - taken);
 
     html += `<tr>
       <td class="vacYearNameCell"><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><br><small>${escapeHtml(p.department||"")}</small></td>
@@ -2969,7 +3178,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6038`;
+  return `${base}?stempeluhr=1&v=6039`;
 }
 
 function normalizeIpValue(ip){
