@@ -3195,3 +3195,14 @@ body.employeeMode #timeClock .sectionHeader h2::after{
     display:block!important;
   }
 }
+
+
+/* v6.0.33: Hinweis in Tagesinfos entfernt */
+#daily .readonlyNotice:empty,
+#daily .employeeNotice:empty,
+#daily .infoBox:empty,
+#dailyInfos .readonlyNotice:empty,
+#dailyInfos .employeeNotice:empty,
+#dailyInfos .infoBox:empty{
+  display:none!important;
+}
