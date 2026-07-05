@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.39";
+const APP_VERSION="v6.0.40";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -64,7 +64,56 @@ function isManagement(){return profile?.role==="management"||profile?.role==="ad
 
 function isKitchenLead(){
   const dept = String(profile?.department || "").trim().toLowerCase();
-  return dept === "küchenleitung" || dept === "küchen leitung";
+  const role = String(profile?.role || "").trim().toLowerCase();
+  return role === "kitchenlead" || role === "kitchen_lead" || role === "kitchen-lead" || role === "küchenleitung" || dept === "küchenleitung" || dept === "küchen leitung";
+}
+function isKitchenDepartmentName(dept){
+  const d = String(dept || "").trim().toLowerCase();
+  return d.includes("küche") || d.includes("kueche") || d.includes("kitchen") || d === "küchenleitung" || d === "küchen leitung";
+}
+function isKitchenProfile(p){
+  if(!p) return false;
+  return isKitchenDepartmentName(p.department) || String(p.role||"").toLowerCase().includes("kitchen");
+}
+function canManageVacation(){
+  return isManagement();
+}
+function canViewVacationTeam(){
+  return isManagement() || isKitchenLead();
+}
+function canViewVacationProfile(p){
+  if(!p?.id || !profile?.id) return false;
+  if(isManagement()) return true;
+  if(isKitchenLead()) return isKitchenProfile(p);
+  return p.id === profile.id;
+}
+function vacationVisibleProfiles(){
+  if(isManagement()) return alphaProfiles();
+  if(isKitchenLead()) return alphaProfiles().filter(isKitchenProfile);
+  return profile ? [profile] : [];
+}
+function vacationVisibleProfileIds(){
+  return vacationVisibleProfiles().map(p=>p.id).filter(Boolean);
+}
+function vacationRoleDescription(){
+  if(isManagement()) return {
+    title:"Rechte: Geschäftsführung",
+    text:"Du siehst alle Urlaubsanträge und Urlaubskonten. Du kannst Urlaub direkt eintragen, genehmigen und ablehnen."
+  };
+  if(isKitchenLead()) return {
+    title:"Rechte: Küchenleitung",
+    text:"Du siehst Urlaubsanträge und Urlaubskonten der Küche. Genehmigen, Ablehnen und direktes Eintragen bleibt Geschäftsführung."
+  };
+  return {
+    title:"Rechte: Mitarbeiter",
+    text:"Du siehst deinen eigenen Urlaubsstand und kannst eigenen Urlaub beantragen."
+  };
+}
+function renderVacationRightsInfo(){
+  const el = $("vacationRightsInfo");
+  if(!el || !session) return;
+  const info = vacationRoleDescription();
+  el.innerHTML = `<b>${escapeHtml(info.title)}</b><br><span>${escapeHtml(info.text)}</span>`;
 }
 function canEditPlan(kind){
   return isManagement() || (kind === "kitchen" && isKitchenLead());
@@ -89,7 +138,7 @@ function setActiveTab(tabId){
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
-  if(normalized==="vacation"){ loadVacationPlanner?.(); loadVacationAccountOverview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
+  if(normalized==="vacation"){ renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
 }
 
 function planKindForDepartment(dept){
@@ -1550,8 +1599,16 @@ $("addVacationAdmin").onclick=async()=>{
 };
 
 async function setVacationStatus(id,status){
+  if(!canManageVacation()){
+    alert("Nur Geschäftsführung kann Urlaub genehmigen oder ablehnen.");
+    return;
+  }
   const before = await sb.from("vacation_requests").select("*").eq("id",id).single();
-  await sb.from("vacation_requests").update({status,decided_by:profile.id,decided_at:new Date().toISOString()}).eq("id",id);
+  const {error} = await sb.from("vacation_requests").update({status,decided_by:profile.id,decided_at:new Date().toISOString()}).eq("id",id);
+  if(error){
+    alert(error.message);
+    return;
+  }
   if(before.data){
     if(status==="genehmigt") await syncVacationToSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
     if(status==="abgelehnt") await removeVacationFromSchedule(before.data.profile_id,before.data.date_from,before.data.date_to);
@@ -1613,7 +1670,7 @@ async function vacationBalanceForProfile(p, year){
   const from = `${year}-01-01`;
   const to = `${year}-12-31`;
   const [collected, requestedRes] = await Promise.all([
-    collectVacationDaysForYear(year),
+    collectVacationDaysForYear(year,[p.id]),
     sb.from("vacation_requests")
       .select("*")
       .eq("profile_id",p.id)
@@ -1849,6 +1906,7 @@ function vacationAccountWarnings(p, year, rest){
 }
 async function loadVacationAccountOverview(){
   if(!$("vacationAccountOverview") || !session || !profiles.length) return;
+  renderVacationRightsInfo?.();
 
   const currentYear = new Date().getFullYear();
   const year = Number($("vacAccountYear")?.value || currentYear);
@@ -1856,12 +1914,11 @@ async function loadVacationAccountOverview(){
 
   const from = `${year}-01-01`;
   const to = `${year}-12-31`;
-  const rows = isManagement()
-    ? alphaProfiles()
-    : (profile ? [profile] : []);
+  const rows = vacationVisibleProfiles();
+  const ids = rows.map(p=>p.id).filter(Boolean);
 
   if(!rows.length){
-    $("vacationAccountOverview").innerHTML = `<div class="entry">Keine Mitarbeiter gefunden.</div>`;
+    $("vacationAccountOverview").innerHTML = `<div class="entry">Keine Mitarbeiter für deine Berechtigung gefunden.</div>`;
     return;
   }
 
@@ -1869,9 +1926,10 @@ async function loadVacationAccountOverview(){
 
   let vacQuery = sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]);
   let schedQuery = sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to);
-  if(!isManagement() && profile?.id){
-    vacQuery = vacQuery.eq("profile_id",profile.id);
-    schedQuery = schedQuery.eq("profile_id",profile.id);
+
+  if(ids.length){
+    vacQuery = vacQuery.in("profile_id",ids);
+    schedQuery = schedQuery.in("profile_id",ids);
   }
 
   const [vacRes, schedRes] = await Promise.all([vacQuery, schedQuery]);
@@ -1881,8 +1939,8 @@ async function loadVacationAccountOverview(){
     return;
   }
 
-  const vacations = vacRes.data || [];
-  const schedules = schedRes.data || [];
+  const vacations = (vacRes.data || []).filter(v=>ids.includes(v.profile_id));
+  const schedules = (schedRes.data || []).filter(s=>ids.includes(s.profile_id));
 
   const htmlRows = rows.map(p=>{
     const approvedDays = {};
@@ -1983,7 +2041,7 @@ function vacationRangeSummaries(dayMap){
 }
 
 async function loadVacationPlanner(){
-  if(!$("vacPlannerGrid") || !isManagement() || !profiles.length) return;
+  if(!$("vacPlannerGrid") || !canViewVacationTeam() || !profiles.length) return;
 
   const month = $("vacPlannerMonth")?.value || monthISO();
   if($("vacPlannerMonth")) $("vacPlannerMonth").value = month;
@@ -1991,23 +2049,34 @@ async function loadVacationPlanner(){
   const from = firstOfMonthISO(month);
   const to = month + "-" + pad2(lastDayOfMonth(month));
   const year = Number(month.slice(0,4)) || new Date().getFullYear();
-  const yearFrom = `${year}-01-01`;
-  const yearTo = `${year}-12-31`;
   const today = todayISO();
+  const rows = vacationVisibleProfiles();
+  const ids = rows.map(p=>p.id).filter(Boolean);
 
   $("vacPlannerGrid").innerHTML = `<div class="entry">Urlaub wird berechnet...</div>`;
 
+  if(!ids.length){
+    $("vacPlannerGrid").innerHTML = `<div class="entry">Keine Mitarbeiter für deine Berechtigung gefunden.</div>`;
+    return;
+  }
+
+  let vacQuery = sb.from("vacation_requests")
+    .select("*")
+    .lte("date_from",to)
+    .gte("date_to",from)
+    .in("status",["beantragt","genehmigt"])
+    .in("profile_id",ids);
+
+  let scheduleQuery = sb.from("schedules")
+    .select("*")
+    .gte("work_date",from)
+    .lte("work_date",to)
+    .in("profile_id",ids);
+
   const [vacRes, scheduleRes, yearData] = await Promise.all([
-    sb.from("vacation_requests")
-      .select("*")
-      .lte("date_from",to)
-      .gte("date_to",from)
-      .in("status",["beantragt","genehmigt"]),
-    sb.from("schedules")
-      .select("*")
-      .gte("work_date",from)
-      .lte("work_date",to),
-    collectVacationDaysForYear(year)
+    vacQuery,
+    scheduleQuery,
+    collectVacationDaysForYear(year,ids)
   ]);
 
   if(vacRes.error || scheduleRes.error){
@@ -2021,8 +2090,6 @@ async function loadVacationPlanner(){
     String(s.status || "").toLowerCase().includes("urlaub")
   );
 
-  const rows = alphaProfiles();
-
   const requestsByProfile = {};
   vacationRequests.forEach(v=>{
     requestsByProfile[v.profile_id] ||= [];
@@ -2030,7 +2097,7 @@ async function loadVacationPlanner(){
   });
 
   const dayCount = lastDayOfMonth(month);
-  let mobileHtml = `<div class="vacMobileCards">`;
+  let mobileHtml = `<div class="vacPlannerRoleHint">${isKitchenLead()&&!isManagement() ? "Küchenleitung sieht hier nur Küche. Genehmigung bleibt Geschäftsführung." : "Geschäftsführung sieht alle Mitarbeiter."}</div><div class="vacMobileCards">`;
   let html = `<div class="vacPlannerScroll"><table class="vacPlannerTable"><thead>`;
   html += `<tr><th class="vacNameHead">Mitarbeiter</th>`;
 
@@ -2106,10 +2173,6 @@ async function loadVacationPlanner(){
     html += `<td class="vacRestCell">${vacationDaysText(rest)}</td></tr>`;
   });
 
-  if(!rows.length){
-    html += `<tr><td colspan="${dayCount+4}">Keine einplanbaren Mitarbeiter gefunden.</td></tr>`;
-  }
-
   html += `</tbody></table></div>`;
   mobileHtml += `</div>`;
   $("vacPlannerGrid").innerHTML = mobileHtml + html;
@@ -2138,6 +2201,7 @@ function setupVacationPlanner(){
   };
 }
 async function refreshVacationViews(){
+  renderVacationRightsInfo?.();
   await loadVacations();
   await loadVacationCalendar();
   await loadVacationPlanner();
@@ -2149,25 +2213,39 @@ async function refreshVacationViews(){
 }
 
 async function loadVacations(){
-  let q=sb.from("vacation_requests").select("*").order("date_from",{ascending:false});
-  if(!isManagement())q=q.eq("profile_id",profile.id);
+  if(!$("vacList") || !session || !profiles.length) return;
+  renderVacationRightsInfo?.();
+
+  const visible = vacationVisibleProfiles();
+  const ids = visible.map(p=>p.id).filter(Boolean);
+
+  if(!ids.length){
+    $("vacList").innerHTML = `<div class="entry">Keine Urlaubsanträge für deine Berechtigung vorhanden.</div>`;
+    return;
+  }
+
+  let q=sb.from("vacation_requests").select("*").order("date_from",{ascending:false}).in("profile_id",ids);
+
   const{data,error}=await q;
   if(error){
     $("vacList").innerHTML=`<div class="entry"><b>Fehler beim Laden der Urlaubsliste:</b><br>${escapeHtml(error.message)}</div>`;
     return;
   }
-  $("vacList").innerHTML=(data||[]).map(v=>{
+
+  $("vacList").innerHTML=(data||[]).filter(v=>ids.includes(v.profile_id)).map(v=>{
     const p=profileById(v.profile_id);
     const year = Number(String(v.date_from||"").slice(0,4)) || new Date().getFullYear();
     const daysMap = vacationDateRangeDaysForProfile(v,p,`${year}-01-01`,`${year}-12-31`,vacationDayValue(v,v.date_from));
     const calcDays = vacationRoundDays(sumVacationDaysMap(daysMap));
-    return `<div class="entry">
+    const statusLabel = v.status==="beantragt" ? "Offen" : v.status;
+    return `<div class="entry vacationEntryRole">
       <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b> ${deptBadge(p.department)}
       <br>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}
       <br>Berechnet: <b>${vacationDaysText(calcDays)} Urlaubstag(e)</b>
-      <br>Status: <b>${escapeHtml(v.status)}</b>
+      <br>Status: <b>${escapeHtml(statusLabel)}</b>
       <br>${escapeHtml(v.note||"")}
-      ${isManagement()&&v.status==="beantragt"?`<br><button class="ok" onclick="setVacationStatus('${v.id}','genehmigt')">Genehmigen</button> <button class="danger" onclick="setVacationStatus('${v.id}','abgelehnt')">Ablehnen</button>`:""}
+      ${canManageVacation()&&v.status==="beantragt"?`<br><button class="ok" onclick="setVacationStatus('${v.id}','genehmigt')">Genehmigen</button> <button class="danger" onclick="setVacationStatus('${v.id}','abgelehnt')">Ablehnen</button>`:""}
+      ${isKitchenLead()&&!canManageVacation()?`<br><small class="vacReadOnlyNote">Küchenleitung: Nur Ansicht. Finale Entscheidung durch Geschäftsführung.</small>`:""}
     </div>`;
   }).join("")||"<p>Keine Urlaubsanträge oder Urlaube vorhanden.</p>";
 }
@@ -3006,21 +3084,28 @@ function vacationDateRangeDays(from,to,rangeFrom,rangeTo,value=1){
   return out;
 }
 
-async function collectVacationDaysForYear(year){
+async function collectVacationDaysForYear(year, profileIds=null){
   const from = `${year}-01-01`;
   const to = `${year}-12-31`;
+  const ids = Array.isArray(profileIds) ? profileIds.filter(Boolean) : null;
 
-  const [vacRes, scheduleRes] = await Promise.all([
-    sb.from("vacation_requests")
-      .select("*")
-      .lte("date_from",to)
-      .gte("date_to",from)
-      .in("status",["genehmigt"]),
-    sb.from("schedules")
-      .select("*")
-      .gte("work_date",from)
-      .lte("work_date",to)
-  ]);
+  let vacQuery = sb.from("vacation_requests")
+    .select("*")
+    .lte("date_from",to)
+    .gte("date_to",from)
+    .in("status",["genehmigt"]);
+
+  let schedQuery = sb.from("schedules")
+    .select("*")
+    .gte("work_date",from)
+    .lte("work_date",to);
+
+  if(ids && ids.length){
+    vacQuery = vacQuery.in("profile_id",ids);
+    schedQuery = schedQuery.in("profile_id",ids);
+  }
+
+  const [vacRes, scheduleRes] = await Promise.all([vacQuery, schedQuery]);
 
   if(vacRes.error || scheduleRes.error){
     throw new Error((vacRes.error || scheduleRes.error).message);
@@ -3036,6 +3121,7 @@ async function collectVacationDaysForYear(year){
 
   (vacRes.data || []).forEach(v=>{
     const p = profileById(v.profile_id);
+    if(ids && ids.length && !ids.includes(v.profile_id)) return;
     ensure(v.profile_id);
     const range = vacationDateRangeDaysForProfile(v,p,from,to,vacationDayValue(v,v.date_from));
     Object.entries(range).forEach(([iso,val])=>{
@@ -3047,6 +3133,7 @@ async function collectVacationDaysForYear(year){
   (scheduleRes.data || [])
     .filter(s=>String(s.status || "").toLowerCase().includes("urlaub"))
     .forEach(s=>{
+      if(ids && ids.length && !ids.includes(s.profile_id)) return;
       const p = profileById(s.profile_id);
       ensure(s.profile_id);
       const iso = s.work_date;
@@ -3062,16 +3149,24 @@ async function collectVacationDaysForYear(year){
 }
 
 async function loadVacationYearOverview(){
-  if(!$("vacYearGrid") || !isManagement() || !profiles.length) return;
+  if(!$("vacYearGrid") || !canViewVacationTeam() || !profiles.length) return;
 
   const year = Number($("vacYearSelect")?.value || new Date().getFullYear());
   if($("vacYearSelect")) $("vacYearSelect").value = year;
+
+  const rows = vacationVisibleProfiles();
+  const ids = rows.map(p=>p.id).filter(Boolean);
+
+  if(!ids.length){
+    $("vacYearGrid").innerHTML = `<div class="entry">Keine Mitarbeiter für deine Berechtigung gefunden.</div>`;
+    return;
+  }
 
   $("vacYearGrid").innerHTML = `<div class="entry">Jahresübersicht wird berechnet...</div>`;
 
   let collected;
   try{
-    collected = await collectVacationDaysForYear(year);
+    collected = await collectVacationDaysForYear(year,ids);
   }catch(e){
     $("vacYearGrid").innerHTML = `<div class="entry"><b>Fehler:</b><br>${escapeHtml(e.message)}</div>`;
     return;
@@ -3080,15 +3175,7 @@ async function loadVacationYearOverview(){
   const {byProfile,sourceInfo} = collected;
   const months = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt","Nov","Dez"];
 
-  const rows = plannable()
-    .slice()
-    .sort((a,b)=>
-      (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
-      String(a.department||"").localeCompare(String(b.department||"")) ||
-      String(a.last_name||"").localeCompare(String(b.last_name||""))
-    );
-
-  let mobile = `<div class="vacYearMobileCards">`;
+  let mobile = `<div class="vacYearRoleHint">${isKitchenLead()&&!isManagement() ? "Küchenleitung sieht hier nur Küche." : "Geschäftsführung sieht alle Mitarbeiter."}</div><div class="vacYearMobileCards">`;
   let html = `<div class="vacYearScroll"><table class="vacYearTable"><thead><tr>
     <th class="vacYearNameHead">Mitarbeiter</th>
     ${months.map(m=>`<th>${m}</th>`).join("")}
@@ -3136,10 +3223,6 @@ async function loadVacationYearOverview(){
       </div>`;
   });
 
-  if(!rows.length){
-    html += `<tr><td colspan="16">Keine einplanbaren Mitarbeiter gefunden.</td></tr>`;
-  }
-
   html += `</tbody></table></div>`;
   mobile += `</div>`;
   $("vacYearGrid").innerHTML = mobile + html;
@@ -3178,7 +3261,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6039`;
+  return `${base}?stempeluhr=1&v=6040`;
 }
 
 function normalizeIpValue(ip){
