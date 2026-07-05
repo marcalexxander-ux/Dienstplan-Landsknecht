@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.40";
+const APP_VERSION="v6.0.41";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -138,7 +138,7 @@ function setActiveTab(tabId){
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
-  if(normalized==="vacation"){ renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
+  if(normalized==="vacation"){ renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); loadVacationYearClosePreview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
 }
 
 function planKindForDepartment(dept){
@@ -1843,8 +1843,18 @@ function vacationBaseAnnual(p){
 function vacationCarryoverDays(p, year=new Date().getFullYear()){
   const days = numberFromProfile(p, ["vacation_carryover_days","carryover_vacation_days","resturlaub_vorjahr"], 0) || 0;
   if(days <= 0) return 0;
+
+  const targetYear = Number(p?.vacation_carryover_year || p?.carryover_year || 0);
+  const requestedYear = Number(year);
+  if(Number.isFinite(targetYear) && targetYear > 0 && targetYear !== requestedYear) return 0;
+
   const expires = p?.vacation_carryover_expires_at || p?.carryover_expires_at || "";
-  if(expires && String(expires) < `${year}-01-01`) return 0;
+  if(expires){
+    const expiresYear = Number(String(expires).slice(0,4));
+    if(Number.isFinite(expiresYear) && requestedYear > expiresYear) return 0;
+    if(requestedYear === new Date().getFullYear() && todayISO() > String(expires)) return 0;
+  }
+
   return days;
 }
 function employmentFullMonthsInYear(p, year){
@@ -2000,6 +2010,245 @@ async function loadVacationAccountOverview(){
     </div>
     <div class="vacAccountList">${htmlRows}</div>
   `;
+}
+let vacationYearClosePreviewRows = [];
+
+function defaultCarryoverExpiryForYear(targetYear){
+  return `${targetYear}-03-31`;
+}
+function vacationClosingInputId(prefix, id){
+  return `${prefix}_${String(id||"").replace(/[^a-zA-Z0-9_-]/g,"_")}`;
+}
+async function buildVacationYearCloseRows(year){
+  if(!isManagement()) return [];
+  const targetYear = Number($("vacCloseTargetYear")?.value || (Number(year)+1));
+  const ids = alphaProfiles().map(p=>p.id).filter(Boolean);
+  if(!ids.length) return [];
+
+  const from = `${year}-01-01`;
+  const to = `${year}-12-31`;
+
+  const [yearData, requestedRes] = await Promise.all([
+    collectVacationDaysForYear(year,ids),
+    sb.from("vacation_requests")
+      .select("*")
+      .lte("date_from",to)
+      .gte("date_to",from)
+      .eq("status","beantragt")
+      .in("profile_id",ids)
+  ]);
+  if(requestedRes.error) throw new Error(requestedRes.error.message);
+
+  const requestedByProfile = {};
+  (requestedRes.data||[]).forEach(v=>{
+    const p=profileById(v.profile_id);
+    requestedByProfile[v.profile_id] ||= 0;
+    requestedByProfile[v.profile_id] += sumVacationDaysMap(vacationDateRangeDaysForProfile(v,p,from,to,vacationDayValue(v,v.date_from)));
+  });
+
+  return alphaProfiles().map(p=>{
+    const workdays = vacationWorkdaysPerWeek(p);
+    const legalMin = vacationLegalMinimum(p);
+    const base = vacationBaseAnnual(p);
+    const months = employmentFullMonthsInYear(p, year);
+    const prorated = vacationRoundDays(months>=12 ? base : base*(months/12));
+    const carryFromPrevious = vacationCarryoverDays(p, year);
+    const totalEntitlement = vacationEntitlement(p, year, true);
+    const approved = vacationRoundDays(sumVacationDaysMap(yearData.byProfile[p.id] || {}));
+    const requested = vacationRoundDays(requestedByProfile[p.id] || 0);
+    const remaining = vacationRoundDays(totalEntitlement - approved);
+    const recommendedCarryover = Math.max(0, remaining);
+    const warnings = [];
+    if(requested > 0) warnings.push("offene Anträge vorhanden");
+    if(remaining < 0) warnings.push("Resturlaub negativ");
+    if(recommendedCarryover > 0 && !$("vacCloseNoticeSentAt")?.value) warnings.push("Hinweisdatum fehlt");
+    return {
+      profile_id:p.id,
+      p,
+      year:Number(year),
+      target_year:targetYear,
+      weekly_workdays:workdays,
+      legal_minimum:vacationRoundDays(legalMin),
+      annual_entitlement:vacationRoundDays(prorated),
+      carryover_from_previous:vacationRoundDays(carryFromPrevious),
+      total_entitlement:vacationRoundDays(totalEntitlement),
+      approved_days:approved,
+      requested_days:requested,
+      remaining_days:remaining,
+      recommended_carryover:vacationRoundDays(recommendedCarryover),
+      warnings
+    };
+  });
+}
+function renderVacationYearClosePreview(rows){
+  const el=$("vacYearCloseGrid");
+  if(!el) return;
+  vacationYearClosePreviewRows = rows || [];
+
+  if(!vacationYearClosePreviewRows.length){
+    el.innerHTML = `<div class="entry">Keine Mitarbeiter gefunden.</div>`;
+    return;
+  }
+
+  const totalRest = vacationRoundDays(vacationYearClosePreviewRows.reduce((s,r)=>s+Math.max(0,Number(r.remaining_days||0)),0));
+  const openRequests = vacationYearClosePreviewRows.filter(r=>Number(r.requested_days||0)>0).length;
+  const targetYear = Number($("vacCloseTargetYear")?.value || (Number($("vacCloseYear")?.value||new Date().getFullYear())+1));
+
+  const rowsHtml = vacationYearClosePreviewRows.map(r=>{
+    const carryId = vacationClosingInputId("vacCarry", r.profile_id);
+    const includeId = vacationClosingInputId("vacInclude", r.profile_id);
+    const cls = r.remaining_days < 0 ? "danger" : r.warnings.length ? "warn" : r.recommended_carryover > 0 ? "ok" : "";
+    return `
+      <div class="vacCloseRow ${cls}">
+        <label class="vacCloseInclude">
+          <input id="${includeId}" type="checkbox" ${r.recommended_carryover>0 ? "checked" : ""}>
+          <span></span>
+        </label>
+        <div class="vacClosePerson">
+          <b>${escapeHtml(r.p.first_name||"")} ${escapeHtml(r.p.last_name||"")}</b>
+          <small>${escapeHtml(r.p.department||"")} · ${vacationDaysText(r.weekly_workdays)} AT/Woche · gesetzl. Minimum ${vacationDaysText(r.legal_minimum)}</small>
+        </div>
+        <div class="vacCloseStats">
+          <span><small>Anspruch ${r.year}</small><b>${vacationDaysText(r.annual_entitlement)}</b></span>
+          <span><small>Übertrag alt</small><b>${vacationDaysText(r.carryover_from_previous)}</b></span>
+          <span><small>Gesamt</small><b>${vacationDaysText(r.total_entitlement)}</b></span>
+          <span><small>Genehmigt</small><b>${vacationDaysText(r.approved_days)}</b></span>
+          <span><small>Offen</small><b>${vacationDaysText(r.requested_days)}</b></span>
+          <span><small>Rest</small><b>${vacationDaysText(r.remaining_days)}</b></span>
+        </div>
+        <div class="vacCloseCarry">
+          <label>Übertrag nach ${targetYear}</label>
+          <input id="${carryId}" type="number" min="0" step="0.5" value="${r.recommended_carryover}">
+        </div>
+        ${r.warnings.length ? `<div class="vacCloseWarnings">${r.warnings.map(w=>`<em>${escapeHtml(w)}</em>`).join("")}</div>` : ""}
+      </div>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="vacCloseSummary">
+      <span><small>Mitarbeiter</small><b>${vacationYearClosePreviewRows.length}</b></span>
+      <span><small>Empfohlener Übertrag</small><b>${vacationDaysText(totalRest)}</b></span>
+      <span><small>Offene Anträge</small><b>${openRequests}</b></span>
+      <span><small>Zieljahr</small><b>${targetYear}</b></span>
+    </div>
+    <div class="vacCloseRows">${rowsHtml}</div>
+  `;
+}
+async function loadVacationYearClosePreview(){
+  if(!$("vacYearCloseGrid") || !isManagement()) return;
+  const year = Number($("vacCloseYear")?.value || new Date().getFullYear());
+  const targetYear = Number($("vacCloseTargetYear")?.value || (year+1));
+  if($("vacCloseYear")) $("vacCloseYear").value = year;
+  if($("vacCloseTargetYear")) $("vacCloseTargetYear").value = targetYear;
+  if($("vacCloseExpires")) $("vacCloseExpires").value ||= defaultCarryoverExpiryForYear(targetYear);
+
+  $("vacYearCloseGrid").innerHTML = `<div class="entry">Jahresabschluss wird berechnet...</div>`;
+  try{
+    const rows = await buildVacationYearCloseRows(year);
+    renderVacationYearClosePreview(rows);
+  }catch(e){
+    $("vacYearCloseGrid").innerHTML = `<div class="entry"><b>Fehler beim Jahresabschluss:</b><br>${escapeHtml(e.message||"Unbekannter Fehler")}</div>`;
+  }
+}
+function readVacationYearCloseRowsFromInputs(){
+  return (vacationYearClosePreviewRows||[]).map(r=>{
+    const carryEl = $(vacationClosingInputId("vacCarry", r.profile_id));
+    const includeEl = $(vacationClosingInputId("vacInclude", r.profile_id));
+    const carry = Math.max(0, Number(String(carryEl?.value||"0").replace(",",".")) || 0);
+    return {...r, carried_over_days: includeEl?.checked ? vacationRoundDays(carry) : 0};
+  });
+}
+async function applyVacationYearClose(){
+  if(!isManagement()) return alert("Nur Geschäftsführung kann den Jahresabschluss durchführen.");
+  if(!vacationYearClosePreviewRows.length) await loadVacationYearClosePreview();
+
+  const rows = readVacationYearCloseRowsFromInputs();
+  const year = Number($("vacCloseYear")?.value || new Date().getFullYear());
+  const targetYear = Number($("vacCloseTargetYear")?.value || (year+1));
+  const expires = $("vacCloseExpires")?.value || defaultCarryoverExpiryForYear(targetYear);
+  const reason = $("vacCloseReason")?.value || "Jahresabschluss";
+  const notice = $("vacCloseNoticeSentAt")?.value || null;
+  const note = $("vacCloseNote")?.value || null;
+  const totalCarry = vacationRoundDays(rows.reduce((s,r)=>s+Number(r.carried_over_days||0),0));
+  const withOpen = rows.filter(r=>Number(r.requested_days||0)>0).length;
+
+  let msg = `Jahresabschluss ${year} durchführen?\n\nÜbertrag nach ${targetYear}: ${vacationDaysText(totalCarry)} Tag(e)\nGültig bis: ${fmtDate(expires)}\nMitarbeiter: ${rows.length}`;
+  if(withOpen) msg += `\n\nAchtung: ${withOpen} Mitarbeiter haben noch offene Urlaubsanträge.`;
+  if(!confirm(msg)) return;
+
+  $("vacYearCloseGrid").insertAdjacentHTML("afterbegin", `<div id="vacCloseProgress" class="entry">Jahresabschluss wird gespeichert...</div>`);
+
+  const historyRows = rows.map(r=>({
+    profile_id:r.profile_id,
+    vacation_year:year,
+    target_year:targetYear,
+    annual_entitlement:r.annual_entitlement,
+    carryover_from_previous:r.carryover_from_previous,
+    total_entitlement:r.total_entitlement,
+    approved_days:r.approved_days,
+    requested_days:r.requested_days,
+    remaining_days:r.remaining_days,
+    carried_over_days:r.carried_over_days,
+    expires_at:expires,
+    reason,
+    notice_sent_at:notice,
+    note,
+    closed_by:profile?.id || null,
+    closed_at:new Date().toISOString()
+  }));
+
+  const hist = await sb.from("vacation_year_closings").upsert(historyRows,{onConflict:"profile_id,vacation_year"});
+  if(hist.error){
+    alert("Jahresabschluss konnte nicht dokumentiert werden: " + hist.error.message + "\\n\\nBitte prüfen, ob das SQL für v6.0.41 ausgeführt wurde.");
+    $("vacCloseProgress")?.remove();
+    return;
+  }
+
+  for(const r of rows){
+    const payload = {
+      vacation_carryover_days:r.carried_over_days,
+      vacation_carryover_year:targetYear,
+      vacation_carryover_expires_at:expires,
+      vacation_carryover_reason:reason,
+      vacation_notice_sent_at:notice
+    };
+    const upd = await sb.from("profiles").update(payload).eq("id",r.profile_id);
+    if(upd.error){
+      alert(`Übertrag für ${r.p.first_name} ${r.p.last_name} konnte nicht gespeichert werden: ${upd.error.message}`);
+      $("vacCloseProgress")?.remove();
+      return;
+    }
+  }
+
+  await createNotification("Urlaub Jahresabschluss",`Jahresabschluss ${year} wurde durchgeführt. Übertrag nach ${targetYear}: ${vacationDaysText(totalCarry)} Tag(e).`);
+  $("vacCloseProgress")?.remove();
+  alert("Jahresabschluss gespeichert und Überträge aktualisiert.");
+  await loadProfiles();
+  await loadVacationAccountOverview();
+  await loadVacationYearOverview();
+  await loadVacationYearClosePreview?.();
+  await loadVacationYearClosePreview();
+}
+function setupVacationYearClose(){
+  if($("vacCloseYear")) $("vacCloseYear").value ||= new Date().getFullYear();
+  if($("vacCloseTargetYear")) $("vacCloseTargetYear").value ||= Number($("vacCloseYear")?.value || new Date().getFullYear()) + 1;
+  if($("vacCloseExpires")) $("vacCloseExpires").value ||= defaultCarryoverExpiryForYear(Number($("vacCloseTargetYear")?.value || new Date().getFullYear()+1));
+  if($("calcVacYearClose")) $("calcVacYearClose").onclick = loadVacationYearClosePreview;
+  if($("applyVacYearClose")) $("applyVacYearClose").onclick = applyVacationYearClose;
+  if($("vacCloseYear")) $("vacCloseYear").onchange = ()=>{
+    const y = Number($("vacCloseYear").value || new Date().getFullYear());
+    if($("vacCloseTargetYear")) $("vacCloseTargetYear").value = y+1;
+    if($("vacCloseExpires")) $("vacCloseExpires").value = defaultCarryoverExpiryForYear(y+1);
+    loadVacationYearClosePreview();
+  };
+  if($("vacCloseTargetYear")) $("vacCloseTargetYear").onchange = ()=>{
+    const y = Number($("vacCloseTargetYear").value || new Date().getFullYear()+1);
+    if($("vacCloseExpires")) $("vacCloseExpires").value = defaultCarryoverExpiryForYear(y);
+    loadVacationYearClosePreview();
+  };
+  ["vacCloseExpires","vacCloseNoticeSentAt","vacCloseReason"].forEach(id=>{
+    if($(id)) $(id).onchange = loadVacationYearClosePreview;
+  });
 }
 function setupVacationAccountOverview(){
   if($("vacAccountYear")) $("vacAccountYear").value ||= new Date().getFullYear();
@@ -3261,7 +3510,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6040`;
+  return `${base}?stempeluhr=1&v=6041`;
 }
 
 function normalizeIpValue(ip){
@@ -4012,4 +4261,5 @@ setupTimeClock();
 setupVacationYearOverview();
 setupVacationPlanner();
 setupVacationAccountOverview();
+setupVacationYearClose();
 init();

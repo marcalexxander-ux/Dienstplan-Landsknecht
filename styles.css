@@ -3465,3 +3465,174 @@ body.employeeMode .dashPanelV57.managementOnly{
   margin:10px 0 12px;
   font-weight:900;
 }
+
+
+/* v6.0.41 Urlaub Jahresabschluss & Übertragung */
+.vacYearCloseCard{
+  border:1px solid #dfe6e1;
+  border-radius:22px;
+  padding:18px;
+  margin:16px 0 24px;
+  background:#fbfdfc;
+}
+.vacCloseSettings{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin:14px 0;
+}
+.vacCloseSettings .full{
+  grid-column:1/-1;
+}
+.vacCloseInfo{
+  border:1px solid #dfe6e1;
+  border-radius:16px;
+  padding:12px 14px;
+  background:#f8faf9;
+  color:#34423b;
+  font-weight:800;
+  margin:12px 0;
+}
+.vacCloseInfo b{
+  color:#174d3a;
+}
+.vacCloseSummary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0;
+}
+.vacCloseSummary span{
+  background:#eef8f1;
+  border:1px solid #a9edba;
+  border-radius:16px;
+  padding:12px;
+}
+.vacCloseSummary small{
+  display:block;
+  color:#667085;
+  font-weight:900;
+  margin-bottom:4px;
+}
+.vacCloseSummary b{
+  color:#174d3a;
+  font-size:1.25rem;
+}
+.vacCloseRows{
+  display:grid;
+  gap:12px;
+}
+.vacCloseRow{
+  display:grid;
+  grid-template-columns:34px minmax(180px,1.2fr) minmax(360px,2fr) minmax(130px,.7fr);
+  gap:12px;
+  align-items:center;
+  border:1px solid #dfe6e1;
+  border-left:7px solid #cfd8d2;
+  border-radius:18px;
+  background:#fff;
+  padding:14px;
+}
+.vacCloseRow.ok{
+  border-left-color:#74c69d;
+}
+.vacCloseRow.warn{
+  border-left-color:#f3bd4f;
+}
+.vacCloseRow.danger{
+  border-left-color:#e66b6b;
+}
+.vacCloseInclude{
+  display:flex;
+  justify-content:center;
+}
+.vacClosePerson b{
+  color:#10231c;
+}
+.vacClosePerson small{
+  display:block;
+  color:#667085;
+  font-weight:800;
+  margin-top:3px;
+}
+.vacCloseStats{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:7px;
+}
+.vacCloseStats span{
+  background:#f5f7f6;
+  border-radius:12px;
+  padding:8px;
+}
+.vacCloseStats small{
+  display:block;
+  color:#667085;
+  font-weight:900;
+  margin-bottom:3px;
+  font-size:.75rem;
+}
+.vacCloseStats b{
+  color:#174d3a;
+}
+.vacCloseCarry label{
+  font-size:.8rem;
+  color:#667085;
+  font-weight:900;
+}
+.vacCloseCarry input{
+  margin-top:4px;
+}
+.vacCloseWarnings{
+  grid-column:2/-1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+.vacCloseWarnings em{
+  font-style:normal;
+  background:#fff7e1;
+  color:#7a4b00;
+  border-radius:999px;
+  padding:6px 10px;
+  font-weight:900;
+}
+@media(max-width:1100px){
+  .vacCloseRow{
+    grid-template-columns:34px 1fr;
+  }
+  .vacCloseStats,
+  .vacCloseCarry,
+  .vacCloseWarnings{
+    grid-column:2/-1;
+  }
+}
+@media(max-width:820px){
+  .vacYearCloseCard{
+    padding:14px;
+  }
+  .vacCloseSettings,
+  .vacCloseSummary{
+    grid-template-columns:1fr;
+  }
+  .vacCloseRow{
+    grid-template-columns:1fr;
+  }
+  .vacCloseInclude,
+  .vacCloseStats,
+  .vacCloseCarry,
+  .vacCloseWarnings{
+    grid-column:1/-1;
+  }
+  .vacCloseInclude{
+    justify-content:flex-start;
+  }
+  .vacCloseStats{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:520px){
+  .vacCloseStats{
+    grid-template-columns:1fr;
+  }
+}

@@ -246,6 +246,50 @@
           <div id="vacationAccountOverview"></div>
         </div>
 
+
+        <div class="vacYearCloseCard managementOnly">
+          <div class="sectionHeader">
+            <div>
+              <h3>Jahresabschluss & Übertragung</h3>
+              <p class="subline">Resturlaub eines Jahres berechnen, Übertrag ins Folgejahr festlegen und den Abschluss dokumentieren.</p>
+            </div>
+            <div class="navButtons">
+              <input id="vacCloseYear" type="number" min="2020" max="2100" step="1">
+              <button id="calcVacYearClose" type="button" class="secondary">Vorschau berechnen</button>
+              <button id="applyVacYearClose" type="button">Übertrag durchführen</button>
+            </div>
+          </div>
+
+          <div class="vacCloseSettings">
+            <div>
+              <label>Übertrag gilt für Jahr</label>
+              <input id="vacCloseTargetYear" type="number" min="2020" max="2100" step="1">
+            </div>
+            <div>
+              <label>Übertrag gültig bis</label>
+              <input id="vacCloseExpires" type="date">
+            </div>
+            <div>
+              <label>Hinweis auf Verfall gesendet am</label>
+              <input id="vacCloseNoticeSentAt" type="date">
+            </div>
+            <div class="full">
+              <label>Grund / Notiz Übertragung</label>
+              <input id="vacCloseReason" placeholder="z. B. betriebliche Gründe, Krankheit, manuell übertragen">
+            </div>
+            <div class="full">
+              <label>Interne Abschlussnotiz</label>
+              <input id="vacCloseNote" placeholder="Optional">
+            </div>
+          </div>
+
+          <div class="vacCloseInfo">
+            <b>Wichtig:</b> Die Vorschau verändert noch nichts. Erst „Übertrag durchführen“ schreibt den Resturlaub als Übertrag für das Folgejahr in die Mitarbeiterprofile und dokumentiert den Abschluss.
+          </div>
+
+          <div id="vacYearCloseGrid" class="vacYearCloseGrid"></div>
+        </div>
+
         <div class="managementOnly vacationAdmin">
           <div class="sectionHeader">
             <div>
