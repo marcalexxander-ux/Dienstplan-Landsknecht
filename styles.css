@@ -3206,3 +3206,14 @@ body.employeeMode #timeClock .sectionHeader h2::after{
 #dailyInfos .infoBox:empty{
   display:none!important;
 }
+
+
+/* v6.0.34: Offene Urlaubsanträge im Home nur für Geschäftsführung */
+body.employeeMode #dashboardVacationsV57,
+body.employeeMode #dashboardVacationsV57.closest{
+  display:none!important;
+}
+
+body.employeeMode .dashboardColumnV57 .dashPanelV57.managementOnly{
+  display:none!important;
+}
