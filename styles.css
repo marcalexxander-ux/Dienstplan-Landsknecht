@@ -3694,3 +3694,10 @@ body.employeeMode .dashPanelV57.managementOnly{
 #staffBirthday::placeholder{
   color:#9aa4af;
 }
+
+
+/* v6.0.44: Bereich/Abteilung bleibt auch bei Geschäftsführung erhalten */
+.dept-Restaurantleitung{
+  background:#eef8f1;
+  color:#174d3a;
+}

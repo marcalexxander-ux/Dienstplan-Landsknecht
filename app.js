@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.43";
+const APP_VERSION="v6.0.44";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -124,7 +124,11 @@ function canPublishPlan(kind){
 
 function plannable(){return profiles.filter(p=>p.plannable===true)}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
-function deptBadge(dept){return `<span class="deptBadge dept-${sanitizeDept(dept)}">${escapeHtml(dept||"—")}</span>`}
+function displayDept(dept){
+  const val = String(dept||"").trim();
+  return val || "Restaurantleitung";
+}
+function deptBadge(dept){const label=displayDept(dept);return `<span class="deptBadge dept-${sanitizeDept(label)}">${escapeHtml(label)}</span>`}
 function setActiveTab(tabId){
   let normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
   if(normalized==="timeClock" && session && !isManagement() && !isClockRoute()) normalized = "dashboard";
@@ -2785,7 +2789,7 @@ $("saveStaff").onclick=async()=>{
     email,
     phone,
     role,
-    department:role==="management"?null:department,
+    department:department,
     plannable:plannableValue,
     contract_type,
     hourly_rate,
@@ -3728,7 +3732,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6043`;
+  return `${base}?stempeluhr=1&v=6044`;
 }
 
 function normalizeIpValue(ip){
