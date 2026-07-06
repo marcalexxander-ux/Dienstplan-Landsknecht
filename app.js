@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.41";
+const APP_VERSION="v6.0.42";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1693,6 +1693,150 @@ async function vacationBalanceForProfile(p, year){
   const restIfRequestedApproved = vacationRoundDays(entitlement - approved - requested);
   return {entitlement, approved, requested, rest, restIfRequestedApproved};
 }
+function vacationIsWorkStatus(status){
+  const s = String(status||"").trim().toLowerCase();
+  if(!s) return true;
+  if(s.includes("frei") || s.includes("urlaub") || s.includes("krank") || s.includes("abwes") || s.includes("sperr")) return false;
+  return true;
+}
+function vacationScheduleLabel(s){
+  const status = s.status ? String(s.status) : "Dienst";
+  const time = s.start_time ? `${String(s.start_time).slice(0,5)}${s.end_time ? "–"+String(s.end_time).slice(0,5) : ""}` : "";
+  return `${fmtDate(s.work_date)}${time ? " · " + time : ""}${status ? " · " + status : ""}`;
+}
+function vacationRiskPush(list, severity, title, text, meta={}){
+  list.push({severity,title,text,meta});
+}
+function vacationRiskScore(checks){
+  if(!Array.isArray(checks) || !checks.length) return "ok";
+  if(checks.some(c=>c.severity==="danger")) return "danger";
+  if(checks.some(c=>c.severity==="warn")) return "warn";
+  return "info";
+}
+function vacationPublicCheckText(check){
+  if(!check) return "";
+  return `${check.title}: ${check.text}`;
+}
+async function safeVacationQuery(promiseLike){
+  try{
+    const res = await promiseLike;
+    if(res?.error) return {data:[],error:res.error};
+    return {data:res?.data||[],error:null};
+  }catch(e){
+    return {data:[],error:e};
+  }
+}
+async function buildVacationRiskCheck(p, from, to, selected){
+  const checks = [];
+  if(!p?.id || !from || !to || to < from){
+    return {checks,score:"ok"};
+  }
+
+  const countedDates = selected?.countedDates || [];
+  const dept = String(p.department||"").trim();
+  const sameDeptProfiles = profiles.filter(x=>x.id!==p.id && String(x.department||"").trim().toLowerCase()===dept.toLowerCase() && x.active!==false);
+  const sameDeptIds = sameDeptProfiles.map(x=>x.id).filter(Boolean);
+
+  const [ownScheduleRes, eventRes, infoRes] = await Promise.all([
+    safeVacationQuery(sb.from("schedules").select("*").eq("profile_id",p.id).gte("work_date",from).lte("work_date",to)),
+    safeVacationQuery(sb.from("events").select("*").gte("event_date",from).lte("event_date",to).order("event_date",{ascending:true})),
+    safeVacationQuery(sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to).order("info_date",{ascending:true}))
+  ]);
+
+  const ownPlanned = (ownScheduleRes.data||[]).filter(s=>vacationIsWorkStatus(s.status) && (s.start_time || s.end_time || String(s.status||"").trim()));
+  if(ownPlanned.length){
+    vacationRiskPush(
+      checks,
+      "danger",
+      "Dienstplan vorhanden",
+      `${escapeHtml(p.first_name||"")} ist im gewählten Zeitraum bereits ${ownPlanned.length}x eingeplant: ${ownPlanned.slice(0,5).map(vacationScheduleLabel).join("; ")}${ownPlanned.length>5 ? " ..." : ""}`,
+      {count:ownPlanned.length}
+    );
+  }
+
+  const importantEvents = (eventRes.data||[])
+    .filter(e=>e.show_plan!==false)
+    .filter(e=>countedDates.includes(e.event_date) || (e.event_date>=from && e.event_date<=to));
+  if(importantEvents.length){
+    vacationRiskPush(
+      checks,
+      "warn",
+      "Event / Messe im Zeitraum",
+      importantEvents.slice(0,6).map(e=>`${fmtDate(e.event_date)} · ${eventPlanLabel(e)}`).join("; ") + (importantEvents.length>6 ? " ..." : ""),
+      {count:importantEvents.length}
+    );
+  }
+
+  const infos = (infoRes.data||[]).filter(i=>countedDates.includes(i.info_date));
+  if(infos.length){
+    vacationRiskPush(
+      checks,
+      "info",
+      "Tagesinfo vorhanden",
+      infos.slice(0,5).map(i=>`${fmtDate(i.info_date)} · ${i.info_text||""}`).join("; ") + (infos.length>5 ? " ..." : ""),
+      {count:infos.length}
+    );
+  }
+
+  // Team-Abwesenheiten im gleichen Bereich prüfen. Für Mitarbeiter werden keine Namen ausgegeben.
+  if(sameDeptIds.length){
+    const [teamVacRes, teamSchedRes] = await Promise.all([
+      safeVacationQuery(sb.from("vacation_requests").select("*").in("profile_id",sameDeptIds).lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"])),
+      safeVacationQuery(sb.from("schedules").select("*").in("profile_id",sameDeptIds).gte("work_date",from).lte("work_date",to))
+    ]);
+
+    const absencesByDate = {};
+    (teamVacRes.data||[]).forEach(v=>{
+      const vp = profileById(v.profile_id);
+      const range = vacationDateRangeDaysForProfile(v,vp,from,to,vacationDayValue(v,v.date_from));
+      Object.keys(range).forEach(iso=>{
+        absencesByDate[iso] ||= [];
+        absencesByDate[iso].push({profile:vp,status:v.status,source:"Urlaub"});
+      });
+    });
+
+    (teamSchedRes.data||[])
+      .filter(s=>String(s.status||"").toLowerCase().includes("urlaub") || String(s.status||"").toLowerCase().includes("krank") || String(s.status||"").toLowerCase().includes("frei"))
+      .forEach(s=>{
+        const vp = profileById(s.profile_id);
+        if(!vacationCountableWeekday(vp,s.work_date)) return;
+        absencesByDate[s.work_date] ||= [];
+        // Duplikate pro Profil/Datum vermeiden
+        if(!absencesByDate[s.work_date].some(x=>x.profile?.id===s.profile_id)){
+          absencesByDate[s.work_date].push({profile:vp,status:s.status||"abwesend",source:"Dienstplan"});
+        }
+      });
+
+    const criticalDays = countedDates
+      .map(iso=>({iso,items:absencesByDate[iso]||[]}))
+      .filter(x=>x.items.length>=1)
+      .sort((a,b)=>b.items.length-a.items.length);
+
+    if(criticalDays.length){
+      const maxSameDay = Math.max(...criticalDays.map(x=>x.items.length));
+      const severity = maxSameDay>=2 ? "danger" : "warn";
+      const text = criticalDays.slice(0,6).map(x=>{
+        const names = canViewVacationTeam()
+          ? x.items.map(it=>`${it.profile?.first_name||""} ${it.profile?.last_name||""}`.trim()).filter(Boolean).join(", ")
+          : `${x.items.length} weitere Person(en)`;
+        return `${fmtDate(x.iso)}: ${names}`;
+      }).join("; ") + (criticalDays.length>6 ? " ..." : "");
+      vacationRiskPush(
+        checks,
+        severity,
+        `Weitere Abwesenheiten in ${dept||"Bereich"}`,
+        text,
+        {count:criticalDays.length,max:maxSameDay}
+      );
+    }
+  }
+
+  if(!selected?.days || selected.days<=0){
+    vacationRiskPush(checks,"warn","0 Urlaubstage berechnet","Der Zeitraum enthält nach aktueller Einstellung keine berechneten Urlaubstage.",{count:0});
+  }
+
+  return {checks,score:vacationRiskScore(checks)};
+}
 async function buildVacationCalculation(profileId, from, to, note=""){
   const p = profileById(profileId);
   if(!p?.id) return {ok:false,error:"Mitarbeiter nicht gefunden."};
@@ -1712,6 +1856,8 @@ async function buildVacationCalculation(profileId, from, to, note=""){
   if(overlapRes.error) throw new Error(overlapRes.error.message);
 
   const overlaps = (overlapRes.data||[]).map(v=>`${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)} (${v.status})`);
+  const risk = await buildVacationRiskCheck(p,from,to,selected);
+
   return {
     ok:true,
     p,
@@ -1719,6 +1865,8 @@ async function buildVacationCalculation(profileId, from, to, note=""){
     selected,
     balance,
     overlaps,
+    checks:risk.checks,
+    checkScore:risk.score,
     restAfter: vacationRoundDays(balance.rest - selected.days),
     restAfterAllPending: vacationRoundDays(balance.restIfRequestedApproved - selected.days)
   };
@@ -1733,8 +1881,9 @@ function renderVacationCalculation(targetId, calc, mode="request"){
   }
   const selected = calc.selected;
   const b = calc.balance;
-  const danger = calc.restAfter < 0;
-  const warn = danger || calc.overlaps.length || selected.days <= 0;
+  const score = calc.checkScore || vacationRiskScore(calc.checks||[]);
+  const danger = calc.restAfter < 0 || score==="danger";
+  const warn = danger || calc.overlaps.length || selected.days <= 0 || score==="warn";
   el.className = `vacCalcBox ${danger ? "danger" : warn ? "warn" : "ok"}`;
 
   const afterLabel = mode==="admin" ? "Rest nach Eintrag" : "Rest nach Antrag";
@@ -1747,9 +1896,24 @@ function renderVacationCalculation(targetId, calc, mode="request"){
   const overlaps = calc.overlaps.length
     ? `<div class="vacCalcLine warnText"><b>Überschneidung:</b> ${calc.overlaps.map(escapeHtml).join("<br>")}</div>`
     : "";
-  const overRest = danger
+  const overRest = calc.restAfter < 0
     ? `<div class="vacCalcLine dangerText"><b>Achtung:</b> Resturlaub würde um ${vacationDaysText(Math.abs(calc.restAfter))} Tag(e) überschritten.</div>`
     : "";
+
+  const checks = (calc.checks||[]).length ? `
+    <div class="vacCheckBox">
+      <b>Urlaubsprüfung</b>
+      ${(calc.checks||[]).map(c=>`
+        <div class="vacCheckItem ${escapeHtml(c.severity||"info")}">
+          <strong>${escapeHtml(c.title||"Prüfung")}</strong>
+          <span>${escapeHtml(c.text||"")}</span>
+        </div>
+      `).join("")}
+    </div>` : `
+    <div class="vacCheckBox ok">
+      <b>Urlaubsprüfung</b>
+      <div class="vacCheckItem ok"><strong>Keine Auffälligkeiten</strong><span>Keine direkte Überschneidung, kein kritisches Event und keine weiteren Abwesenheiten erkannt.</span></div>
+    </div>`;
 
   el.innerHTML = `
     <div class="vacCalcMain">
@@ -1764,6 +1928,7 @@ function renderVacationCalculation(targetId, calc, mode="request"){
     ${skipped}
     ${overlaps}
     ${overRest}
+    ${checks}
     <div class="vacCalcLine muted">Hinweis: Halber Tag wird erkannt, wenn in der Notiz „halb“, „0,5“ oder „0.5“ steht.</div>
   `;
 }
@@ -1803,6 +1968,13 @@ async function confirmVacationCalculation(profileId, from, to, note, mode){
   if(calc.restAfter < 0){
     return confirm(`Der Resturlaub würde überschritten.\n\nBerechnet: ${vacationDaysText(calc.selected.days)} Tag(e)\nRest aktuell: ${vacationDaysText(calc.balance.rest)} Tag(e)\nRest danach: ${vacationDaysText(calc.restAfter)} Tag(e)\n\nTrotzdem ${mode==="admin"?"eintragen":"beantragen"}?`);
   }
+
+  const criticalChecks = (calc.checks||[]).filter(c=>c.severity==="danger" || c.severity==="warn");
+  if(criticalChecks.length){
+    const text = criticalChecks.slice(0,5).map(c=>`- ${c.title}: ${c.text}`).join("\n");
+    return confirm(`Urlaubsprüfung mit Hinweis:\n\n${text}${criticalChecks.length>5 ? "\n..." : ""}\n\nTrotzdem ${mode==="admin"?"eintragen":"beantragen"}?`);
+  }
+
   return true;
 }
 function valueOrNull(id){
@@ -2552,7 +2724,7 @@ async function loadVacationOverlap(){
     const days = sumVacationDaysMap(vacationDateRangeDaysForProfile(v,p,`${y}-01-01`,`${y}-12-31`,vacationDayValue(v,v.date_from)));
     return `${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} – ${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)} · ${vacationDaysText(days)} Tag(e) (${escapeHtml(v.status)})`;
   });
-  $("vacOverlapInfo").innerHTML=rows.length?`<b>${rows.length} Überschneidung(en):</b><br>${rows.join("<br>")}`:"Keine Überschneidungen im gewählten Zeitraum.";
+  $("vacOverlapInfo").innerHTML=rows.length?`<b>${rows.length} vorhandene Urlaubsüberschneidung(en):</b><br>${rows.join("<br>")}`:"Keine vorhandenen Urlaubsüberschneidungen im gewählten Zeitraum.";
 }
 
 $("saveStaff").onclick=async()=>{
@@ -3510,7 +3682,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6041`;
+  return `${base}?stempeluhr=1&v=6042`;
 }
 
 function normalizeIpValue(ip){
