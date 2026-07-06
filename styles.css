@@ -3744,3 +3744,10 @@ body.employeeMode .dashPanelV57.managementOnly{
 #copyKitchenNextWeekBtn{
   font-size:.95rem;
 }
+
+
+/* v6.0.47: Kopie in beliebige KW */
+#copyServiceNextWeekBtn,
+#copyKitchenNextWeekBtn{
+  min-width:110px;
+}

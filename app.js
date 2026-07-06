@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.46";
+const APP_VERSION="v6.0.47";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -34,6 +34,44 @@ function isoWeekYear(iso){
 function weekShortDate(iso){
   const d = parseISODateLocal(iso);
   return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+}
+function mondayFromISOWeek(year, week){
+  const y = Number(year), w = Number(week);
+  if(!Number.isFinite(y) || !Number.isFinite(w) || w < 1 || w > 53) return null;
+  const simple = new Date(y,0,1 + (w-1)*7);
+  const dow = simple.getDay();
+  const isoWeekStart = new Date(simple);
+  if(dow <= 4){
+    isoWeekStart.setDate(simple.getDate() - simple.getDay() + 1);
+  }else{
+    isoWeekStart.setDate(simple.getDate() + 8 - simple.getDay());
+  }
+  const iso = localISODate(isoWeekStart);
+  return isoWeekNumber(iso) === w ? iso : null;
+}
+function parseTargetWeekInput(input, currentYear=new Date().getFullYear()){
+  const raw = String(input||"").trim().toLowerCase();
+  if(!raw) return null;
+
+  // Datum als Montag oder irgendein Tag in der Woche: 2026-07-20 oder 20.07.2026
+  const iso = normalizeDateInput(raw);
+  if(iso && iso !== "__INVALID__"){
+    return weekStartISO(iso);
+  }
+
+  // KW 32 / 2026, 32/2026, 32-2026, 32 2026
+  let m = raw.match(/(?:kw\s*)?(\d{1,2})\s*[\/.\-\s]\s*(20\d{2})/i);
+  if(m) return mondayFromISOWeek(Number(m[2]),Number(m[1]));
+
+  // 2026 KW 32
+  m = raw.match(/(20\d{2})\s*(?:kw)?\s*(\d{1,2})/i);
+  if(m) return mondayFromISOWeek(Number(m[1]),Number(m[2]));
+
+  // Nur KW-Zahl, aktuelles Jahr nehmen
+  m = raw.match(/^(?:kw\s*)?(\d{1,2})$/i);
+  if(m) return mondayFromISOWeek(currentYear,Number(m[1]));
+
+  return null;
 }
 function weekDisplayLabel(week){
   const safeWeek = week || mondayISO();
@@ -1060,8 +1098,8 @@ $("weekStartService").onchange=()=>{updateWeekLabels();loadPlanService()};
 $("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),-1);updateWeekLabels();loadPlanKitchen()};
 $("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);updateWeekLabels();loadPlanKitchen()};
 $("weekStartKitchen").onchange=()=>{updateWeekLabels();loadPlanKitchen()};
-if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>copyPlanToNextWeek("service");
-if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>copyPlanToNextWeek("kitchen");
+if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>copyPlanToTargetWeek("service");
+if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>copyPlanToTargetWeek("kitchen");
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
 if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
 if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
@@ -1080,7 +1118,7 @@ function scheduleCopyPayload(s, targetDate){
     end_time:s.end_time || null
   };
 }
-async function copyPlanToNextWeek(kind){
+async function copyPlanToTargetWeek(kind){
   const isKitchen = kind === "kitchen";
   if(!canEditPlan(kind)){
     alert("Du hast keine Berechtigung, diesen Dienstplan zu kopieren.");
@@ -1091,8 +1129,33 @@ async function copyPlanToNextWeek(kind){
   const departments = isKitchen ? KITCHEN_DEPARTMENTS : SERVICE_DEPARTMENTS;
   const title = isKitchen ? "Küche" : "Service";
   const sourceWeek = input?.value || mondayISO();
-  const targetWeek = addWeeksISO(sourceWeek,1);
   const sourceTo = addDaysISO(sourceWeek,6);
+  const defaultTarget = addWeeksISO(sourceWeek,1);
+
+  const targetRaw = prompt(
+    `In welche Kalenderwoche soll der Dienstplan ${title} kopiert werden?\n\n`+
+    `Quelle: ${weekDisplayLabel(sourceWeek)}\n\n`+
+    `Eingabe möglich:\n`+
+    `- KW 32/2026\n`+
+    `- 32/2026\n`+
+    `- 20.07.2026\n\n`+
+    `Urlaub/Krank werden nicht kopiert.`,
+    `KW ${isoWeekNumber(defaultTarget)}/${isoWeekYear(defaultTarget)}`
+  );
+
+  if(targetRaw === null) return;
+
+  const targetWeek = parseTargetWeekInput(targetRaw, isoWeekYear(sourceWeek));
+  if(!targetWeek){
+    alert("Ziel-KW nicht erkannt. Bitte z. B. KW 32/2026 oder 20.07.2026 eingeben.");
+    return;
+  }
+
+  if(targetWeek === sourceWeek){
+    alert("Quelle und Ziel sind dieselbe Woche. Bitte eine andere KW wählen.");
+    return;
+  }
+
   const targetTo = addDaysISO(targetWeek,6);
 
   const peopleIds = plannable()
@@ -1117,8 +1180,16 @@ async function copyPlanToNextWeek(kind){
   }
 
   const sourceRows = sourceRes.data || [];
+  const skippedRows = sourceRows.filter(scheduleCopyShouldSkip);
+  const copyRows = sourceRows.filter(s=>!scheduleCopyShouldSkip(s));
+
   if(!sourceRows.length){
     alert(`In der aktuellen ${title}-Woche gibt es noch keine Einträge zum Kopieren.`);
+    return;
+  }
+
+  if(!copyRows.length){
+    alert(`In der aktuellen ${title}-Woche gibt es keine kopierbaren Arbeit/Frei-Einträge. Urlaub und Krank werden bewusst nicht kopiert.`);
     return;
   }
 
@@ -1129,7 +1200,7 @@ async function copyPlanToNextWeek(kind){
     .in("profile_id",peopleIds);
 
   if(targetRes.error){
-    alert("Fehler beim Prüfen der Folgewoche: " + targetRes.error.message);
+    alert("Fehler beim Prüfen der Zielwoche: " + targetRes.error.message);
     return;
   }
 
@@ -1141,22 +1212,21 @@ async function copyPlanToNextWeek(kind){
 
   const existingCount = (targetRes.data||[]).length;
   let message =
-    `Dienstplan ${title} in die Folgewoche kopieren?\n\n`+
+    `Dienstplan ${title} kopieren?\n\n`+
     `Von: ${weekDisplayLabel(sourceWeek)}\n`+
     `Nach: ${weekDisplayLabel(targetWeek)}\n\n`+
-    `${sourceRows.length} Einträge werden übertragen.\n`;
+    `${copyRows.length} Arbeit/Frei-Einträge werden übertragen.\n`;
 
+  if(skippedRows.length){
+    message += `\nUrlaub/Krank: ${skippedRows.length} Eintrag/Einträge werden ausgelassen und bleiben in der Zielwoche leer.\n`;
+  }
   if(existingCount){
-    message += `\nAchtung: In der Folgewoche gibt es bereits ${existingCount} Einträge in diesem Bereich. Diese werden überschrieben.\n`;
+    message += `\nAchtung: In der Zielwoche gibt es bereits ${existingCount} Einträge in diesem Bereich. Diese werden überschrieben.\n`;
   }
   if(publishedRes.data){
-    message += `\nAchtung: Die Folgewoche wurde bereits veröffentlicht. Nach dem Kopieren bitte prüfen und ggf. erneut informieren.\n`;
+    message += `\nAchtung: Die Zielwoche wurde bereits veröffentlicht. Nach dem Kopieren bitte prüfen und ggf. erneut veröffentlichen.\n`;
   }
-  const skipCount = sourceRows.filter(scheduleCopyShouldSkip).length;
   message += `\nKopiert werden nur Arbeit und Frei.`;
-  if(skipCount){
-    message += `\nUrlaub/Krank: ${skipCount} Eintrag/Einträge werden ausgelassen und bleiben in der Folgewoche leer.`;
-  }
 
   if(!confirm(message)) return;
 
@@ -1168,19 +1238,13 @@ async function copyPlanToNextWeek(kind){
       .in("profile_id",peopleIds);
 
     if(del.error){
-      alert("Fehler beim Überschreiben der Folgewoche: " + del.error.message);
+      alert("Fehler beim Überschreiben der Zielwoche: " + del.error.message);
       return;
     }
   }
 
-  const skippedRows = sourceRows.filter(scheduleCopyShouldSkip);
-  const copyRows = sourceRows.filter(s=>!scheduleCopyShouldSkip(s));
-  const payload = copyRows.map(s=>scheduleCopyPayload(s, addDaysISO(s.work_date,7)));
-
-  if(!payload.length){
-    alert(`In der aktuellen ${title}-Woche gibt es keine kopierbaren Arbeit/Frei-Einträge. Urlaub und Krank werden bewusst nicht kopiert.`);
-    return;
-  }
+  const dayOffset = Math.round((parseISODateLocal(targetWeek)-parseISODateLocal(sourceWeek))/86400000);
+  const payload = copyRows.map(s=>scheduleCopyPayload(s, addDaysISO(s.work_date,dayOffset)));
 
   const ins = await sb.from("schedules").insert(payload);
   if(ins.error){
@@ -3915,7 +3979,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6046`;
+  return `${base}?stempeluhr=1&v=6047`;
 }
 
 function normalizeIpValue(ip){
