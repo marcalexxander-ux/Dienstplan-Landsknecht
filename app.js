@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.44";
+const APP_VERSION="v6.0.46";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -18,6 +18,41 @@ function todayISO(){return localISODate(new Date())}
 function mondayISO(d=new Date()){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());const day=x.getDay()||7;x.setDate(x.getDate()-day+1);return localISODate(x)}
 function addDaysISO(iso,n){const d=parseISODateLocal(iso);d.setDate(d.getDate()+n);return localISODate(d)}
 function addWeeksISO(iso,n){return addDaysISO(iso,n*7)}
+
+function isoWeekNumber(iso){
+  const d = parseISODateLocal(iso);
+  d.setHours(0,0,0,0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(),0,4);
+  return 1 + Math.round(((d - week1) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+function isoWeekYear(iso){
+  const d = parseISODateLocal(iso);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  return d.getFullYear();
+}
+function weekShortDate(iso){
+  const d = parseISODateLocal(iso);
+  return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+}
+function weekDisplayLabel(week){
+  const safeWeek = week || mondayISO();
+  const end = addDaysISO(safeWeek,6);
+  return `KW ${isoWeekNumber(safeWeek)} / ${isoWeekYear(safeWeek)} · ${weekShortDate(safeWeek)}–${weekShortDate(end)}`;
+}
+function updateWeekLabels(){
+  if($("weekDisplayService")){
+    const week = $("weekStartService")?.value || mondayISO();
+    $("weekDisplayService").textContent = weekDisplayLabel(week);
+    $("weekDisplayService").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
+  }
+  if($("weekDisplayKitchen")){
+    const week = $("weekStartKitchen")?.value || mondayISO();
+    $("weekDisplayKitchen").textContent = weekDisplayLabel(week);
+    $("weekDisplayKitchen").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
+  }
+}
+
 function monthISO(d=new Date()){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`}
 function firstOfMonthISO(m){return m+"-01"}
 function lastDayOfMonth(m){const[y,mo]=m.split("-").map(Number);return new Date(y,mo,0).getDate()}
@@ -438,6 +473,7 @@ function renderAuth(){
   if(logged){
     $("weekStartService").value ||= mondayISO();
     $("weekStartKitchen").value ||= mondayISO();
+    updateWeekLabels();
     $("monthSelect").value ||= monthISO();
     $("infoDate").value ||= todayISO();
     $("vacMonthSelect").value ||= monthISO();
@@ -1018,19 +1054,166 @@ async function loadProfiles(){
 }
 
 
-$("prevWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),-1);loadPlanService()};
-$("nextWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),1);loadPlanService()};
-$("weekStartService").onchange=loadPlanService;
-$("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),-1);loadPlanKitchen()};
-$("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);loadPlanKitchen()};
-$("weekStartKitchen").onchange=loadPlanKitchen;
+$("prevWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),-1);updateWeekLabels();loadPlanService()};
+$("nextWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),1);updateWeekLabels();loadPlanService()};
+$("weekStartService").onchange=()=>{updateWeekLabels();loadPlanService()};
+$("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),-1);updateWeekLabels();loadPlanKitchen()};
+$("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);updateWeekLabels();loadPlanKitchen()};
+$("weekStartKitchen").onchange=()=>{updateWeekLabels();loadPlanKitchen()};
+if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>copyPlanToNextWeek("service");
+if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>copyPlanToNextWeek("kitchen");
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
 if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
 if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
 if($("newStaffBtn")) if($("newStaffBtn")) $("newStaffBtn").onclick=clearStaffForm;
 
-async function loadPlanService(){await loadPlanFiltered("Service",$("weekStartService").value||mondayISO(),SERVICE_DEPARTMENTS,"planGridService")}
-async function loadPlanKitchen(){await loadPlanFiltered("Küche",$("weekStartKitchen").value||mondayISO(),KITCHEN_DEPARTMENTS,"planGridKitchen")}
+function scheduleCopyShouldSkip(s){
+  const status = String(s?.status || "").trim().toLowerCase();
+  return status.includes("urlaub") || status.includes("krank");
+}
+function scheduleCopyPayload(s, targetDate){
+  return {
+    profile_id:s.profile_id,
+    work_date:targetDate,
+    status:s.status,
+    start_time:s.start_time || null,
+    end_time:s.end_time || null
+  };
+}
+async function copyPlanToNextWeek(kind){
+  const isKitchen = kind === "kitchen";
+  if(!canEditPlan(kind)){
+    alert("Du hast keine Berechtigung, diesen Dienstplan zu kopieren.");
+    return;
+  }
+
+  const input = isKitchen ? $("weekStartKitchen") : $("weekStartService");
+  const departments = isKitchen ? KITCHEN_DEPARTMENTS : SERVICE_DEPARTMENTS;
+  const title = isKitchen ? "Küche" : "Service";
+  const sourceWeek = input?.value || mondayISO();
+  const targetWeek = addWeeksISO(sourceWeek,1);
+  const sourceTo = addDaysISO(sourceWeek,6);
+  const targetTo = addDaysISO(targetWeek,6);
+
+  const peopleIds = plannable()
+    .filter(p=>departments.includes(p.department))
+    .map(p=>p.id)
+    .filter(Boolean);
+
+  if(!peopleIds.length){
+    alert(`Keine Mitarbeiter für ${title} gefunden.`);
+    return;
+  }
+
+  const sourceRes = await sb.from("schedules")
+    .select("*")
+    .gte("work_date",sourceWeek)
+    .lte("work_date",sourceTo)
+    .in("profile_id",peopleIds);
+
+  if(sourceRes.error){
+    alert("Fehler beim Laden der aktuellen Woche: " + sourceRes.error.message);
+    return;
+  }
+
+  const sourceRows = sourceRes.data || [];
+  if(!sourceRows.length){
+    alert(`In der aktuellen ${title}-Woche gibt es noch keine Einträge zum Kopieren.`);
+    return;
+  }
+
+  const targetRes = await sb.from("schedules")
+    .select("*")
+    .gte("work_date",targetWeek)
+    .lte("work_date",targetTo)
+    .in("profile_id",peopleIds);
+
+  if(targetRes.error){
+    alert("Fehler beim Prüfen der Folgewoche: " + targetRes.error.message);
+    return;
+  }
+
+  const publishedRes = await sb.from("published_plans")
+    .select("*")
+    .eq("plan_kind",kind)
+    .eq("week_start",targetWeek)
+    .maybeSingle();
+
+  const existingCount = (targetRes.data||[]).length;
+  let message =
+    `Dienstplan ${title} in die Folgewoche kopieren?\n\n`+
+    `Von: ${weekDisplayLabel(sourceWeek)}\n`+
+    `Nach: ${weekDisplayLabel(targetWeek)}\n\n`+
+    `${sourceRows.length} Einträge werden übertragen.\n`;
+
+  if(existingCount){
+    message += `\nAchtung: In der Folgewoche gibt es bereits ${existingCount} Einträge in diesem Bereich. Diese werden überschrieben.\n`;
+  }
+  if(publishedRes.data){
+    message += `\nAchtung: Die Folgewoche wurde bereits veröffentlicht. Nach dem Kopieren bitte prüfen und ggf. erneut informieren.\n`;
+  }
+  const skipCount = sourceRows.filter(scheduleCopyShouldSkip).length;
+  message += `\nKopiert werden nur Arbeit und Frei.`;
+  if(skipCount){
+    message += `\nUrlaub/Krank: ${skipCount} Eintrag/Einträge werden ausgelassen und bleiben in der Folgewoche leer.`;
+  }
+
+  if(!confirm(message)) return;
+
+  if(existingCount){
+    const del = await sb.from("schedules")
+      .delete()
+      .gte("work_date",targetWeek)
+      .lte("work_date",targetTo)
+      .in("profile_id",peopleIds);
+
+    if(del.error){
+      alert("Fehler beim Überschreiben der Folgewoche: " + del.error.message);
+      return;
+    }
+  }
+
+  const skippedRows = sourceRows.filter(scheduleCopyShouldSkip);
+  const copyRows = sourceRows.filter(s=>!scheduleCopyShouldSkip(s));
+  const payload = copyRows.map(s=>scheduleCopyPayload(s, addDaysISO(s.work_date,7)));
+
+  if(!payload.length){
+    alert(`In der aktuellen ${title}-Woche gibt es keine kopierbaren Arbeit/Frei-Einträge. Urlaub und Krank werden bewusst nicht kopiert.`);
+    return;
+  }
+
+  const ins = await sb.from("schedules").insert(payload);
+  if(ins.error){
+    alert("Fehler beim Kopieren: " + ins.error.message);
+    return;
+  }
+
+  input.value = targetWeek;
+  updateWeekLabels();
+
+  if(isKitchen) await loadPlanKitchen();
+  else await loadPlanService();
+
+  await loadDashboardLight();
+  await loadMonth();
+  await loadMinijobCenter();
+
+  const skippedInfo = skippedRows.length ? `\n${skippedRows.length} Urlaub/Krank-Eintrag/Einträge wurden ausgelassen.` : "";
+  alert(`Dienstplan ${title} wurde in ${weekDisplayLabel(targetWeek)} kopiert.${skippedInfo}`);
+}
+
+async function loadPlanService(){
+  const week = $("weekStartService").value || mondayISO();
+  $("weekStartService").value = week;
+  updateWeekLabels();
+  await loadPlanFiltered("Service",week,SERVICE_DEPARTMENTS,"planGridService");
+}
+async function loadPlanKitchen(){
+  const week = $("weekStartKitchen").value || mondayISO();
+  $("weekStartKitchen").value = week;
+  updateWeekLabels();
+  await loadPlanFiltered("Küche",week,KITCHEN_DEPARTMENTS,"planGridKitchen");
+}
 
 
 function renderPersonCell(p, people){
@@ -3732,7 +3915,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6044`;
+  return `${base}?stempeluhr=1&v=6046`;
 }
 
 function normalizeIpValue(ip){

@@ -134,8 +134,10 @@
           <div class="navButtons">
             <button id="servicePdfBtn" class="secondary managementOnly">📄 PDF Service</button>
             <button id="publishServicePlanBtn" class="publishBtn managementOnly" type="button">📣 Dienstplan veröffentlichen</button>
+            <button id="copyServiceNextWeekBtn" class="secondary managementOnly" type="button">➡️ Arbeit/Frei in Folgewoche kopieren</button>
             <button id="prevWeekService" class="secondary">← Vorwoche</button>
-            <input id="weekStartService" type="date">
+            <input id="weekStartService" class="weekDateHidden" type="date">
+            <div id="weekDisplayService" class="weekDisplay" aria-label="Aktuelle Kalenderwoche"></div>
             <button id="nextWeekService" class="secondary">Nächste Woche →</button>
           </div>
         </div>
@@ -151,8 +153,10 @@
           <div class="navButtons">
             <button id="kitchenPdfBtn" class="secondary kitchenLeadOnly">📄 PDF Küche</button>
             <button id="publishKitchenPlanBtn" class="publishBtn kitchenLeadOnly" type="button">📣 Dienstplan veröffentlichen</button>
+            <button id="copyKitchenNextWeekBtn" class="secondary kitchenLeadOnly" type="button">➡️ Arbeit/Frei in Folgewoche kopieren</button>
             <button id="prevWeekKitchen" class="secondary">← Vorwoche</button>
-            <input id="weekStartKitchen" type="date">
+            <input id="weekStartKitchen" class="weekDateHidden" type="date">
+            <div id="weekDisplayKitchen" class="weekDisplay" aria-label="Aktuelle Kalenderwoche"></div>
             <button id="nextWeekKitchen" class="secondary">Nächste Woche →</button>
           </div>
         </div>

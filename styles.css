@@ -3701,3 +3701,46 @@ body.employeeMode .dashPanelV57.managementOnly{
   background:#eef8f1;
   color:#174d3a;
 }
+
+
+/* v6.0.45: Kalenderwoche statt Datumsfeld + Dienstplan in Folgewoche kopieren */
+.weekDateHidden{
+  display:none!important;
+}
+.weekDisplay{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 16px;
+  border:1px solid #dfe6e1;
+  border-radius:12px;
+  background:#fff;
+  color:#10231c;
+  font-weight:900;
+  white-space:nowrap;
+  min-width:230px;
+}
+#copyServiceNextWeekBtn,
+#copyKitchenNextWeekBtn{
+  background:#174d3a;
+  color:#fff;
+  border-color:#174d3a;
+}
+@media(max-width:820px){
+  .weekDisplay{
+    width:100%;
+    min-width:0;
+  }
+  #copyServiceNextWeekBtn,
+  #copyKitchenNextWeekBtn{
+    width:100%;
+  }
+}
+
+
+/* v6.0.46: Beim Kopieren werden Urlaub/Krank ausgelassen */
+#copyServiceNextWeekBtn,
+#copyKitchenNextWeekBtn{
+  font-size:.95rem;
+}
