@@ -3751,3 +3751,28 @@ body.employeeMode .dashPanelV57.managementOnly{
 #copyKitchenNextWeekBtn{
   min-width:110px;
 }
+
+
+/* v6.0.48: Kalenderwoche direkt auswählbar */
+.weekSelect{
+  min-height:42px;
+  padding:0 44px 0 16px;
+  border:1px solid #dfe6e1;
+  border-radius:12px;
+  background:#fff;
+  color:#10231c;
+  font-weight:900;
+  white-space:nowrap;
+  min-width:270px;
+  cursor:pointer;
+}
+.weekSelect:focus{
+  outline:3px solid rgba(23,77,58,.18);
+  border-color:#174d3a;
+}
+@media(max-width:820px){
+  .weekSelect{
+    width:100%;
+    min-width:0;
+  }
+}

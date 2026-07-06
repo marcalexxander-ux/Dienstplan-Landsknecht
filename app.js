@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.47";
+const APP_VERSION="v6.0.48";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -78,16 +78,41 @@ function weekDisplayLabel(week){
   const end = addDaysISO(safeWeek,6);
   return `KW ${isoWeekNumber(safeWeek)} / ${isoWeekYear(safeWeek)} · ${weekShortDate(safeWeek)}–${weekShortDate(end)}`;
 }
+function weekSelectYearsFor(week){
+  const y = isoWeekYear(week || mondayISO());
+  return [y-1,y,y+1,y+2];
+}
+function populateWeekSelect(selectId, week){
+  const sel = $(selectId);
+  if(!sel) return;
+  const current = week || mondayISO();
+  const years = weekSelectYearsFor(current);
+  const currentValue = current;
+  const existing = sel.value;
+  const options = [];
+
+  years.forEach(year=>{
+    for(let kw=1; kw<=53; kw++){
+      const monday = mondayFromISOWeek(year,kw);
+      if(!monday) continue;
+      options.push(`<option value="${monday}">${weekDisplayLabel(monday)}</option>`);
+    }
+  });
+
+  sel.innerHTML = options.join("");
+  sel.value = currentValue;
+  if(sel.value !== currentValue && existing) sel.value = existing;
+}
 function updateWeekLabels(){
-  if($("weekDisplayService")){
+  if($("weekSelectService")){
     const week = $("weekStartService")?.value || mondayISO();
-    $("weekDisplayService").textContent = weekDisplayLabel(week);
-    $("weekDisplayService").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
+    populateWeekSelect("weekSelectService",week);
+    $("weekSelectService").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
   }
-  if($("weekDisplayKitchen")){
+  if($("weekSelectKitchen")){
     const week = $("weekStartKitchen")?.value || mondayISO();
-    $("weekDisplayKitchen").textContent = weekDisplayLabel(week);
-    $("weekDisplayKitchen").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
+    populateWeekSelect("weekSelectKitchen",week);
+    $("weekSelectKitchen").title = `${fmtDate(week)} bis ${fmtDate(addDaysISO(week,6))}`;
   }
 }
 
@@ -1095,9 +1120,11 @@ async function loadProfiles(){
 $("prevWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),-1);updateWeekLabels();loadPlanService()};
 $("nextWeekService").onclick=()=>{$("weekStartService").value=addWeeksISO($("weekStartService").value||mondayISO(),1);updateWeekLabels();loadPlanService()};
 $("weekStartService").onchange=()=>{updateWeekLabels();loadPlanService()};
+if($("weekSelectService")) $("weekSelectService").onchange=()=>{$("weekStartService").value=$("weekSelectService").value;updateWeekLabels();loadPlanService()};
 $("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),-1);updateWeekLabels();loadPlanKitchen()};
 $("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);updateWeekLabels();loadPlanKitchen()};
 $("weekStartKitchen").onchange=()=>{updateWeekLabels();loadPlanKitchen()};
+if($("weekSelectKitchen")) $("weekSelectKitchen").onchange=()=>{$("weekStartKitchen").value=$("weekSelectKitchen").value;updateWeekLabels();loadPlanKitchen()};
 if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>copyPlanToTargetWeek("service");
 if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>copyPlanToTargetWeek("kitchen");
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
@@ -3979,7 +4006,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6047`;
+  return `${base}?stempeluhr=1&v=6048`;
 }
 
 function normalizeIpValue(ip){
