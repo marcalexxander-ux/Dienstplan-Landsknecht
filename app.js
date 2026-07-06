@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.42";
+const APP_VERSION="v6.0.43";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1983,6 +1983,50 @@ function valueOrNull(id){
   const val=String(el.value||"").trim();
   return val ? val : null;
 }
+
+function normalizeDateInput(value){
+  const raw = String(value||"").trim();
+  if(!raw) return null;
+
+  let y,m,d;
+
+  // Bereits ISO: 1980-07-06
+  let iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(iso){
+    y = Number(iso[1]); m = Number(iso[2]); d = Number(iso[3]);
+  }else{
+    // Deutsch: 06.07.1980 oder 6/7/1980 oder 06-07-1980
+    let de = raw.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{2}|\d{4})$/);
+    if(de){
+      d = Number(de[1]); m = Number(de[2]); y = Number(de[3]);
+      if(y < 100) y += y > 30 ? 1900 : 2000;
+    }else{
+      // Schnellformat: 06071980
+      let compact = raw.match(/^(\d{2})(\d{2})(\d{4})$/);
+      if(compact){
+        d = Number(compact[1]); m = Number(compact[2]); y = Number(compact[3]);
+      }else{
+        return "__INVALID__";
+      }
+    }
+  }
+
+  const dt = new Date(y, m-1, d);
+  if(dt.getFullYear() !== y || dt.getMonth() !== m-1 || dt.getDate() !== d) return "__INVALID__";
+  return `${y}-${pad2(m)}-${pad2(d)}`;
+}
+function formatISODateGerman(value){
+  const iso = String(value||"").slice(0,10);
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return value || "";
+  return `${m[3]}.${m[2]}.${m[1]}`;
+}
+function dateInputOrNull(id){
+  const val = $(id)?.value || "";
+  const iso = normalizeDateInput(val);
+  return iso === "__INVALID__" ? "__INVALID__" : iso;
+}
+
 function numberOrNull(id){
   const el=$(id);
   if(!el) return null;
@@ -2733,6 +2777,8 @@ $("saveStaff").onclick=async()=>{
   if(!first||!last||!email)return alert("Vorname, Nachname und E-Mail sind Pflicht.");
   if(!id&&plannable().length>=MAX_EMPLOYEES&&plannableValue)return alert("Maximal 20 einplanbare Mitarbeiter erreicht.");
   const contract_type=$("staffContractType")?$("staffContractType").value:"minijob",hourly_rate=$("staffHourlyRate")?Number($("staffHourlyRate").value||0):0;
+  const birthdayValue = dateInputOrNull("staffBirthday");
+  if(birthdayValue==="__INVALID__") return alert("Geburtsdatum bitte im Format TT.MM.JJJJ eingeben, z. B. 06.07.1980.");
   const payload={
     first_name:first,
     last_name:last,
@@ -2744,7 +2790,7 @@ $("saveStaff").onclick=async()=>{
     contract_type,
     hourly_rate,
     active:true,
-    birthday:valueOrNull("staffBirthday"),
+    birthday:birthdayValue,
     hire_date:valueOrNull("staffHireDate"),
     termination_date:valueOrNull("staffTerminationDate"),
     weekly_workdays:numberOrNull("staffWeeklyWorkdays"),
@@ -2778,7 +2824,7 @@ function editStaff(id){
   $("staffPlannable").checked=p.plannable===true;
   if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";
   if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
-  if($("staffBirthday"))$("staffBirthday").value=p.birthday||"";
+  if($("staffBirthday"))$("staffBirthday").value=formatISODateGerman(p.birthday||"");
   if($("staffHireDate"))$("staffHireDate").value=p.hire_date||"";
   if($("staffTerminationDate"))$("staffTerminationDate").value=p.termination_date||"";
   if($("staffWeeklyWorkdays"))$("staffWeeklyWorkdays").value=p.weekly_workdays??"";
@@ -3682,7 +3728,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6042`;
+  return `${base}?stempeluhr=1&v=6043`;
 }
 
 function normalizeIpValue(ip){

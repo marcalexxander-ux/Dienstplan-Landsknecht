@@ -3681,3 +3681,16 @@ body.employeeMode .dashPanelV57.managementOnly{
   background:#fff1f1;
   border-left-color:#e66b6b;
 }
+
+
+/* v6.0.43: Geburtsdatum manuell schneller eintragen */
+.fieldHint{
+  display:block;
+  margin-top:5px;
+  color:#667085;
+  font-weight:700;
+  font-size:.88rem;
+}
+#staffBirthday::placeholder{
+  color:#9aa4af;
+}
