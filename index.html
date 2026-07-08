@@ -193,7 +193,18 @@
 
       <section id="vacation" class="tabPage card hidden">
 
-  <div class="vacPlannerCard kitchenLeadOnly">
+
+        <div class="vacTouchNav" aria-label="Urlaub Bereiche">
+          <button class="vacTouchBtn kitchenLeadOnly" type="button" data-vac-target="planner">📅 Monatsraster</button>
+          <button class="vacTouchBtn kitchenLeadOnly" type="button" data-vac-target="year">📊 Jahresübersicht</button>
+          <button class="vacTouchBtn" type="button" data-vac-target="account">🧾 Urlaubskonto</button>
+          <button class="vacTouchBtn managementOnly" type="button" data-vac-target="admin">➕ Eintragen</button>
+          <button class="vacTouchBtn" type="button" data-vac-target="request">🌴 Beantragen</button>
+          <button class="vacTouchBtn" type="button" data-vac-target="list">📋 Liste</button>
+          <button class="vacTouchBtn managementOnly" type="button" data-vac-target="closing">🔁 Jahresabschluss</button>
+        </div>
+
+  <div class="vacPlannerCard kitchenLeadOnly vacMobilePanel vacMobileActive" data-vac-panel="planner">
     <div class="vacPlannerHeader">
       <div>
         <h3>Urlaubsplaner Monatsraster</h3>
@@ -215,7 +226,9 @@
     </div>
     <div id="vacPlannerGrid" class="vacPlannerGrid"></div>
 
-    <div class="vacYearCard">
+  </div>
+
+    <div class="vacYearCard kitchenLeadOnly vacMobilePanel" data-vac-panel="year">
       <div class="vacYearHeader">
         <div>
           <h3>Urlaub Jahresübersicht</h3>
@@ -231,12 +244,10 @@
       <div id="vacYearGrid" class="vacYearGrid"></div>
     </div>
 
-  </div>
-
         <h2>Urlaub</h2>
         <div id="vacationRightsInfo" class="vacRightsInfo"></div>
 
-        <div class="vacationAccountCard">
+        <div class="vacationAccountCard vacMobilePanel" data-vac-panel="account">
           <div class="sectionHeader">
             <div>
               <h3>Urlaubskonto</h3>
@@ -251,7 +262,7 @@
         </div>
 
 
-        <div class="vacYearCloseCard managementOnly">
+        <div class="vacYearCloseCard managementOnly vacMobilePanel" data-vac-panel="closing">
           <div class="sectionHeader">
             <div>
               <h3>Jahresabschluss & Übertragung</h3>
@@ -294,7 +305,7 @@
           <div id="vacYearCloseGrid" class="vacYearCloseGrid"></div>
         </div>
 
-        <div class="managementOnly vacationAdmin">
+        <div class="managementOnly vacationAdmin vacMobilePanel" data-vac-panel="admin">
           <div class="sectionHeader">
             <div>
               <h3>Urlaubskalender Geschäftsführung</h3>
@@ -327,7 +338,7 @@
           </div>
         </div>
 
-        <div class="employeeVacationBox">
+        <div class="employeeVacationBox vacMobilePanel" data-vac-panel="request">
           <h3>Urlaub beantragen</h3>
           <div class="formGrid">
             <div><label>Von</label><input id="vacFrom" type="date"></div>
@@ -339,8 +350,10 @@
           <button id="requestVacation">Urlaub beantragen</button>
         </div>
 
-        <h3>Urlaubsliste</h3>
-        <div id="vacList"></div>
+        <div class="vacListPanel vacMobilePanel" data-vac-panel="list">
+          <h3>Urlaubsliste</h3>
+          <div id="vacList"></div>
+        </div>
       </section>
 
       <section id="staff" class="tabPage card hidden">

@@ -3941,3 +3941,120 @@ button[disabled]{
   opacity:.65;
   cursor:not-allowed;
 }
+
+
+/* v6.0.55: Urlaub auf Handy mit Touch-Titeln statt endlosem Scrollen */
+.vacTouchNav{
+  display:none;
+}
+@media(max-width:820px){
+  #vacation{
+    padding-top:12px;
+  }
+  #vacation > h2{
+    margin-top:12px;
+  }
+  .vacTouchNav{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    position:sticky;
+    top:0;
+    z-index:35;
+    padding:10px 0 12px;
+    margin:0 0 12px;
+    background:linear-gradient(#fff 72%,rgba(255,255,255,.92));
+  }
+  .vacTouchBtn{
+    border:1px solid #dfe8e2;
+    background:#f7faf8;
+    color:#10231c;
+    min-height:54px;
+    border-radius:18px;
+    font-weight:900;
+    font-size:.98rem;
+    box-shadow:0 3px 10px rgba(16,35,28,.05);
+    touch-action:manipulation;
+  }
+  .vacTouchBtn.active{
+    background:#174d3a;
+    color:#fff;
+    border-color:#174d3a;
+    box-shadow:0 8px 18px rgba(23,77,58,.18);
+  }
+  #vacation .vacMobilePanel:not(.vacMobileActive){
+    display:none!important;
+  }
+  #vacation .vacMobilePanel{
+    margin-top:12px;
+  }
+  #vacation .vacPlannerCard,
+  #vacation .vacYearCard,
+  #vacation .vacationAccountCard,
+  #vacation .vacYearCloseCard,
+  #vacation .vacationAdmin,
+  #vacation .employeeVacationBox,
+  #vacation .vacListPanel{
+    border-radius:22px;
+  }
+  #vacation .vacPlannerHeader,
+  #vacation .vacYearHeader,
+  #vacation .sectionHeader{
+    gap:12px;
+  }
+  #vacation .vacPlannerHeader p,
+  #vacation .vacYearHeader p,
+  #vacation .sectionHeader .subline{
+    display:none;
+  }
+  #vacation .vacPlannerControls,
+  #vacation .vacYearControls,
+  #vacation .sectionHeader .navButtons{
+    width:100%;
+    display:grid!important;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  #vacation .vacPlannerControls input,
+  #vacation .vacYearControls input,
+  #vacation .sectionHeader .navButtons input,
+  #vacation .vacPlannerControls button,
+  #vacation .vacYearControls button,
+  #vacation .sectionHeader .navButtons button{
+    width:100%;
+    min-height:48px;
+  }
+  #vacation .vacLegend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  #vacation .vacLegend span{
+    font-size:.88rem;
+    padding:8px 10px;
+    border-radius:12px;
+  }
+  #vacation .vacationGrid{
+    display:block;
+  }
+  #vacation .vacationGrid > * + *{
+    margin-top:14px;
+  }
+  #vacation #vacationAccountOverview,
+  #vacation #vacYearGrid,
+  #vacation #vacPlannerGrid,
+  #vacation #vacList{
+    max-height:calc(100vh - 260px);
+    overflow:auto;
+    padding-right:2px;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+@media(max-width:420px){
+  .vacTouchNav{
+    grid-template-columns:1fr;
+  }
+  .vacTouchBtn{
+    min-height:50px;
+  }
+}

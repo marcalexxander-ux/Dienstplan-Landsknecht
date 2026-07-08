@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.54";
+const APP_VERSION="v6.0.55";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -245,7 +245,48 @@ function setActiveTab(tabId){
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
-  if(normalized==="vacation"){ renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); loadVacationYearClosePreview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
+  if(normalized==="vacation"){ refreshVacationMobileTabs?.(); renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); loadVacationYearClosePreview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
+}
+
+function isVisibleElement(el){
+  return !!(el && !el.classList.contains("hidden") && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+}
+function setVacationPanel(target){
+  if(!target) return;
+  document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.vacTarget===target);
+  });
+  document.querySelectorAll("#vacation .vacMobilePanel").forEach(panel=>{
+    panel.classList.toggle("vacMobileActive", panel.dataset.vacPanel===target);
+  });
+  try{ localStorage.setItem("vacationMobilePanel",target); }catch(e){}
+}
+function firstVisibleVacationTarget(){
+  const buttons = Array.from(document.querySelectorAll("#vacation .vacTouchBtn"));
+  const btn = buttons.find(b=>isVisibleElement(b));
+  return btn?.dataset?.vacTarget || "account";
+}
+function refreshVacationMobileTabs(){
+  const buttons = Array.from(document.querySelectorAll("#vacation .vacTouchBtn"));
+  if(!buttons.length) return;
+
+  const saved = (()=>{try{return localStorage.getItem("vacationMobilePanel")||""}catch(e){return ""}})();
+  const savedBtn = saved ? buttons.find(b=>b.dataset.vacTarget===saved && isVisibleElement(b)) : null;
+  const activeBtn = buttons.find(b=>b.classList.contains("active") && isVisibleElement(b));
+  const target = savedBtn?.dataset?.vacTarget || activeBtn?.dataset?.vacTarget || firstVisibleVacationTarget();
+  setVacationPanel(target);
+}
+function setupVacationMobileTabs(){
+  document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>{
+    btn.onclick=()=>{
+      setVacationPanel(btn.dataset.vacTarget);
+      const panel = document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${btn.dataset.vacTarget}"]`);
+      if(panel && window.innerWidth<=820){
+        setTimeout(()=>panel.scrollIntoView({behavior:"smooth", block:"start"}),40);
+      }
+    };
+  });
+  refreshVacationMobileTabs();
 }
 
 function planKindForDepartment(dept){
@@ -537,6 +578,7 @@ function renderAuth(){
   document.querySelectorAll(".managementOnly").forEach(el=>el.classList.toggle("hidden",!logged||!isManagement()));
   document.querySelectorAll(".kitchenLeadOnly").forEach(el=>el.classList.toggle("hidden",!logged||!(isManagement()||isKitchenLead())));
   document.querySelectorAll(".employeeClockOnly").forEach(el=>el.classList.toggle("hidden",!logged||isManagement()));
+  refreshVacationMobileTabs?.();
 
   if(logged){
     $("weekStartService").value ||= mondayISO();
@@ -577,6 +619,7 @@ $("logoutBtn").onclick=async()=>{await sb.auth.signOut()};
 if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
 
 document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
+setupVacationMobileTabs();
 
 
 
@@ -4079,7 +4122,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6054`;
+  return `${base}?stempeluhr=1&v=6055`;
 }
 
 function normalizeIpValue(ip){
