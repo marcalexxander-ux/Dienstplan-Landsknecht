@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.50";
+const APP_VERSION="v6.0.51";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -747,7 +747,7 @@ async function loadEvents(){
       </div>
       <div class="eventEntryActions">
         <button class="secondary" onclick="editEvent('${e.id}')">Bearbeiten</button>
-        <button class="danger" onclick="deleteEvent('${e.id}')">Aus App löschen</button>
+        <button class="danger" onclick="deleteEvent('${e.id}')">Aus App entfernen</button>
       </div>
     </div>
   `).join("") || "<p>Keine kommenden Events.</p>";
@@ -1831,7 +1831,7 @@ async function loadInfos(){
       </div>
       ${isManagement()?`<div class="infoEntryActions">
         <button type="button" class="secondary" onclick="editDailyInfo('${i.info_date}')">Bearbeiten</button>
-        <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Aus App löschen</button>
+        <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Aus App entfernen</button>
       </div>`:""}
     </div>
   `).join("")||"<p>Keine Tagesinfos.</p>";
@@ -3197,59 +3197,88 @@ async function deleteStaff(id){
   const name = `${p?.first_name||""} ${p?.last_name||""}`.trim() || "diesen Mitarbeiter";
   const oldEmail = p?.email || "";
 
-  const confirmText = prompt(`Mitarbeiter aus der App löschen?\n\n${name}\n${oldEmail}\n\nDer Mitarbeiter verschwindet aus der App und aus dem Dienstplan.\n\nWichtig: Wenn sich dieselbe E-Mail neu registrieren soll, den User zusätzlich in Supabase → Authentication → Users löschen.\n\nZum Bestätigen bitte LÖSCHEN eingeben.`);
-  const ok = String(confirmText||"").trim().toUpperCase();
-  if(ok!=="LÖSCHEN" && ok!=="LOESCHEN" && ok!=="LOSCHEN") return;
+  const sure = confirm(
+    `Mitarbeiter wirklich aus der App entfernen?\n\n`+
+    `${name}\n${oldEmail}\n\n`+
+    `Der Mitarbeiter verschwindet aus:\n`+
+    `- Mitarbeiterverwaltung\n`+
+    `- Dienstplan\n`+
+    `- Stempeluhr-Auswahl\n`+
+    `- Urlaubsauswahl\n\n`+
+    `Bestehende Dienstplan-Einträge dieses Mitarbeiters werden gelöscht.\n\n`+
+    `Fortfahren?`
+  );
+  if(!sure) return;
 
-  const safeDelete = async(table,column)=>{
-    try{ await sb.from(table).delete().eq(column,id); }catch(e){}
-  };
-  const safeNull = async(table,column)=>{
-    try{ await sb.from(table).update({[column]:null}).eq(column,id); }catch(e){}
-  };
-
-  // Abhängige App-Daten löschen, soweit die aktuellen Datenbankrechte es erlauben.
-  await safeDelete("schedules","profile_id");
-  await safeDelete("time_entries","profile_id");
-  await safeDelete("vacation_requests","profile_id");
-  await safeNull("vacation_requests","decided_by");
-  await safeNull("daily_infos","created_by");
-  await safeNull("events","created_by");
-  await safeNull("notifications","created_by");
-
-  // 1. Versuch: echtes Löschen aus profiles.
-  let hardError = null;
-  try{
-    const hard = await sb.from("profiles").delete().eq("id",id);
-    hardError = hard.error || null;
-    if(!hardError){
-      alert("Mitarbeiter wurde aus der App gelöscht.\n\nFalls die gleiche E-Mail neu registriert werden soll, den User auch in Supabase Authentication löschen.");
-      clearStaffForm();
-      await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadDashboardV57?.();
-      return;
-    }
-  }catch(e){ hardError = e; }
-
-  // 2. Fallback: Soft-Löschen. Das funktioniert meist auch dann,
-  // wenn Foreign Keys oder RLS das echte DELETE blockieren.
   const deletedEmail = `deleted_${Date.now()}_${String(id).slice(0,8)}@deleted.local`;
-  const softPayload = {
+
+  // Wichtig: zuerst aus der App entfernen/blockieren.
+  // So verschwindet der Mitarbeiter auch dann, wenn spätere Detail-Löschungen durch RLS/Fremdschlüssel blockiert werden.
+  const removePayload = {
     active:false,
     plannable:false,
+    role:"deleted",
     email:deletedEmail,
     phone:null,
     sort_order:null
   };
 
-  const soft = await sb.from("profiles").update(softPayload).eq("id",id);
-  if(soft.error){
-    alert("Löschen hat nicht funktioniert.\n\nFehler: " + soft.error.message + "\n\nBitte notfalls zuerst „Deaktivieren“ nutzen und danach den Auth-User in Supabase löschen.");
+  const removed = await sb.from("profiles").update(removePayload).eq("id",id);
+  if(removed.error){
+    alert("Mitarbeiter konnte nicht aus der App entfernt werden.\n\nFehler: " + removed.error.message);
     return;
   }
 
-  alert("Mitarbeiter wurde aus der App entfernt.\n\nHinweis: Der Auth-Login in Supabase ist dadurch nicht automatisch gelöscht. Für eine neue Registrierung mit derselben E-Mail bitte den User zusätzlich in Supabase → Authentication → Users löschen.");
+  const tryDelete = async(table,column)=>{
+    try{
+      const r = await sb.from(table).delete().eq(column,id);
+      return r?.error ? `${table}: ${r.error.message}` : null;
+    }catch(e){
+      return `${table}: ${e.message||e}`;
+    }
+  };
+
+  const tryNull = async(table,column)=>{
+    try{
+      const r = await sb.from(table).update({[column]:null}).eq(column,id);
+      return r?.error ? `${table}: ${r.error.message}` : null;
+    }catch(e){
+      return `${table}: ${e.message||e}`;
+    }
+  };
+
+  const warnings = [];
+  for(const msg of [
+    await tryDelete("schedules","profile_id"),
+    await tryDelete("time_entries","profile_id"),
+    await tryDelete("time_clock_events","profile_id"),
+    await tryDelete("vacation_requests","profile_id"),
+    await tryNull("vacation_requests","decided_by"),
+    await tryNull("daily_infos","created_by"),
+    await tryNull("events","created_by"),
+    await tryNull("notifications","created_by")
+  ]){
+    if(msg) warnings.push(msg);
+  }
+
+  // Sofort auch lokal aus der aktuellen Ansicht entfernen.
+  profiles = profiles.filter(x=>x.id!==id);
   clearStaffForm();
-  await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadDashboardV57?.();
+  renderStaff();
+  await loadProfiles();
+  await loadPlanService();
+  await loadPlanKitchen();
+  await loadMonth();
+  await loadDashboardLight?.();
+  await loadMinijobCenter?.();
+  await loadVacationAccountOverview?.();
+
+  let note = "Mitarbeiter wurde aus der App entfernt und ist nicht mehr einplanbar.";
+  if(warnings.length){
+    note += "\n\nHinweis: Einige alte Detaildaten konnten eventuell nicht automatisch gelöscht werden, der Mitarbeiter ist aber aus der App entfernt und blockiert.";
+  }
+  note += "\n\nDer technische Login-User bleibt im Hintergrund bei Supabase bestehen, hat aber keinen App-Zugriff mehr.";
+  alert(note);
 }
 
 window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
@@ -3290,7 +3319,7 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App löschen</button>`:""}</div></div>`).join("");
+  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -4076,7 +4105,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6050`;
+  return `${base}?stempeluhr=1&v=6051`;
 }
 
 function normalizeIpValue(ip){

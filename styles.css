@@ -3920,3 +3920,10 @@ body.employeeMode .dashPanelV57.managementOnly{
     width:100%;
   }
 }
+
+
+/* v6.0.51: Mitarbeiter aus App entfernen */
+.deleteStaffBtn{
+  background:#8f1d1d!important;
+  border-color:#8f1d1d!important;
+}
