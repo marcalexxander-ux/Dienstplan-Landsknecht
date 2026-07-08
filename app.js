@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.52";
+const APP_VERSION="v6.0.53";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -3204,48 +3204,25 @@ async function deleteStaff(id){
   const sure = confirm(
     `Mitarbeiter wirklich aus der App entfernen?\n\n`+
     `${name}\n${oldEmail}\n\n`+
-    `Der Mitarbeiter wird sofort ausgeblendet und ist nicht mehr einplanbar.\n`+
+    `Der Mitarbeiter wird aus der App entfernt und ist nicht mehr einplanbar.\n`+
     `Bestehende Dienstplan-Einträge werden gelöscht.\n\n`+
     `Fortfahren?`
   );
   if(!sure) return;
 
-  // Wichtig:
-  // Rolle wird NICHT auf "deleted" gesetzt, weil manche Datenbanken nur employee/management/admin/kitchenLead erlauben.
-  // Dadurch hat die alte Version in manchen Fällen komplett abgebrochen.
-  const ghostEmail = `removed_${Date.now()}_${String(id).slice(0,8)}@removed.local`;
-  const removePayload = {
-    active:false,
-    plannable:false,
-    email:ghostEmail,
-    phone:null,
-    sort_order:9999
-  };
+  const {data,error} = await sb.rpc("remove_staff_from_app",{target_profile_id:id});
 
-  const removed = await sb.from("profiles").update(removePayload).eq("id",id);
-  if(removed.error){
-    alert("Mitarbeiter konnte nicht entfernt werden.\n\nFehler: " + removed.error.message);
+  if(error){
+    alert(
+      "Mitarbeiter konnte noch nicht entfernt werden.\n\n"+
+      "Bitte einmalig die SQL-Datei aus v6.0.53 in Supabase ausführen:\n"+
+      "supabase-mitarbeiter-entfernen-rpc-v6053.sql\n\n"+
+      "Danach funktioniert der Button direkt in der App.\n\n"+
+      "Fehler: " + error.message
+    );
     return;
   }
 
-  // Dienstplan-Einträge aktiv entfernen. Falls einzelne Tabellen/Policies blockieren, bleibt der Mitarbeiter trotzdem ausgeblendet.
-  const quietDelete = async(table,column)=>{
-    try{ await sb.from(table).delete().eq(column,id); }catch(e){}
-  };
-  const quietNull = async(table,column)=>{
-    try{ await sb.from(table).update({[column]:null}).eq(column,id); }catch(e){}
-  };
-
-  await quietDelete("schedules","profile_id");
-  await quietDelete("time_entries","profile_id");
-  await quietDelete("time_clock_events","profile_id");
-  await quietDelete("vacation_requests","profile_id");
-  await quietNull("vacation_requests","decided_by");
-  await quietNull("daily_infos","created_by");
-  await quietNull("events","created_by");
-  await quietNull("notifications","created_by");
-
-  // Sofort lokal aus allen Ansichten entfernen.
   profiles = profiles.filter(x=>x.id!==id);
   schedules = (typeof schedules!=="undefined" && Array.isArray(schedules)) ? schedules.filter(x=>x.profile_id!==id) : schedules;
 
@@ -3259,8 +3236,10 @@ async function deleteStaff(id){
   await loadDashboardLight?.();
   await loadMinijobCenter?.();
   await loadVacationAccountOverview?.();
+  await loadTimeClock?.();
 
-  alert(`${name} wurde aus der App entfernt.\n\nEr ist nicht mehr sichtbar, nicht mehr einplanbar und kann sich nicht mehr normal in der App nutzen.`);
+  const mode = data?.mode || "entfernt";
+  alert(`${name} wurde aus der App entfernt.\n\nStatus: ${mode}\n\nEr ist nicht mehr sichtbar und nicht mehr einplanbar.`);
 }
 
 window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
@@ -3301,7 +3280,7 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  $("staffList").innerHTML=profiles.map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
+  $("staffList").innerHTML=profiles.filter(p=>!isRemovedProfile(p)).map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -4087,7 +4066,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6052`;
+  return `${base}?stempeluhr=1&v=6053`;
 }
 
 function normalizeIpValue(ip){

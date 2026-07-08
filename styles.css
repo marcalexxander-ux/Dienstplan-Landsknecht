@@ -3927,3 +3927,10 @@ body.employeeMode .dashPanelV57.managementOnly{
   background:#8f1d1d!important;
   border-color:#8f1d1d!important;
 }
+
+
+/* v6.0.53: Mitarbeiter entfernen per gesicherter Supabase-Funktion */
+.deleteStaffBtn{
+  background:#8f1d1d!important;
+  border-color:#8f1d1d!important;
+}
