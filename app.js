@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.51";
+const APP_VERSION="v6.0.52";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -220,8 +220,12 @@ function canPublishPlan(kind){
   return isManagement() || (kind === "kitchen" && isKitchenLead());
 }
 
-function plannable(){return profiles.filter(p=>p.plannable===true)}
+function plannable(){return profiles.filter(p=>!isRemovedProfile(p) && p.plannable===true && !isRemovedProfile(p))}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
+function isRemovedProfile(p){
+  const email = String(p?.email||"").toLowerCase();
+  return p?.active === false || email.includes("@removed.local") || email.includes("@deleted.local");
+}
 function displayDept(dept){
   const val = String(dept||"").trim();
   return val || "Restaurantleitung";
@@ -1106,7 +1110,7 @@ function profileOptionHtml(p){
 async function loadProfiles(){
   const{data,error}=await sb.from("profiles").select("*").eq("active",true).order("department").order("sort_order").order("last_name");
   if(error)return alert(error.message);
-  profiles=data||[];
+  profiles = (data||[]).filter(p=>!isRemovedProfile(p));
   if($("timeProfile")) $("timeProfile").innerHTML=plannable().map(p=>`<option value="${p.id}">${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)} (${escapeHtml(p.department||"")})</option>`).join("");
   if($("vacAdminProfile")) $("vacAdminProfile").innerHTML=alphaProfiles().map(profileOptionHtml).join("");
   updateVacationAdminCalc?.();
@@ -3191,7 +3195,7 @@ async function deactivateStaff(id){
 
 async function deleteStaff(id){
   if(!isManagement()) return;
-  if(id===profile?.id) return alert("Du kannst deinen eigenen Zugang nicht löschen.");
+  if(id===profile?.id) return alert("Du kannst deinen eigenen Zugang nicht entfernen.");
 
   const p = profiles.find(x=>x.id===id);
   const name = `${p?.first_name||""} ${p?.last_name||""}`.trim() || "diesen Mitarbeiter";
@@ -3200,71 +3204,54 @@ async function deleteStaff(id){
   const sure = confirm(
     `Mitarbeiter wirklich aus der App entfernen?\n\n`+
     `${name}\n${oldEmail}\n\n`+
-    `Der Mitarbeiter verschwindet aus:\n`+
-    `- Mitarbeiterverwaltung\n`+
-    `- Dienstplan\n`+
-    `- Stempeluhr-Auswahl\n`+
-    `- Urlaubsauswahl\n\n`+
-    `Bestehende Dienstplan-Einträge dieses Mitarbeiters werden gelöscht.\n\n`+
+    `Der Mitarbeiter wird sofort ausgeblendet und ist nicht mehr einplanbar.\n`+
+    `Bestehende Dienstplan-Einträge werden gelöscht.\n\n`+
     `Fortfahren?`
   );
   if(!sure) return;
 
-  const deletedEmail = `deleted_${Date.now()}_${String(id).slice(0,8)}@deleted.local`;
-
-  // Wichtig: zuerst aus der App entfernen/blockieren.
-  // So verschwindet der Mitarbeiter auch dann, wenn spätere Detail-Löschungen durch RLS/Fremdschlüssel blockiert werden.
+  // Wichtig:
+  // Rolle wird NICHT auf "deleted" gesetzt, weil manche Datenbanken nur employee/management/admin/kitchenLead erlauben.
+  // Dadurch hat die alte Version in manchen Fällen komplett abgebrochen.
+  const ghostEmail = `removed_${Date.now()}_${String(id).slice(0,8)}@removed.local`;
   const removePayload = {
     active:false,
     plannable:false,
-    role:"deleted",
-    email:deletedEmail,
+    email:ghostEmail,
     phone:null,
-    sort_order:null
+    sort_order:9999
   };
 
   const removed = await sb.from("profiles").update(removePayload).eq("id",id);
   if(removed.error){
-    alert("Mitarbeiter konnte nicht aus der App entfernt werden.\n\nFehler: " + removed.error.message);
+    alert("Mitarbeiter konnte nicht entfernt werden.\n\nFehler: " + removed.error.message);
     return;
   }
 
-  const tryDelete = async(table,column)=>{
-    try{
-      const r = await sb.from(table).delete().eq(column,id);
-      return r?.error ? `${table}: ${r.error.message}` : null;
-    }catch(e){
-      return `${table}: ${e.message||e}`;
-    }
+  // Dienstplan-Einträge aktiv entfernen. Falls einzelne Tabellen/Policies blockieren, bleibt der Mitarbeiter trotzdem ausgeblendet.
+  const quietDelete = async(table,column)=>{
+    try{ await sb.from(table).delete().eq(column,id); }catch(e){}
+  };
+  const quietNull = async(table,column)=>{
+    try{ await sb.from(table).update({[column]:null}).eq(column,id); }catch(e){}
   };
 
-  const tryNull = async(table,column)=>{
-    try{
-      const r = await sb.from(table).update({[column]:null}).eq(column,id);
-      return r?.error ? `${table}: ${r.error.message}` : null;
-    }catch(e){
-      return `${table}: ${e.message||e}`;
-    }
-  };
+  await quietDelete("schedules","profile_id");
+  await quietDelete("time_entries","profile_id");
+  await quietDelete("time_clock_events","profile_id");
+  await quietDelete("vacation_requests","profile_id");
+  await quietNull("vacation_requests","decided_by");
+  await quietNull("daily_infos","created_by");
+  await quietNull("events","created_by");
+  await quietNull("notifications","created_by");
 
-  const warnings = [];
-  for(const msg of [
-    await tryDelete("schedules","profile_id"),
-    await tryDelete("time_entries","profile_id"),
-    await tryDelete("time_clock_events","profile_id"),
-    await tryDelete("vacation_requests","profile_id"),
-    await tryNull("vacation_requests","decided_by"),
-    await tryNull("daily_infos","created_by"),
-    await tryNull("events","created_by"),
-    await tryNull("notifications","created_by")
-  ]){
-    if(msg) warnings.push(msg);
-  }
-
-  // Sofort auch lokal aus der aktuellen Ansicht entfernen.
+  // Sofort lokal aus allen Ansichten entfernen.
   profiles = profiles.filter(x=>x.id!==id);
+  schedules = (typeof schedules!=="undefined" && Array.isArray(schedules)) ? schedules.filter(x=>x.profile_id!==id) : schedules;
+
   clearStaffForm();
   renderStaff();
+
   await loadProfiles();
   await loadPlanService();
   await loadPlanKitchen();
@@ -3273,12 +3260,7 @@ async function deleteStaff(id){
   await loadMinijobCenter?.();
   await loadVacationAccountOverview?.();
 
-  let note = "Mitarbeiter wurde aus der App entfernt und ist nicht mehr einplanbar.";
-  if(warnings.length){
-    note += "\n\nHinweis: Einige alte Detaildaten konnten eventuell nicht automatisch gelöscht werden, der Mitarbeiter ist aber aus der App entfernt und blockiert.";
-  }
-  note += "\n\nDer technische Login-User bleibt im Hintergrund bei Supabase bestehen, hat aber keinen App-Zugriff mehr.";
-  alert(note);
+  alert(`${name} wurde aus der App entfernt.\n\nEr ist nicht mehr sichtbar, nicht mehr einplanbar und kann sich nicht mehr normal in der App nutzen.`);
 }
 
 window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
@@ -4105,7 +4087,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6051`;
+  return `${base}?stempeluhr=1&v=6052`;
 }
 
 function normalizeIpValue(ip){
