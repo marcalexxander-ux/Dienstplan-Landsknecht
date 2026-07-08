@@ -3804,3 +3804,119 @@ body.employeeMode .dashPanelV57.managementOnly{
     grid-column:1/-1;
   }
 }
+
+
+/* v6.0.50: Schöne Kopie-Auswahlmaske */
+.modalOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(5,20,15,.46);
+  z-index:9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+}
+.modalOverlay.hidden{
+  display:none!important;
+}
+.modalCard{
+  width:min(720px,100%);
+  background:#fff;
+  border-radius:22px;
+  box-shadow:0 24px 70px rgba(0,0,0,.24);
+  padding:20px;
+}
+.modalTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
+}
+.modalTop h2{
+  margin:0 0 4px;
+  font-size:1.35rem;
+}
+.iconBtn{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  border:1px solid #dfe6e1;
+  background:#fff;
+  font-size:1.6rem;
+  line-height:1;
+  cursor:pointer;
+}
+.copyPlanFlow{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:14px;
+  align-items:end;
+  margin:16px 0;
+}
+.copyPlanField label{
+  display:block;
+  font-weight:900;
+  margin-bottom:7px;
+}
+.copyPlanField .weekSelect{
+  width:100%;
+  min-width:0;
+}
+.copyPlanArrow{
+  font-size:2rem;
+  font-weight:900;
+  color:#174d3a;
+  padding-bottom:4px;
+}
+.copyPlanPreview{
+  border:1px solid #dfe6e1;
+  background:#f7faf8;
+  border-radius:16px;
+  padding:14px;
+  display:grid;
+  gap:6px;
+  margin-top:10px;
+}
+.copyPlanNote{
+  margin-top:12px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#fff7e8;
+  border:1px solid #f0d8a8;
+  color:#5b4218;
+}
+.warnText{
+  color:#9a3412;
+  font-weight:900;
+}
+.modalActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  margin-top:18px;
+}
+.modalActions button{
+  min-width:130px;
+}
+@media(max-width:720px){
+  .modalCard{
+    padding:16px;
+    border-radius:18px;
+  }
+  .copyPlanFlow{
+    grid-template-columns:1fr;
+  }
+  .copyPlanArrow{
+    text-align:center;
+    padding:0;
+    transform:rotate(90deg);
+  }
+  .modalActions{
+    flex-direction:column-reverse;
+  }
+  .modalActions button{
+    width:100%;
+  }
+}

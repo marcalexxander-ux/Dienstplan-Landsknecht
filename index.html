@@ -683,6 +683,44 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <div id="copyPlanModal" class="modalOverlay hidden" role="dialog" aria-modal="true" aria-labelledby="copyPlanModalTitle">
+    <div class="modalCard copyPlanCard">
+      <div class="modalTop">
+        <div>
+          <h2 id="copyPlanModalTitle">Dienstplan kopieren</h2>
+          <p id="copyPlanModalSub" class="muted">Quelle KW wählen, Ziel KW wählen und kopieren.</p>
+        </div>
+        <button id="copyPlanModalClose" class="iconBtn" type="button" aria-label="Schließen">×</button>
+      </div>
+
+      <div class="copyPlanFlow">
+        <div class="copyPlanField">
+          <label for="copySourceWeek">Quelle KW</label>
+          <select id="copySourceWeek" class="weekSelect"></select>
+        </div>
+
+        <div class="copyPlanArrow" aria-hidden="true">→</div>
+
+        <div class="copyPlanField">
+          <label for="copyTargetWeek">Ziel KW</label>
+          <select id="copyTargetWeek" class="weekSelect"></select>
+        </div>
+      </div>
+
+      <div id="copyPlanPreview" class="copyPlanPreview"></div>
+
+      <div class="copyPlanNote">
+        Kopiert werden nur <strong>Arbeit</strong> und <strong>Frei</strong>. Urlaub und Krank bleiben in der Ziel-KW leer.
+      </div>
+
+      <div class="modalActions">
+        <button id="copyPlanCancel" class="secondary" type="button">Abbrechen</button>
+        <button id="copyPlanConfirm" class="primary" type="button">Kopieren</button>
+      </div>
+    </div>
+  </div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>

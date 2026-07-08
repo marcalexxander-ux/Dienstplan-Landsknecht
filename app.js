@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.49";
+const APP_VERSION="v6.0.50";
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -1125,8 +1125,9 @@ $("prevWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("wee
 $("nextWeekKitchen").onclick=()=>{$("weekStartKitchen").value=addWeeksISO($("weekStartKitchen").value||mondayISO(),1);updateWeekLabels();loadPlanKitchen()};
 $("weekStartKitchen").onchange=()=>{updateWeekLabels();loadPlanKitchen()};
 if($("weekSelectKitchen")) $("weekSelectKitchen").onchange=()=>{$("weekStartKitchen").value=$("weekSelectKitchen").value;updateWeekLabels();loadPlanKitchen()};
-if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>copyPlanToTargetWeek("service");
-if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>copyPlanToTargetWeek("kitchen");
+if($("copyServiceNextWeekBtn")) $("copyServiceNextWeekBtn").onclick=()=>openCopyPlanModal("service");
+if($("copyKitchenNextWeekBtn")) $("copyKitchenNextWeekBtn").onclick=()=>openCopyPlanModal("kitchen");
+setupCopyPlanModal();
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
 if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
 if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
@@ -1145,7 +1146,81 @@ function scheduleCopyPayload(s, targetDate){
     end_time:s.end_time || null
   };
 }
-async function copyPlanToTargetWeek(kind){
+let copyPlanState = {kind:"service"};
+
+function fillCopyWeekSelect(selectId, selectedWeek, baseWeek){
+  const sel = $(selectId);
+  if(!sel) return;
+  const current = selectedWeek || baseWeek || mondayISO();
+  const years = weekSelectYearsFor(current);
+  const options = [];
+
+  years.forEach(year=>{
+    for(let kw=1; kw<=53; kw++){
+      const monday = mondayFromISOWeek(year,kw);
+      if(!monday) continue;
+      options.push(`<option value="${monday}">${weekDisplayLabel(monday)}</option>`);
+    }
+  });
+
+  sel.innerHTML = options.join("");
+  sel.value = current;
+}
+
+function openCopyPlanModal(kind){
+  const isKitchen = kind === "kitchen";
+  if(!canEditPlan(kind)){
+    alert("Du hast keine Berechtigung, diesen Dienstplan zu kopieren.");
+    return;
+  }
+
+  copyPlanState = {kind};
+  const title = isKitchen ? "Dienstplan Küche kopieren" : "Dienstplan Service kopieren";
+  const currentWeek = (isKitchen ? $("weekStartKitchen") : $("weekStartService"))?.value || mondayISO();
+  const targetWeek = addWeeksISO(currentWeek,1);
+
+  if($("copyPlanModalTitle")) $("copyPlanModalTitle").textContent = title;
+  if($("copyPlanModalSub")) $("copyPlanModalSub").textContent = "Quelle KW wählen, Ziel KW wählen und kopieren.";
+
+  fillCopyWeekSelect("copySourceWeek",currentWeek,currentWeek);
+  fillCopyWeekSelect("copyTargetWeek",targetWeek,currentWeek);
+  updateCopyPlanPreview();
+
+  $("copyPlanModal")?.classList.remove("hidden");
+}
+
+function closeCopyPlanModal(){
+  $("copyPlanModal")?.classList.add("hidden");
+}
+
+function updateCopyPlanPreview(){
+  const sourceWeek = $("copySourceWeek")?.value || mondayISO();
+  const targetWeek = $("copyTargetWeek")?.value || addWeeksISO(sourceWeek,1);
+  const box = $("copyPlanPreview");
+  if(!box) return;
+
+  const same = sourceWeek === targetWeek;
+  box.innerHTML = `
+    <div><strong>Von:</strong> ${weekDisplayLabel(sourceWeek)}</div>
+    <div><strong>Nach:</strong> ${weekDisplayLabel(targetWeek)}</div>
+    ${same ? `<div class="warnText">Quelle und Ziel sind identisch. Bitte eine andere Ziel-KW wählen.</div>` : ``}
+  `;
+}
+
+function setupCopyPlanModal(){
+  if($("copyPlanModalClose")) $("copyPlanModalClose").onclick = closeCopyPlanModal;
+  if($("copyPlanCancel")) $("copyPlanCancel").onclick = closeCopyPlanModal;
+  if($("copySourceWeek")) $("copySourceWeek").onchange = updateCopyPlanPreview;
+  if($("copyTargetWeek")) $("copyTargetWeek").onchange = updateCopyPlanPreview;
+  if($("copyPlanConfirm")) $("copyPlanConfirm").onclick = ()=>copyPlanBetweenWeeks(copyPlanState.kind);
+  if($("copyPlanModal")){
+    $("copyPlanModal").addEventListener("click",e=>{
+      if(e.target && e.target.id === "copyPlanModal") closeCopyPlanModal();
+    });
+  }
+}
+
+async function copyPlanBetweenWeeks(kind){
   const isKitchen = kind === "kitchen";
   if(!canEditPlan(kind)){
     alert("Du hast keine Berechtigung, diesen Dienstplan zu kopieren.");
@@ -1155,34 +1230,15 @@ async function copyPlanToTargetWeek(kind){
   const input = isKitchen ? $("weekStartKitchen") : $("weekStartService");
   const departments = isKitchen ? KITCHEN_DEPARTMENTS : SERVICE_DEPARTMENTS;
   const title = isKitchen ? "Küche" : "Service";
-  const sourceWeek = input?.value || mondayISO();
-  const sourceTo = addDaysISO(sourceWeek,6);
-  const defaultTarget = addWeeksISO(sourceWeek,1);
-
-  const targetRaw = prompt(
-    `In welche Kalenderwoche soll der Dienstplan ${title} kopiert werden?\n\n`+
-    `Quelle: ${weekDisplayLabel(sourceWeek)}\n\n`+
-    `Eingabe möglich:\n`+
-    `- KW 32/2026\n`+
-    `- 32/2026\n`+
-    `- 20.07.2026\n\n`+
-    `Urlaub/Krank werden nicht kopiert.`,
-    `KW ${isoWeekNumber(defaultTarget)}/${isoWeekYear(defaultTarget)}`
-  );
-
-  if(targetRaw === null) return;
-
-  const targetWeek = parseTargetWeekInput(targetRaw, isoWeekYear(sourceWeek));
-  if(!targetWeek){
-    alert("Ziel-KW nicht erkannt. Bitte z. B. KW 32/2026 oder 20.07.2026 eingeben.");
-    return;
-  }
+  const sourceWeek = $("copySourceWeek")?.value || input?.value || mondayISO();
+  const targetWeek = $("copyTargetWeek")?.value || addWeeksISO(sourceWeek,1);
 
   if(targetWeek === sourceWeek){
-    alert("Quelle und Ziel sind dieselbe Woche. Bitte eine andere KW wählen.");
+    alert("Quelle und Ziel sind dieselbe Woche. Bitte eine andere Ziel-KW wählen.");
     return;
   }
 
+  const sourceTo = addDaysISO(sourceWeek,6);
   const targetTo = addDaysISO(targetWeek,6);
 
   const peopleIds = plannable()
@@ -1195,6 +1251,8 @@ async function copyPlanToTargetWeek(kind){
     return;
   }
 
+  if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = true;
+
   const sourceRes = await sb.from("schedules")
     .select("*")
     .gte("work_date",sourceWeek)
@@ -1202,7 +1260,8 @@ async function copyPlanToTargetWeek(kind){
     .in("profile_id",peopleIds);
 
   if(sourceRes.error){
-    alert("Fehler beim Laden der aktuellen Woche: " + sourceRes.error.message);
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+    alert("Fehler beim Laden der Quelle: " + sourceRes.error.message);
     return;
   }
 
@@ -1211,12 +1270,14 @@ async function copyPlanToTargetWeek(kind){
   const copyRows = sourceRows.filter(s=>!scheduleCopyShouldSkip(s));
 
   if(!sourceRows.length){
-    alert(`In der aktuellen ${title}-Woche gibt es noch keine Einträge zum Kopieren.`);
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+    alert(`In der Quelle gibt es für ${title} noch keine Einträge zum Kopieren.`);
     return;
   }
 
   if(!copyRows.length){
-    alert(`In der aktuellen ${title}-Woche gibt es keine kopierbaren Arbeit/Frei-Einträge. Urlaub und Krank werden bewusst nicht kopiert.`);
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+    alert(`In der Quelle gibt es keine kopierbaren Arbeit/Frei-Einträge. Urlaub und Krank werden bewusst nicht kopiert.`);
     return;
   }
 
@@ -1227,7 +1288,8 @@ async function copyPlanToTargetWeek(kind){
     .in("profile_id",peopleIds);
 
   if(targetRes.error){
-    alert("Fehler beim Prüfen der Zielwoche: " + targetRes.error.message);
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+    alert("Fehler beim Prüfen der Ziel-KW: " + targetRes.error.message);
     return;
   }
 
@@ -1245,17 +1307,20 @@ async function copyPlanToTargetWeek(kind){
     `${copyRows.length} Arbeit/Frei-Einträge werden übertragen.\n`;
 
   if(skippedRows.length){
-    message += `\nUrlaub/Krank: ${skippedRows.length} Eintrag/Einträge werden ausgelassen und bleiben in der Zielwoche leer.\n`;
+    message += `\nUrlaub/Krank: ${skippedRows.length} Eintrag/Einträge werden ausgelassen und bleiben in der Ziel-KW leer.\n`;
   }
   if(existingCount){
-    message += `\nAchtung: In der Zielwoche gibt es bereits ${existingCount} Einträge in diesem Bereich. Diese werden überschrieben.\n`;
+    message += `\nAchtung: In der Ziel-KW gibt es bereits ${existingCount} Einträge in diesem Bereich. Diese werden überschrieben.\n`;
   }
   if(publishedRes.data){
-    message += `\nAchtung: Die Zielwoche wurde bereits veröffentlicht. Nach dem Kopieren bitte prüfen und ggf. erneut veröffentlichen.\n`;
+    message += `\nAchtung: Die Ziel-KW wurde bereits veröffentlicht. Nach dem Kopieren bitte prüfen und ggf. erneut veröffentlichen.\n`;
   }
   message += `\nKopiert werden nur Arbeit und Frei.`;
 
-  if(!confirm(message)) return;
+  if(!confirm(message)){
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+    return;
+  }
 
   if(existingCount){
     const del = await sb.from("schedules")
@@ -1265,7 +1330,8 @@ async function copyPlanToTargetWeek(kind){
       .in("profile_id",peopleIds);
 
     if(del.error){
-      alert("Fehler beim Überschreiben der Zielwoche: " + del.error.message);
+      if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+      alert("Fehler beim Überschreiben der Ziel-KW: " + del.error.message);
       return;
     }
   }
@@ -1275,11 +1341,12 @@ async function copyPlanToTargetWeek(kind){
 
   const ins = await sb.from("schedules").insert(payload);
   if(ins.error){
+    if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
     alert("Fehler beim Kopieren: " + ins.error.message);
     return;
   }
 
-  input.value = targetWeek;
+  if(input) input.value = targetWeek;
   updateWeekLabels();
 
   if(isKitchen) await loadPlanKitchen();
@@ -1288,6 +1355,9 @@ async function copyPlanToTargetWeek(kind){
   await loadDashboardLight();
   await loadMonth();
   await loadMinijobCenter();
+
+  if($("copyPlanConfirm")) $("copyPlanConfirm").disabled = false;
+  closeCopyPlanModal();
 
   const skippedInfo = skippedRows.length ? `\n${skippedRows.length} Urlaub/Krank-Eintrag/Einträge wurden ausgelassen.` : "";
   alert(`Dienstplan ${title} wurde in ${weekDisplayLabel(targetWeek)} kopiert.${skippedInfo}`);
@@ -4006,7 +4076,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6049`;
+  return `${base}?stempeluhr=1&v=6050`;
 }
 
 function normalizeIpValue(ip){
