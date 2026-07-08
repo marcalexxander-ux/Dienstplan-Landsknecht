@@ -3934,3 +3934,10 @@ body.employeeMode .dashPanelV57.managementOnly{
   background:#8f1d1d!important;
   border-color:#8f1d1d!important;
 }
+
+
+/* v6.0.54: Entfernte Mitarbeiter sofort ausblenden */
+button[disabled]{
+  opacity:.65;
+  cursor:not-allowed;
+}

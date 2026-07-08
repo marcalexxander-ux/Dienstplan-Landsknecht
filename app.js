@@ -1,5 +1,6 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.53";
+const APP_VERSION="v6.0.54";
+const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar","Minijob Bar"];
@@ -220,11 +221,11 @@ function canPublishPlan(kind){
   return isManagement() || (kind === "kitchen" && isKitchenLead());
 }
 
-function plannable(){return profiles.filter(p=>!isRemovedProfile(p) && p.plannable===true && !isRemovedProfile(p))}
+function plannable(){return profiles.filter(p=>p.plannable===true && !isRemovedProfile(p))}
 function sanitizeDept(dept){return String(dept||"").replace(/\s+/g,"")}
 function isRemovedProfile(p){
   const email = String(p?.email||"").toLowerCase();
-  return p?.active === false || email.includes("@removed.local") || email.includes("@deleted.local");
+  return removedStaffIds.has(p?.id) || p?.active === false || email.includes("@removed.local") || email.includes("@deleted.local");
 }
 function displayDept(dept){
   const val = String(dept||"").trim();
@@ -3193,6 +3194,21 @@ async function deactivateStaff(id){
   await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();
 }
 
+function removeStaffLocallyNow(id){
+  removedStaffIds.add(id);
+
+  if(Array.isArray(profiles)) profiles = profiles.filter(p=>p.id!==id);
+  if(typeof schedules !== "undefined" && Array.isArray(schedules)) schedules = schedules.filter(s=>s.profile_id!==id);
+  if(typeof timeEntries !== "undefined" && Array.isArray(timeEntries)) timeEntries = timeEntries.filter(s=>s.profile_id!==id);
+  if(typeof timeClockEvents !== "undefined" && Array.isArray(timeClockEvents)) timeClockEvents = timeClockEvents.filter(s=>s.profile_id!==id);
+  if(typeof vacationRequests !== "undefined" && Array.isArray(vacationRequests)) vacationRequests = vacationRequests.filter(s=>s.profile_id!==id);
+
+  document.querySelectorAll(`[data-profile-id="${id}"], [data-staff-id="${id}"]`).forEach(el=>el.remove());
+
+  try{ clearStaffForm(); }catch(e){}
+  try{ renderStaff(); }catch(e){}
+}
+
 async function deleteStaff(id){
   if(!isManagement()) return;
   if(id===profile?.id) return alert("Du kannst deinen eigenen Zugang nicht entfernen.");
@@ -3213,33 +3229,30 @@ async function deleteStaff(id){
   const {data,error} = await sb.rpc("remove_staff_from_app",{target_profile_id:id});
 
   if(error){
-    alert(
-      "Mitarbeiter konnte noch nicht entfernt werden.\n\n"+
-      "Bitte einmalig die SQL-Datei aus v6.0.53 in Supabase ausführen:\n"+
-      "supabase-mitarbeiter-entfernen-rpc-v6053.sql\n\n"+
-      "Danach funktioniert der Button direkt in der App.\n\n"+
-      "Fehler: " + error.message
-    );
+    alert("Mitarbeiter konnte nicht entfernt werden.\n\nFehler: " + error.message);
     return;
   }
 
-  profiles = profiles.filter(x=>x.id!==id);
-  schedules = (typeof schedules!=="undefined" && Array.isArray(schedules)) ? schedules.filter(x=>x.profile_id!==id) : schedules;
+  // Sofort aus der aktuellen Oberfläche entfernen – ohne Browser-Refresh.
+  removeStaffLocallyNow(id);
 
-  clearStaffForm();
-  renderStaff();
+  // Sichtbare Bereiche neu laden. removedStaffIds verhindert, dass alte Daten kurz wieder auftauchen.
+  await Promise.allSettled([
+    loadProfiles(),
+    loadPlanService(),
+    loadPlanKitchen(),
+    loadMonth(),
+    loadDashboardLight?.(),
+    loadMinijobCenter?.(),
+    loadVacationAccountOverview?.(),
+    loadTimeClock?.()
+  ]);
 
-  await loadProfiles();
-  await loadPlanService();
-  await loadPlanKitchen();
-  await loadMonth();
-  await loadDashboardLight?.();
-  await loadMinijobCenter?.();
-  await loadVacationAccountOverview?.();
-  await loadTimeClock?.();
+  // Nach allen Reloads nochmal sicher lokal entfernen.
+  removeStaffLocallyNow(id);
 
   const mode = data?.mode || "entfernt";
-  alert(`${name} wurde aus der App entfernt.\n\nStatus: ${mode}\n\nEr ist nicht mehr sichtbar und nicht mehr einplanbar.`);
+  alert(`${name} wurde aus der App entfernt.\n\nStatus: ${mode}`);
 }
 
 window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
@@ -4066,7 +4079,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6053`;
+  return `${base}?stempeluhr=1&v=6054`;
 }
 
 function normalizeIpValue(ip){
