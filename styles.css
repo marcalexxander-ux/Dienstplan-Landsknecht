@@ -4058,3 +4058,91 @@ button[disabled]{
     min-height:50px;
   }
 }
+
+
+/* v6.0.56: Dienstplan auf Handy per Touch bearbeiten */
+.mobileShiftEditable{
+  cursor:pointer;
+  position:relative;
+  padding-right:44px!important;
+  touch-action:manipulation;
+}
+.mobileShiftEditable::after{
+  content:"✎";
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  width:28px;
+  height:28px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  background:rgba(255,255,255,.72);
+  color:#174d3a;
+  font-weight:900;
+}
+.mobileShiftEditable:active{
+  transform:scale(.985);
+}
+.touchShiftCard{
+  width:min(560px,100%);
+}
+.touchShiftStatusGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin:14px 0;
+}
+.touchShiftStatusBtn{
+  min-height:56px;
+  border-radius:16px;
+  border:1px solid #dfe6e1;
+  background:#f7faf8;
+  color:#10231c;
+  font-weight:900;
+  font-size:1rem;
+}
+.touchShiftStatusBtn.active{
+  background:#174d3a;
+  border-color:#174d3a;
+  color:#fff;
+}
+.touchShiftTimeFields{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin:14px 0;
+}
+.touchShiftTimeFields label{
+  display:block;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.touchShiftTimeFields input{
+  width:100%;
+  min-height:52px;
+  font-size:1.1rem;
+}
+.touchShiftActions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  margin-top:18px;
+}
+.touchShiftActions #touchShiftSave{
+  grid-column:1/-1;
+  min-height:54px;
+}
+.touchShiftActions button{
+  min-height:48px;
+}
+@media(max-width:520px){
+  .touchShiftStatusGrid{
+    grid-template-columns:1fr 1fr;
+  }
+  .touchShiftTimeFields{
+    grid-template-columns:1fr 1fr;
+  }
+}

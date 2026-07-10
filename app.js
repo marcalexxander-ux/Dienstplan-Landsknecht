@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.55";
+const APP_VERSION="v6.0.56";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -620,6 +620,7 @@ if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
 
 document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
 setupVacationMobileTabs();
+setupTouchShiftEditor();
 
 
 
@@ -1585,9 +1586,10 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
     if(dayRows.length){
       mobile += dayRows.map(({p,item})=>`
-        <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}">
+        <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}${editablePlan ? " mobileShiftEditable" : ""}"
+             ${editablePlan ? `role="button" tabindex="0" data-touch-profile="${p.id}" data-touch-date="${iso}" data-touch-id="${item?.id||""}" data-touch-value="${escapeHtml(cellValue(item))}" data-touch-kind="${kind}"` : ""}>
           <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small></div>
-          <strong>${escapeHtml(cellValue(item))}</strong>
+          <strong>${escapeHtml(cellValue(item)) || (editablePlan ? "Antippen" : "")}</strong>
         </div>
       `).join("");
     }else{
@@ -1629,9 +1631,133 @@ async function loadPlanFiltered(title,week,departments,targetId){
   $(targetId).innerHTML=html;
   document.querySelectorAll(`#${targetId} input`).forEach(inp=>inp.onchange=()=>{applyShiftInputColors($(targetId));saveScheduleCell(inp)});
   setupDragAndDrop(targetId);
+  setupMobileShiftTouch(targetId);
   applyShiftInputColors($(targetId));
 }
 
+
+let touchShiftState = {profileId:null, workDate:null, id:"", kind:"service", status:"arbeit"};
+
+function setupMobileShiftTouch(targetId){
+  document.querySelectorAll(`#${targetId} .mobileShiftEditable`).forEach(row=>{
+    row.onclick=()=>openTouchShiftEditor(row);
+    row.onkeydown=e=>{
+      if(e.key==="Enter" || e.key===" "){
+        e.preventDefault();
+        openTouchShiftEditor(row);
+      }
+    };
+  });
+}
+
+function openTouchShiftEditor(row){
+  if(!row) return;
+  const profileId=row.dataset.touchProfile;
+  const p=profileById(profileId);
+  const workDate=row.dataset.touchDate;
+  const value=String(row.dataset.touchValue||"").trim().toLowerCase();
+  const kind=row.dataset.touchKind || planKindForDepartment(p?.department);
+
+  if(!canEditPlan(kind)) return;
+
+  touchShiftState={
+    profileId,
+    workDate,
+    id:row.dataset.touchId||"",
+    kind,
+    status:value.includes(":") ? "arbeit" : (["frei","urlaub","krank"].includes(value) ? value : "arbeit")
+  };
+
+  $("touchShiftTitle").textContent=`${p?.first_name||""} ${p?.last_name||""}`.trim() || "Dienst ändern";
+  $("touchShiftSub").textContent=`${fmtDate(workDate)} · ${p?.department||""}`;
+
+  let start="",end="";
+  const match=value.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
+  if(match){start=match[1].padStart(5,"0");end=match[2].padStart(5,"0");}
+  $("touchShiftStart").value=start;
+  $("touchShiftEnd").value=end;
+
+  setTouchShiftStatus(touchShiftState.status);
+  $("touchShiftDelete").classList.toggle("hidden",!touchShiftState.id && !value);
+  $("touchShiftModal").classList.remove("hidden");
+}
+
+function closeTouchShiftEditor(){
+  $("touchShiftModal")?.classList.add("hidden");
+}
+
+function setTouchShiftStatus(status){
+  touchShiftState.status=status;
+  document.querySelectorAll(".touchShiftStatusBtn").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.touchStatus===status);
+  });
+  $("touchShiftTimeFields").classList.toggle("hidden",status!=="arbeit");
+}
+
+async function saveTouchShift(){
+  const {profileId,workDate,id,kind,status}=touchShiftState;
+  if(!profileId||!workDate) return;
+
+  let value=status;
+  if(status==="arbeit"){
+    const start=$("touchShiftStart").value;
+    const end=$("touchShiftEnd").value;
+    if(!start||!end){
+      alert("Bitte Beginn und Ende auswählen.");
+      return;
+    }
+    value=`${start}-${end}`;
+  }
+
+  $("touchShiftSave").disabled=true;
+  const virtualInput={
+    value,
+    dataset:{profile:profileId,date:workDate,id:id||""}
+  };
+
+  await saveScheduleCell(virtualInput);
+  $("touchShiftSave").disabled=false;
+  closeTouchShiftEditor();
+
+  if(kind==="kitchen") await loadPlanKitchen();
+  else await loadPlanService();
+}
+
+async function deleteTouchShift(){
+  const {profileId,workDate,id,kind}=touchShiftState;
+  if(!id){
+    closeTouchShiftEditor();
+    return;
+  }
+  if(!confirm("Diesen Dienstplan-Eintrag wirklich löschen?")) return;
+
+  $("touchShiftDelete").disabled=true;
+  const virtualInput={
+    value:"",
+    dataset:{profile:profileId,date:workDate,id:id}
+  };
+  await saveScheduleCell(virtualInput);
+  $("touchShiftDelete").disabled=false;
+  closeTouchShiftEditor();
+
+  if(kind==="kitchen") await loadPlanKitchen();
+  else await loadPlanService();
+}
+
+function setupTouchShiftEditor(){
+  document.querySelectorAll(".touchShiftStatusBtn").forEach(btn=>{
+    btn.onclick=()=>setTouchShiftStatus(btn.dataset.touchStatus);
+  });
+  if($("touchShiftClose")) $("touchShiftClose").onclick=closeTouchShiftEditor;
+  if($("touchShiftCancel")) $("touchShiftCancel").onclick=closeTouchShiftEditor;
+  if($("touchShiftSave")) $("touchShiftSave").onclick=saveTouchShift;
+  if($("touchShiftDelete")) $("touchShiftDelete").onclick=deleteTouchShift;
+  if($("touchShiftModal")){
+    $("touchShiftModal").addEventListener("click",e=>{
+      if(e.target?.id==="touchShiftModal") closeTouchShiftEditor();
+    });
+  }
+}
 
 async function saveScheduleCell(inp){
   const profileId = inp.dataset.profile;
@@ -4122,7 +4248,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6055`;
+  return `${base}?stempeluhr=1&v=6056`;
 }
 
 function normalizeIpValue(ip){
