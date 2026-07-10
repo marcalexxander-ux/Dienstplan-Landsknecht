@@ -734,6 +734,43 @@
     </div>
   </div>
 
+
+<div id="touchShiftModal" class="modalOverlay hidden" role="dialog" aria-modal="true" aria-labelledby="touchShiftTitle">
+  <div class="modalCard touchShiftCard">
+    <div class="modalTop">
+      <div>
+        <h2 id="touchShiftTitle">Dienst ändern</h2>
+        <p id="touchShiftSub" class="muted"></p>
+      </div>
+      <button id="touchShiftClose" class="iconBtn" type="button" aria-label="Schließen">×</button>
+    </div>
+
+    <div class="touchShiftStatusGrid">
+      <button type="button" class="touchShiftStatusBtn" data-touch-status="arbeit">🕒 Arbeit</button>
+      <button type="button" class="touchShiftStatusBtn" data-touch-status="frei">Frei</button>
+      <button type="button" class="touchShiftStatusBtn" data-touch-status="urlaub">Urlaub</button>
+      <button type="button" class="touchShiftStatusBtn" data-touch-status="krank">Krank</button>
+    </div>
+
+    <div id="touchShiftTimeFields" class="touchShiftTimeFields">
+      <div>
+        <label for="touchShiftStart">Beginn</label>
+        <input id="touchShiftStart" type="time" step="300">
+      </div>
+      <div>
+        <label for="touchShiftEnd">Ende</label>
+        <input id="touchShiftEnd" type="time" step="300">
+      </div>
+    </div>
+
+    <div class="touchShiftActions">
+      <button id="touchShiftDelete" class="danger" type="button">Eintrag löschen</button>
+      <button id="touchShiftCancel" class="secondary" type="button">Abbrechen</button>
+      <button id="touchShiftSave" class="primary" type="button">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="app.js"></script>
 </body>

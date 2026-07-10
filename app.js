@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.56";
+const APP_VERSION="v6.0.57";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1652,6 +1652,13 @@ function setupMobileShiftTouch(targetId){
 
 function openTouchShiftEditor(row){
   if(!row) return;
+
+  const modal=$("touchShiftModal");
+  if(!modal){
+    alert("Die Touch-Bearbeitung konnte nicht geöffnet werden. Bitte die Seite einmal neu laden.");
+    return;
+  }
+
   const profileId=row.dataset.touchProfile;
   const p=profileById(profileId);
   const workDate=row.dataset.touchDate;
@@ -1668,18 +1675,28 @@ function openTouchShiftEditor(row){
     status:value.includes(":") ? "arbeit" : (["frei","urlaub","krank"].includes(value) ? value : "arbeit")
   };
 
-  $("touchShiftTitle").textContent=`${p?.first_name||""} ${p?.last_name||""}`.trim() || "Dienst ändern";
-  $("touchShiftSub").textContent=`${fmtDate(workDate)} · ${p?.department||""}`;
+  const title=$("touchShiftTitle");
+  const sub=$("touchShiftSub");
+  const startInput=$("touchShiftStart");
+  const endInput=$("touchShiftEnd");
+  const deleteBtn=$("touchShiftDelete");
+
+  if(title) title.textContent=`${p?.first_name||""} ${p?.last_name||""}`.trim() || "Dienst ändern";
+  if(sub) sub.textContent=`${fmtDate(workDate)} · ${p?.department||""}`;
 
   let start="",end="";
   const match=value.match(/(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);
-  if(match){start=match[1].padStart(5,"0");end=match[2].padStart(5,"0");}
-  $("touchShiftStart").value=start;
-  $("touchShiftEnd").value=end;
+  if(match){
+    start=match[1].padStart(5,"0");
+    end=match[2].padStart(5,"0");
+  }
+  if(startInput) startInput.value=start;
+  if(endInput) endInput.value=end;
 
   setTouchShiftStatus(touchShiftState.status);
-  $("touchShiftDelete").classList.toggle("hidden",!touchShiftState.id && !value);
-  $("touchShiftModal").classList.remove("hidden");
+  if(deleteBtn) deleteBtn.classList.toggle("hidden",!touchShiftState.id && !value);
+
+  modal.classList.remove("hidden");
 }
 
 function closeTouchShiftEditor(){
@@ -4248,7 +4265,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6056`;
+  return `${base}?stempeluhr=1&v=6057`;
 }
 
 function normalizeIpValue(ip){
@@ -5001,3 +5018,5 @@ setupVacationPlanner();
 setupVacationAccountOverview();
 setupVacationYearClose();
 init();
+
+if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",setupTouchShiftEditor);}else{setupTouchShiftEditor();}
