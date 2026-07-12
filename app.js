@@ -1,5 +1,5 @@
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.57";
+const APP_VERSION="v6.0.58";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -3339,8 +3339,26 @@ $("saveStaff").onclick=async()=>{
     vacation_carryover_reason:valueOrNull("staffCarryoverReason"),
     vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt")
   };
-  const res=id?await sb.from("profiles").update(payload).eq("id",id):await sb.from("profiles").insert(payload);
-  if(res.error)alert(res.error.message);else{clearStaffForm();await loadProfiles();await loadPlanService();await loadPlanKitchen();await loadMonth();await loadVacationAccountOverview?.();}
+  let res;
+  if(id){
+    res=await sb.from("profiles").update(payload).eq("id",id);
+  }else{
+    // profiles.id hat in diesem Projekt keinen automatischen Standardwert.
+    // Daher wird die UUID beim Erstellen direkt in der App erzeugt.
+    payload.id=crypto.randomUUID();
+    res=await sb.from("profiles").insert(payload);
+  }
+  if(res.error){
+    alert("Mitarbeiter konnte nicht gespeichert werden.\n\nFehler: "+res.error.message);
+  }else{
+    clearStaffForm();
+    await loadProfiles();
+    await loadPlanService();
+    await loadPlanKitchen();
+    await loadMonth();
+    await loadVacationAccountOverview?.();
+    alert(id?"Mitarbeiter wurde gespeichert.":"Mitarbeiter wurde erstellt. Jetzt kannst du die Einladung senden.");
+  }
 };
 $("clearStaff").onclick=clearStaffForm;
 function clearStaffForm(){
@@ -4265,7 +4283,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6057`;
+  return `${base}?stempeluhr=1&v=6058`;
 }
 
 function normalizeIpValue(ip){
