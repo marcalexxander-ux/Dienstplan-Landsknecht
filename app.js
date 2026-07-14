@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.66";
+const APP_VERSION="v6.0.67";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -635,6 +635,7 @@ if($("refreshDashboard")) $("refreshDashboard").onclick=loadDashboardLight;
 document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(btn=>btn.onclick=()=>setActiveTab(btn.dataset.tab));
 setupVacationMobileTabs();
 setupTouchShiftEditor();
+setupPersonnelTabs();
 
 
 
@@ -3331,6 +3332,68 @@ async function loadVacationOverlap(){
   $("vacOverlapInfo").innerHTML=rows.length?`<b>${rows.length} vorhandene Urlaubsüberschneidung(en):</b><br>${rows.join("<br>")}`:"Keine vorhandenen Urlaubsüberschneidungen im gewählten Zeitraum.";
 }
 
+const PERSONNEL_FIELD_IDS=[
+  "staffBirthName","staffStreet","staffPostalCode","staffCity","staffBirthPlace","staffBirthCountry",
+  "staffNationality","staffMaritalStatus","staffGender","staffSocialSecurityNumber","staffSeverelyDisabled",
+  "staffPersonnelNumber","staffFirstHireDate","staffJobTitle","staffOccupation","staffEmploymentType",
+  "staffWeeklyHours","staffProbation","staffProbationMonths","staffOtherEmployment",
+  "staffOtherEmploymentMinijob","staffSchoolQualification","staffVocationalQualification",
+  "staffFixedTerm","staffFixedTermUntil","staffContractSignedAt","staffTaxId","staffTaxClass",
+  "staffChildAllowance","staffReligion","staffHealthInsurance","staffParentStatus","staffBeaObjection",
+  "staffIban","staffBic","staffBankName","staffDocContract","staffDocTax","staffDocSocialSecurity",
+  "staffDocHealthInsurance","staffDocPrivateInsurance","staffDocParent","staffDocDisability",
+  "staffDocInstruction","staffPersonnelNotes"
+];
+
+function personnelValue(id){
+  const el=$(id);
+  if(!el) return null;
+  if(el.type==="checkbox") return !!el.checked;
+  if(el.type==="number"){
+    if(el.value==="") return null;
+    const n=Number(el.value);
+    return Number.isFinite(n)?n:null;
+  }
+  return String(el.value||"").trim() || null;
+}
+
+function collectPersonnelData(){
+  const data={};
+  PERSONNEL_FIELD_IDS.forEach(id=>{
+    data[id.replace(/^staff/,"").replace(/^[A-Z]/,m=>m.toLowerCase())]=personnelValue(id);
+  });
+  return data;
+}
+
+function applyPersonnelData(data={}){
+  PERSONNEL_FIELD_IDS.forEach(id=>{
+    const key=id.replace(/^staff/,"").replace(/^[A-Z]/,m=>m.toLowerCase());
+    const el=$(id);
+    if(!el) return;
+    if(el.type==="checkbox") el.checked=!!data?.[key];
+    else el.value=data?.[key]??"";
+  });
+}
+
+function clearPersonnelData(){
+  PERSONNEL_FIELD_IDS.forEach(id=>{
+    const el=$(id);
+    if(!el) return;
+    if(el.type==="checkbox") el.checked=false;
+    else el.value="";
+  });
+}
+
+function setPersonnelTab(tab){
+  document.querySelectorAll(".personnelTab").forEach(btn=>btn.classList.toggle("active",btn.dataset.personnelTab===tab));
+  document.querySelectorAll(".personnelPanel").forEach(panel=>panel.classList.toggle("active",panel.dataset.personnelPanel===tab));
+}
+function setupPersonnelTabs(){
+  document.querySelectorAll(".personnelTab").forEach(btn=>{
+    btn.onclick=()=>setPersonnelTab(btn.dataset.personnelTab);
+  });
+}
+
 $("saveStaff").onclick=async()=>{
   if(!isManagement()) return alert("Nur Geschäftsführung kann Mitarbeiter verwalten.");
   const id=$("editingStaffId").value,first=$("staffFirstName").value.trim(),last=$("staffLastName").value.trim(),email=$("staffEmail").value.trim(),phone=$("staffPhone").value.trim(),role=$("staffRole").value,department=$("staffDepartment").value,plannableValue=$("staffPlannable").checked;
@@ -3358,7 +3421,8 @@ $("saveStaff").onclick=async()=>{
     vacation_carryover_days:numberOrNull("staffCarryoverDays"),
     vacation_carryover_expires_at:valueOrNull("staffCarryoverExpires"),
     vacation_carryover_reason:valueOrNull("staffCarryoverReason"),
-    vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt")
+    vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt"),
+    personnel_data:collectPersonnelData()
   };
   let res;
   if(id && !String(id).startsWith("pending:")){
@@ -3386,6 +3450,7 @@ $("saveStaff").onclick=async()=>{
       vacation_carryover_expires_at:valueOrNull("staffCarryoverExpires"),
       vacation_carryover_reason:valueOrNull("staffCarryoverReason"),
       vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt"),
+      personnel_data:collectPersonnelData(),
       created_by:profile.id
     };
     res=await sb.from("pending_staff_invites").upsert(pendingPayload,{onConflict:"email"}).select().single();
@@ -3410,6 +3475,8 @@ $("saveStaff").onclick=async()=>{
 $("clearStaff").onclick=clearStaffForm;
 function clearStaffForm(){
   ["editingStaffId","staffFirstName","staffLastName","staffEmail","staffPhone","staffBirthday","staffHireDate","staffTerminationDate","staffWeeklyWorkdays","staffAnnualVacationDays","staffCarryoverDays","staffCarryoverExpires","staffVacationNoticeSentAt","staffCarryoverReason"].forEach(id=>{if($(id))$(id).value=""});
+  clearPersonnelData();
+  setPersonnelTab("personal");
   $("staffRole").value="employee";
   $("staffDepartment").value="Service";
   if($("staffContractType"))$("staffContractType").value="minijob";
@@ -3439,6 +3506,8 @@ function editPendingStaff(id){
   if($("staffCarryoverExpires"))$("staffCarryoverExpires").value=p.vacation_carryover_expires_at||"";
   if($("staffCarryoverReason"))$("staffCarryoverReason").value=p.vacation_carryover_reason||"";
   if($("staffVacationNoticeSentAt"))$("staffVacationNoticeSentAt").value=p.vacation_notice_sent_at||"";
+  applyPersonnelData(p.personnel_data||{});
+  setPersonnelTab("personal");
 }
 async function deletePendingStaff(id){
   if(!isManagement()) return;
@@ -3469,6 +3538,8 @@ function editStaff(id){
   if($("staffCarryoverExpires"))$("staffCarryoverExpires").value=p.vacation_carryover_expires_at||"";
   if($("staffCarryoverReason"))$("staffCarryoverReason").value=p.vacation_carryover_reason||"";
   if($("staffVacationNoticeSentAt"))$("staffVacationNoticeSentAt").value=p.vacation_notice_sent_at||"";
+  applyPersonnelData(p.personnel_data||{});
+  setPersonnelTab("personal");
 }
 async function deactivateStaff(id){
   if(!isManagement()) return;
@@ -4366,7 +4437,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6066`;
+  return `${base}?stempeluhr=1&v=6067`;
 }
 
 function normalizeIpValue(ip){

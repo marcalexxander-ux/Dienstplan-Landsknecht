@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6066">
+  <link rel="stylesheet" href="styles.css?v=6067">
 </head>
 <body>
 <header class="topbar">
@@ -402,49 +402,290 @@
             <input id="staffHourlyRate" type="number" min="0" step="0.01" placeholder="z. B. 14.50">
           </div>
 
-          <div class="formGridTitle full">Urlaub & Stammdaten</div>
-          <div>
-            <label>Geburtsdatum optional</label>
-            <input id="staffBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="TT.MM.JJJJ, z. B. 06.07.1980">
-            <small class="fieldHint">Manuell eintippen möglich, kein langes Zurückklicken im Kalender.</small>
-          </div>
-          <div>
-            <label>Eintrittsdatum optional</label>
-            <input id="staffHireDate" type="date">
-          </div>
-          <div>
-            <label>Austrittsdatum optional</label>
-            <input id="staffTerminationDate" type="date">
-          </div>
-          <div>
-            <label>Arbeitstage pro Woche optional</label>
-            <input id="staffWeeklyWorkdays" type="number" min="0" max="7" step="0.5" placeholder="z. B. 5">
-          </div>
-          <div>
-            <label>Jahresurlaub vertraglich optional</label>
-            <input id="staffAnnualVacationDays" type="number" min="0" step="0.5" placeholder="z. B. 20">
-          </div>
-          <div>
-            <label>Resturlaub Vorjahr optional</label>
-            <input id="staffCarryoverDays" type="number" min="0" step="0.5" placeholder="z. B. 3">
-          </div>
-          <div>
-            <label>Übertrag gültig bis optional</label>
-            <input id="staffCarryoverExpires" type="date">
-          </div>
-          <div>
-            <label>Hinweis auf Verfall gesendet am optional</label>
-            <input id="staffVacationNoticeSentAt" type="date">
-          </div>
-          <div class="full">
-            <label>Grund / Notiz Übertrag</label>
-            <input id="staffCarryoverReason" placeholder="z. B. betriebliche Gründe, Krankheit, manuell übertragen">
+
+          <div class="formGridTitle full">Personalfragebogen</div>
+
+          <div class="personnelTabs full" role="tablist" aria-label="Personalfragebogen Bereiche">
+            <button type="button" class="personnelTab active" data-personnel-tab="personal">👤 Persönlich</button>
+            <button type="button" class="personnelTab" data-personnel-tab="employment">💼 Beschäftigung</button>
+            <button type="button" class="personnelTab" data-personnel-tab="vacation">🏖 Urlaub</button>
+            <button type="button" class="personnelTab" data-personnel-tab="tax">💶 Steuer & SV</button>
+            <button type="button" class="personnelTab" data-personnel-tab="bank">🏦 Bank</button>
+            <button type="button" class="personnelTab" data-personnel-tab="documents">📄 Unterlagen</button>
+            <button type="button" class="personnelTab" data-personnel-tab="notes">📝 Notizen</button>
           </div>
 
-          <label class="checkLine">
+          <div class="personnelPanel full active" data-personnel-panel="personal">
+            <div class="formGrid personnelInnerGrid">
+              <div>
+                <label>Geburtsname optional</label>
+                <input id="staffBirthName">
+              </div>
+              <div>
+                <label>Geburtsdatum optional</label>
+                <input id="staffBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="TT.MM.JJJJ">
+              </div>
+              <div class="full">
+                <label>Straße und Hausnummer optional</label>
+                <input id="staffStreet">
+              </div>
+              <div>
+                <label>PLZ optional</label>
+                <input id="staffPostalCode" inputmode="numeric">
+              </div>
+              <div>
+                <label>Ort optional</label>
+                <input id="staffCity">
+              </div>
+              <div>
+                <label>Geburtsort optional</label>
+                <input id="staffBirthPlace">
+              </div>
+              <div>
+                <label>Geburtsland optional</label>
+                <input id="staffBirthCountry">
+              </div>
+              <div>
+                <label>Staatsangehörigkeit optional</label>
+                <input id="staffNationality">
+              </div>
+              <div>
+                <label>Familienstand optional</label>
+                <select id="staffMaritalStatus">
+                  <option value="">—</option>
+                  <option value="ledig">Ledig</option>
+                  <option value="verheiratet">Verheiratet</option>
+                  <option value="geschieden">Geschieden</option>
+                  <option value="verwitwet">Verwitwet</option>
+                  <option value="lebenspartnerschaft">Lebenspartnerschaft</option>
+                </select>
+              </div>
+              <div>
+                <label>Geschlecht optional</label>
+                <select id="staffGender">
+                  <option value="">—</option>
+                  <option value="weiblich">Weiblich</option>
+                  <option value="maennlich">Männlich</option>
+                  <option value="divers">Divers</option>
+                  <option value="keine_angabe">Keine Angabe</option>
+                </select>
+              </div>
+              <div>
+                <label>Sozialversicherungsnummer optional</label>
+                <input id="staffSocialSecurityNumber">
+              </div>
+              <label class="checkLine">
+                <input id="staffSeverelyDisabled" type="checkbox">
+                Schwerbehindert
+              </label>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="employment">
+            <div class="formGrid personnelInnerGrid">
+              <div>
+                <label>Personalnummer optional</label>
+                <input id="staffPersonnelNumber">
+              </div>
+              <div>
+                <label>Eintrittsdatum optional</label>
+                <input id="staffHireDate" type="date">
+              </div>
+              <div>
+                <label>Ersteintrittsdatum optional</label>
+                <input id="staffFirstHireDate" type="date">
+              </div>
+              <div>
+                <label>Austrittsdatum optional</label>
+                <input id="staffTerminationDate" type="date">
+              </div>
+              <div>
+                <label>Berufsbezeichnung optional</label>
+                <input id="staffJobTitle">
+              </div>
+              <div>
+                <label>Ausgeübte Tätigkeit optional</label>
+                <input id="staffOccupation">
+              </div>
+              <div>
+                <label>Beschäftigung</label>
+                <select id="staffEmploymentType">
+                  <option value="">—</option>
+                  <option value="hauptbeschaeftigung">Hauptbeschäftigung</option>
+                  <option value="nebenbeschaeftigung">Nebenbeschäftigung</option>
+                </select>
+              </div>
+              <div>
+                <label>Wöchentliche Arbeitszeit in Stunden optional</label>
+                <input id="staffWeeklyHours" type="number" min="0" step="0.25">
+              </div>
+              <div>
+                <label>Arbeitstage pro Woche optional</label>
+                <input id="staffWeeklyWorkdays" type="number" min="0" max="7" step="0.5" placeholder="z. B. 5">
+              </div>
+              <div>
+                <label>Probezeit optional</label>
+                <select id="staffProbation">
+                  <option value="">—</option>
+                  <option value="ja">Ja</option>
+                  <option value="nein">Nein</option>
+                </select>
+              </div>
+              <div>
+                <label>Dauer Probezeit in Monaten optional</label>
+                <input id="staffProbationMonths" type="number" min="0" max="24" step="1">
+              </div>
+              <label class="checkLine">
+                <input id="staffOtherEmployment" type="checkbox">
+                Weitere Beschäftigung vorhanden
+              </label>
+              <label class="checkLine">
+                <input id="staffOtherEmploymentMinijob" type="checkbox">
+                Weitere Beschäftigung ist geringfügig
+              </label>
+              <div>
+                <label>Höchster Schulabschluss optional</label>
+                <select id="staffSchoolQualification">
+                  <option value="">—</option>
+                  <option value="ohne">Ohne Schulabschluss</option>
+                  <option value="hauptschule">Haupt-/Volksschulabschluss</option>
+                  <option value="mittlere_reife">Mittlere Reife</option>
+                  <option value="abitur">Abitur/Fachabitur</option>
+                </select>
+              </div>
+              <div>
+                <label>Höchste Berufsausbildung optional</label>
+                <select id="staffVocationalQualification">
+                  <option value="">—</option>
+                  <option value="ohne">Ohne Ausbildungsabschluss</option>
+                  <option value="ausbildung">Anerkannte Berufsausbildung</option>
+                  <option value="meister">Meister/Techniker/Fachschule</option>
+                  <option value="bachelor">Bachelor</option>
+                  <option value="master">Diplom/Master/Staatsexamen</option>
+                  <option value="promotion">Promotion</option>
+                </select>
+              </div>
+              <label class="checkLine">
+                <input id="staffFixedTerm" type="checkbox">
+                Arbeitsverhältnis befristet
+              </label>
+              <div>
+                <label>Befristet bis optional</label>
+                <input id="staffFixedTermUntil" type="date">
+              </div>
+              <div>
+                <label>Arbeitsvertrag abgeschlossen am optional</label>
+                <input id="staffContractSignedAt" type="date">
+              </div>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="vacation">
+            <div class="formGrid personnelInnerGrid">
+              <div>
+                <label>Jahresurlaub vertraglich optional</label>
+                <input id="staffAnnualVacationDays" type="number" min="0" step="0.5" placeholder="z. B. 20">
+              </div>
+              <div>
+                <label>Resturlaub Vorjahr optional</label>
+                <input id="staffCarryoverDays" type="number" min="0" step="0.5" placeholder="z. B. 3">
+              </div>
+              <div>
+                <label>Übertrag gültig bis optional</label>
+                <input id="staffCarryoverExpires" type="date">
+              </div>
+              <div>
+                <label>Hinweis auf Verfall gesendet am optional</label>
+                <input id="staffVacationNoticeSentAt" type="date">
+              </div>
+              <div class="full">
+                <label>Grund / Notiz Übertrag</label>
+                <input id="staffCarryoverReason" placeholder="z. B. Krankheit oder betriebliche Gründe">
+              </div>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="tax">
+            <div class="formGrid personnelInnerGrid">
+              <div>
+                <label>Steuer-ID optional</label>
+                <input id="staffTaxId">
+              </div>
+              <div>
+                <label>Steuerklasse optional</label>
+                <select id="staffTaxClass">
+                  <option value="">—</option>
+                  <option>I</option><option>II</option><option>III</option>
+                  <option>IV</option><option>V</option><option>VI</option>
+                </select>
+              </div>
+              <div>
+                <label>Kinderfreibeträge optional</label>
+                <input id="staffChildAllowance" type="number" min="0" step="0.5">
+              </div>
+              <div>
+                <label>Konfession optional</label>
+                <input id="staffReligion">
+              </div>
+              <div>
+                <label>Gesetzliche Krankenkasse optional</label>
+                <input id="staffHealthInsurance">
+              </div>
+              <label class="checkLine">
+                <input id="staffParentStatus" type="checkbox">
+                Elterneigenschaft
+              </label>
+              <label class="checkLine full">
+                <input id="staffBeaObjection" type="checkbox">
+                Widerspruch gegen elektronische Bescheinigungsübermittlung (BEA)
+              </label>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="bank">
+            <div class="formGrid personnelInnerGrid">
+              <div class="full">
+                <label>IBAN optional</label>
+                <input id="staffIban" autocomplete="off">
+              </div>
+              <div>
+                <label>BIC optional</label>
+                <input id="staffBic" autocomplete="off">
+              </div>
+              <div>
+                <label>Bankbezeichnung optional</label>
+                <input id="staffBankName">
+              </div>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="documents">
+            <div class="documentChecklist">
+              <label><input id="staffDocContract" type="checkbox"> Arbeitsvertrag liegt vor</label>
+              <label><input id="staffDocTax" type="checkbox"> Bescheinigung Lohnsteuer liegt vor</label>
+              <label><input id="staffDocSocialSecurity" type="checkbox"> Sozialversicherungsausweis liegt vor</label>
+              <label><input id="staffDocHealthInsurance" type="checkbox"> Mitgliedsbescheinigung Krankenkasse liegt vor</label>
+              <label><input id="staffDocPrivateInsurance" type="checkbox"> Nachweis private Krankenversicherung liegt vor</label>
+              <label><input id="staffDocParent" type="checkbox"> Nachweis Elterneigenschaft liegt vor</label>
+              <label><input id="staffDocDisability" type="checkbox"> Schwerbehindertenausweis liegt vor</label>
+              <label><input id="staffDocInstruction" type="checkbox"> Infektionsschutzbelehrung liegt vor</label>
+            </div>
+          </div>
+
+          <div class="personnelPanel full" data-personnel-panel="notes">
+            <div class="formGrid personnelInnerGrid">
+              <div class="full">
+                <label>Interne Personalnotiz</label>
+                <textarea id="staffPersonnelNotes" rows="5" placeholder="Nur für die Geschäftsführung sichtbar"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <label class="checkLine full">
             <input id="staffPlannable" type="checkbox" checked>
             Im Dienstplan einplanen
           </label>
+
         </div>
         <input id="editingStaffId" type="hidden">
         <div class="buttonRow">
@@ -771,7 +1012,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6066"></script>
-<script src="app.js?v=6066"></script>
+<script src="config.js?v=6067"></script>
+<script src="app.js?v=6067"></script>
 </body>
 </html>

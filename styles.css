@@ -4529,3 +4529,79 @@ button[disabled]{
 #planGridKitchen table{
   min-width:1125px!important;
 }
+
+
+/* v6.0.67: Digitaler Personalfragebogen */
+.personnelTabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  padding:10px;
+  border:1px solid #dde6e0;
+  border-radius:16px;
+  background:#f7faf8;
+}
+.personnelTab{
+  min-height:40px;
+  padding:0 13px;
+  border-radius:12px;
+  border:1px solid #d7e2db;
+  background:#fff;
+  color:#173b2e;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+.personnelTab.active{
+  background:#174d3a;
+  color:#fff;
+  border-color:#174d3a;
+}
+.personnelPanel{
+  display:none;
+  border:1px solid #dde6e0;
+  border-radius:16px;
+  background:#fff;
+  padding:14px;
+}
+.personnelPanel.active{
+  display:block;
+}
+.personnelInnerGrid{
+  margin:0!important;
+}
+.documentChecklist{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.documentChecklist label{
+  display:flex;
+  gap:9px;
+  align-items:flex-start;
+  padding:11px 12px;
+  border:1px solid #e0e7e2;
+  border-radius:12px;
+  background:#f8faf9;
+  font-weight:700;
+}
+.personnelPanel textarea{
+  width:100%;
+  resize:vertical;
+}
+@media(max-width:820px){
+  .personnelTabs{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+  }
+  .personnelTab{
+    width:100%;
+    min-height:48px;
+  }
+  .documentChecklist{
+    grid-template-columns:1fr;
+  }
+  .personnelPanel{
+    padding:10px;
+  }
+}
