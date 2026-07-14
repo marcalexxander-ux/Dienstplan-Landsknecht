@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.59";
+const APP_VERSION="v6.0.60";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -3371,6 +3371,8 @@ $("saveStaff").onclick=async()=>{
   if(id && !String(id).startsWith("pending:")){
     res=await sb.from("profiles").update(payload).eq("id",id);
   }else{
+    // Neue Mitarbeiter dürfen niemals direkt in profiles eingefügt werden,
+    // weil profiles.id an auth.users.id gebunden ist.
     const pendingPayload={
       first_name:first,
       last_name:last,
@@ -3396,7 +3398,12 @@ $("saveStaff").onclick=async()=>{
     res=await sb.from("pending_staff_invites").upsert(pendingPayload,{onConflict:"email"}).select().single();
   }
   if(res.error){
-    alert("Mitarbeiter konnte nicht gespeichert werden.\n\nFehler: "+res.error.message);
+    const msg=String(res.error.message||"");
+    if(msg.includes("pending_staff_invites") || msg.includes("relation") || msg.includes("does not exist")){
+      alert("Die Einladungs-Tabelle fehlt noch.\n\nBitte einmalig die SQL-Datei aus v6.0.60 in Supabase ausführen:\nsupabase-pending-staff-invites-v6060.sql");
+    }else{
+      alert("Mitarbeiter konnte nicht gespeichert werden.\n\nFehler: "+msg);
+    }
   }else{
     clearStaffForm();
     await loadProfiles();
@@ -4366,7 +4373,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6059`;
+  return `${base}?stempeluhr=1&v=6060`;
 }
 
 function normalizeIpValue(ip){
