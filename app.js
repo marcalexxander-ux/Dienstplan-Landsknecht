@@ -1,5 +1,6 @@
+let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.58";
+const APP_VERSION="v6.0.59";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -522,6 +523,19 @@ async function loadProfile(){
       return;
     }
   }
+
+  // Prüfen, ob die Geschäftsführung diesen Mitarbeiter bereits als Einladung vorbereitet hat.
+  // Dann werden die Stammdaten erst jetzt mit der echten Auth-ID übernommen.
+  try{
+    const claim = await sb.rpc("claim_pending_staff_invite");
+    if(!claim.error && claim.data?.claimed){
+      const claimed = await sb.from("profiles").select("*").eq("id",session.user.id).maybeSingle();
+      if(claimed.data){
+        profile = claimed.data;
+        return;
+      }
+    }
+  }catch(e){}
 
   profile={
     id:session.user.id,
@@ -1150,6 +1164,20 @@ function alphaProfiles(){
 }
 function profileOptionHtml(p){
   return `<option value="${p.id}">${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} (${escapeHtml(p.department||"")})</option>`;
+}
+
+
+async function loadPendingStaffInvites(){
+  if(!isManagement()){
+    pendingStaffInvites=[];
+    return;
+  }
+  const {data,error}=await sb.from("pending_staff_invites").select("*").order("created_at",{ascending:false});
+  if(error){
+    pendingStaffInvites=[];
+    return;
+  }
+  pendingStaffInvites=data||[];
 }
 
 async function loadProfiles(){
@@ -3340,13 +3368,32 @@ $("saveStaff").onclick=async()=>{
     vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt")
   };
   let res;
-  if(id){
+  if(id && !String(id).startsWith("pending:")){
     res=await sb.from("profiles").update(payload).eq("id",id);
   }else{
-    // profiles.id hat in diesem Projekt keinen automatischen Standardwert.
-    // Daher wird die UUID beim Erstellen direkt in der App erzeugt.
-    payload.id=crypto.randomUUID();
-    res=await sb.from("profiles").insert(payload);
+    const pendingPayload={
+      first_name:first,
+      last_name:last,
+      email:email.toLowerCase(),
+      phone,
+      role,
+      department,
+      plannable:plannableValue,
+      contract_type,
+      hourly_rate,
+      active:true,
+      birthday:birthdayValue,
+      hire_date:valueOrNull("staffHireDate"),
+      termination_date:valueOrNull("staffTerminationDate"),
+      weekly_workdays:numberOrNull("staffWeeklyWorkdays"),
+      annual_vacation_days:numberOrNull("staffAnnualVacationDays"),
+      vacation_carryover_days:numberOrNull("staffCarryoverDays"),
+      vacation_carryover_expires_at:valueOrNull("staffCarryoverExpires"),
+      vacation_carryover_reason:valueOrNull("staffCarryoverReason"),
+      vacation_notice_sent_at:valueOrNull("staffVacationNoticeSentAt"),
+      created_by:profile.id
+    };
+    res=await sb.from("pending_staff_invites").upsert(pendingPayload,{onConflict:"email"}).select().single();
   }
   if(res.error){
     alert("Mitarbeiter konnte nicht gespeichert werden.\n\nFehler: "+res.error.message);
@@ -3357,7 +3404,7 @@ $("saveStaff").onclick=async()=>{
     await loadPlanKitchen();
     await loadMonth();
     await loadVacationAccountOverview?.();
-    alert(id?"Mitarbeiter wurde gespeichert.":"Mitarbeiter wurde erstellt. Jetzt kannst du die Einladung senden.");
+    alert(id && !String(id).startsWith("pending:") ? "Mitarbeiter wurde gespeichert." : "Einladung wurde vorbereitet. Jetzt kannst du die Einladung senden.");
   }
 };
 $("clearStaff").onclick=clearStaffForm;
@@ -3369,6 +3416,38 @@ function clearStaffForm(){
   if($("staffHourlyRate"))$("staffHourlyRate").value="";
   $("staffPlannable").checked=true;
 }
+
+function editPendingStaff(id){
+  const p=pendingStaffInvites.find(x=>x.id===id);
+  if(!p) return;
+  $("editingStaffId").value=`pending:${p.id}`;
+  $("staffFirstName").value=p.first_name||"";
+  $("staffLastName").value=p.last_name||"";
+  $("staffEmail").value=p.email||"";
+  $("staffPhone").value=p.phone||"";
+  $("staffRole").value=p.role==="admin"?"management":(p.role||"employee");
+  $("staffDepartment").value=p.department||"Service";
+  $("staffPlannable").checked=p.plannable===true;
+  if($("staffContractType"))$("staffContractType").value=p.contract_type||"minijob";
+  if($("staffHourlyRate"))$("staffHourlyRate").value=p.hourly_rate??"";
+  if($("staffBirthday"))$("staffBirthday").value=formatISODateGerman(p.birthday||"");
+  if($("staffHireDate"))$("staffHireDate").value=p.hire_date||"";
+  if($("staffTerminationDate"))$("staffTerminationDate").value=p.termination_date||"";
+  if($("staffWeeklyWorkdays"))$("staffWeeklyWorkdays").value=p.weekly_workdays??"";
+  if($("staffAnnualVacationDays"))$("staffAnnualVacationDays").value=p.annual_vacation_days??"";
+  if($("staffCarryoverDays"))$("staffCarryoverDays").value=p.vacation_carryover_days??"";
+  if($("staffCarryoverExpires"))$("staffCarryoverExpires").value=p.vacation_carryover_expires_at||"";
+  if($("staffCarryoverReason"))$("staffCarryoverReason").value=p.vacation_carryover_reason||"";
+  if($("staffVacationNoticeSentAt"))$("staffVacationNoticeSentAt").value=p.vacation_notice_sent_at||"";
+}
+async function deletePendingStaff(id){
+  if(!isManagement()) return;
+  if(!confirm("Vorbereitete Einladung löschen?")) return;
+  const {error}=await sb.from("pending_staff_invites").delete().eq("id",id);
+  if(error) return alert(error.message);
+  await loadProfiles();
+}
+
 function editStaff(id){
   const p=profiles.find(x=>x.id===id);
   $("editingStaffId").value=p.id;
@@ -3459,14 +3538,14 @@ async function deleteStaff(id){
   alert(`${name} wurde aus der App entfernt.\n\nStatus: ${mode}`);
 }
 
-window.editStaff=editStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
+window.editStaff=editStaff;window.editPendingStaff=editPendingStaff;window.deletePendingStaff=deletePendingStaff;window.deactivateStaff=deactivateStaff;window.deleteStaff=deleteStaff;
 
 function appPublicUrl(){
   return window.location.origin + window.location.pathname;
 }
 
 function sendStaffInvite(profileId){
-  const p = profiles.find(x=>x.id===profileId);
+  const p = profiles.find(x=>x.id===profileId) || pendingStaffInvites.find(x=>x.id===profileId);
   if(!p) return alert("Mitarbeiter nicht gefunden.");
   if(!p.email) return alert("Für diesen Mitarbeiter ist keine E-Mail hinterlegt.");
 
@@ -3497,7 +3576,11 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  $("staffList").innerHTML=profiles.filter(p=>!isRemovedProfile(p)).map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
+  const activeHtml=profiles.filter(p=>!isRemovedProfile(p)).map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
+
+  const pendingHtml=pendingStaffInvites.map(p=>`<div class="entry pendingStaffEntry"><div class="pendingBadge">Einladung ausstehend</div><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<div class="staffActions"><button class="secondary" onclick="editPendingStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="danger" onclick="deletePendingStaff('${p.id}')">Entfernen</button></div></div>`).join("");
+
+  $("staffList").innerHTML=pendingHtml+activeHtml;
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -4283,7 +4366,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6058`;
+  return `${base}?stempeluhr=1&v=6059`;
 }
 
 function normalizeIpValue(ip){

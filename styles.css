@@ -4146,3 +4146,21 @@ button[disabled]{
     grid-template-columns:1fr 1fr;
   }
 }
+
+
+/* v6.0.59: vorbereitete Mitarbeiter-Einladungen */
+.pendingStaffEntry{
+  border:2px dashed #d0a73a!important;
+  background:#fffaf0!important;
+}
+.pendingBadge{
+  display:inline-flex;
+  align-items:center;
+  border-radius:999px;
+  padding:5px 10px;
+  margin-bottom:8px;
+  background:#fff0bd;
+  color:#6b4c00;
+  font-weight:900;
+  font-size:.85rem;
+}
