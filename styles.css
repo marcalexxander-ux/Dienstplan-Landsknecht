@@ -4349,3 +4349,55 @@ button[disabled]{
   line-height:1.15!important;
   border-radius:9px!important;
 }
+
+
+/* v6.0.63: Mitarbeiterzelle wie gewünscht – nur Name und Position */
+#planGridService .orderControls,
+#planGridKitchen .orderControls,
+#planGridService .dragHandle,
+#planGridKitchen .dragHandle,
+#planGridService .orderHint,
+#planGridKitchen .orderHint{
+  display:none!important;
+}
+
+#planGridService .compactPersonCell,
+#planGridKitchen .compactPersonCell{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:1px!important;
+  min-height:36px;
+  margin:0!important;
+  padding:0!important;
+}
+
+#planGridService .compactPersonCell .orderCellName,
+#planGridKitchen .compactPersonCell .orderCellName{
+  display:block;
+  margin:0!important;
+  padding:0!important;
+  font-size:13px!important;
+  line-height:1.05!important;
+  font-weight:800!important;
+}
+
+#planGridService .compactPersonCell .deptBadge,
+#planGridKitchen .compactPersonCell .deptBadge{
+  display:inline-flex;
+  align-self:flex-start;
+  margin:0!important;
+  padding:1px 5px!important;
+  font-size:11.5px!important;
+  line-height:1.05!important;
+  border-radius:999px!important;
+}
+
+/* Zeilen nochmals etwas kompakter */
+#planGridService td,
+#planGridKitchen td{
+  height:44px!important;
+  padding-top:2px!important;
+  padding-bottom:2px!important;
+}
