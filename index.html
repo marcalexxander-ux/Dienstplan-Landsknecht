@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6067">
+  <link rel="stylesheet" href="styles.css?v=6068">
 </head>
 <body>
 <header class="topbar">
@@ -362,9 +362,9 @@
           <button id="newStaffBtn" class="secondary">➕ Mitarbeiter erstellen</button>
         </div>
         <div class="formGrid">
-          <div><label>Vorname</label><input id="staffFirstName"></div>
-          <div><label>Nachname</label><input id="staffLastName"></div>
-          <div><label>E-Mail</label><input id="staffEmail" type="email"></div>
+          <div><label>Vorname <span class="requiredMark">*</span></label><input id="staffFirstName"></div>
+          <div><label>Nachname <span class="requiredMark">*</span></label><input id="staffLastName"></div>
+          <div><label>E-Mail <span class="requiredMark">*</span></label><input id="staffEmail" type="email"></div>
           <div><label>Telefonnummer</label><input id="staffPhone"></div>
           <div>
             <label>Rolle</label>
@@ -404,6 +404,7 @@
 
 
           <div class="formGridTitle full">Personalfragebogen</div>
+          <div class="personnelInfo full">Pflichtfelder sind mit <strong>*</strong> gekennzeichnet. Alle übrigen Angaben sind freiwillig.</div>
 
           <div class="personnelTabs full" role="tablist" aria-label="Personalfragebogen Bereiche">
             <button type="button" class="personnelTab active" data-personnel-tab="personal">👤 Persönlich</button>
@@ -418,39 +419,39 @@
           <div class="personnelPanel full active" data-personnel-panel="personal">
             <div class="formGrid personnelInnerGrid">
               <div>
-                <label>Geburtsname optional</label>
+                <label>Geburtsname</label>
                 <input id="staffBirthName">
               </div>
               <div>
-                <label>Geburtsdatum optional</label>
+                <label>Geburtsdatum</label>
                 <input id="staffBirthday" type="text" inputmode="numeric" autocomplete="bday" placeholder="TT.MM.JJJJ">
               </div>
               <div class="full">
-                <label>Straße und Hausnummer optional</label>
+                <label>Straße und Hausnummer</label>
                 <input id="staffStreet">
               </div>
               <div>
-                <label>PLZ optional</label>
+                <label>PLZ</label>
                 <input id="staffPostalCode" inputmode="numeric">
               </div>
               <div>
-                <label>Ort optional</label>
+                <label>Ort</label>
                 <input id="staffCity">
               </div>
               <div>
-                <label>Geburtsort optional</label>
+                <label>Geburtsort</label>
                 <input id="staffBirthPlace">
               </div>
               <div>
-                <label>Geburtsland optional</label>
+                <label>Geburtsland</label>
                 <input id="staffBirthCountry">
               </div>
               <div>
-                <label>Staatsangehörigkeit optional</label>
+                <label>Staatsangehörigkeit</label>
                 <input id="staffNationality">
               </div>
               <div>
-                <label>Familienstand optional</label>
+                <label>Familienstand</label>
                 <select id="staffMaritalStatus">
                   <option value="">—</option>
                   <option value="ledig">Ledig</option>
@@ -461,7 +462,7 @@
                 </select>
               </div>
               <div>
-                <label>Geschlecht optional</label>
+                <label>Geschlecht</label>
                 <select id="staffGender">
                   <option value="">—</option>
                   <option value="weiblich">Weiblich</option>
@@ -471,7 +472,7 @@
                 </select>
               </div>
               <div>
-                <label>Sozialversicherungsnummer optional</label>
+                <label>Sozialversicherungsnummer</label>
                 <input id="staffSocialSecurityNumber">
               </div>
               <label class="checkLine">
@@ -484,27 +485,27 @@
           <div class="personnelPanel full" data-personnel-panel="employment">
             <div class="formGrid personnelInnerGrid">
               <div>
-                <label>Personalnummer optional</label>
+                <label>Personalnummer</label>
                 <input id="staffPersonnelNumber">
               </div>
               <div>
-                <label>Eintrittsdatum optional</label>
+                <label>Eintrittsdatum</label>
                 <input id="staffHireDate" type="date">
               </div>
               <div>
-                <label>Ersteintrittsdatum optional</label>
+                <label>Ersteintrittsdatum</label>
                 <input id="staffFirstHireDate" type="date">
               </div>
               <div>
-                <label>Austrittsdatum optional</label>
+                <label>Austrittsdatum</label>
                 <input id="staffTerminationDate" type="date">
               </div>
               <div>
-                <label>Berufsbezeichnung optional</label>
+                <label>Berufsbezeichnung</label>
                 <input id="staffJobTitle">
               </div>
               <div>
-                <label>Ausgeübte Tätigkeit optional</label>
+                <label>Ausgeübte Tätigkeit</label>
                 <input id="staffOccupation">
               </div>
               <div>
@@ -516,15 +517,15 @@
                 </select>
               </div>
               <div>
-                <label>Wöchentliche Arbeitszeit in Stunden optional</label>
+                <label>Wöchentliche Arbeitszeit in Stunden</label>
                 <input id="staffWeeklyHours" type="number" min="0" step="0.25">
               </div>
               <div>
-                <label>Arbeitstage pro Woche optional</label>
+                <label>Arbeitstage pro Woche</label>
                 <input id="staffWeeklyWorkdays" type="number" min="0" max="7" step="0.5" placeholder="z. B. 5">
               </div>
               <div>
-                <label>Probezeit optional</label>
+                <label>Probezeit</label>
                 <select id="staffProbation">
                   <option value="">—</option>
                   <option value="ja">Ja</option>
@@ -532,7 +533,7 @@
                 </select>
               </div>
               <div>
-                <label>Dauer Probezeit in Monaten optional</label>
+                <label>Dauer Probezeit in Monaten</label>
                 <input id="staffProbationMonths" type="number" min="0" max="24" step="1">
               </div>
               <label class="checkLine">
@@ -544,7 +545,7 @@
                 Weitere Beschäftigung ist geringfügig
               </label>
               <div>
-                <label>Höchster Schulabschluss optional</label>
+                <label>Höchster Schulabschluss</label>
                 <select id="staffSchoolQualification">
                   <option value="">—</option>
                   <option value="ohne">Ohne Schulabschluss</option>
@@ -554,7 +555,7 @@
                 </select>
               </div>
               <div>
-                <label>Höchste Berufsausbildung optional</label>
+                <label>Höchste Berufsausbildung</label>
                 <select id="staffVocationalQualification">
                   <option value="">—</option>
                   <option value="ohne">Ohne Ausbildungsabschluss</option>
@@ -570,11 +571,11 @@
                 Arbeitsverhältnis befristet
               </label>
               <div>
-                <label>Befristet bis optional</label>
+                <label>Befristet bis</label>
                 <input id="staffFixedTermUntil" type="date">
               </div>
               <div>
-                <label>Arbeitsvertrag abgeschlossen am optional</label>
+                <label>Arbeitsvertrag abgeschlossen am</label>
                 <input id="staffContractSignedAt" type="date">
               </div>
             </div>
@@ -583,19 +584,19 @@
           <div class="personnelPanel full" data-personnel-panel="vacation">
             <div class="formGrid personnelInnerGrid">
               <div>
-                <label>Jahresurlaub vertraglich optional</label>
+                <label>Jahresurlaub vertraglich</label>
                 <input id="staffAnnualVacationDays" type="number" min="0" step="0.5" placeholder="z. B. 20">
               </div>
               <div>
-                <label>Resturlaub Vorjahr optional</label>
+                <label>Resturlaub Vorjahr</label>
                 <input id="staffCarryoverDays" type="number" min="0" step="0.5" placeholder="z. B. 3">
               </div>
               <div>
-                <label>Übertrag gültig bis optional</label>
+                <label>Übertrag gültig bis</label>
                 <input id="staffCarryoverExpires" type="date">
               </div>
               <div>
-                <label>Hinweis auf Verfall gesendet am optional</label>
+                <label>Hinweis auf Verfall gesendet am</label>
                 <input id="staffVacationNoticeSentAt" type="date">
               </div>
               <div class="full">
@@ -608,11 +609,11 @@
           <div class="personnelPanel full" data-personnel-panel="tax">
             <div class="formGrid personnelInnerGrid">
               <div>
-                <label>Steuer-ID optional</label>
+                <label>Steuer-ID</label>
                 <input id="staffTaxId">
               </div>
               <div>
-                <label>Steuerklasse optional</label>
+                <label>Steuerklasse</label>
                 <select id="staffTaxClass">
                   <option value="">—</option>
                   <option>I</option><option>II</option><option>III</option>
@@ -620,15 +621,15 @@
                 </select>
               </div>
               <div>
-                <label>Kinderfreibeträge optional</label>
+                <label>Kinderfreibeträge</label>
                 <input id="staffChildAllowance" type="number" min="0" step="0.5">
               </div>
               <div>
-                <label>Konfession optional</label>
+                <label>Konfession</label>
                 <input id="staffReligion">
               </div>
               <div>
-                <label>Gesetzliche Krankenkasse optional</label>
+                <label>Gesetzliche Krankenkasse</label>
                 <input id="staffHealthInsurance">
               </div>
               <label class="checkLine">
@@ -645,15 +646,15 @@
           <div class="personnelPanel full" data-personnel-panel="bank">
             <div class="formGrid personnelInnerGrid">
               <div class="full">
-                <label>IBAN optional</label>
+                <label>IBAN</label>
                 <input id="staffIban" autocomplete="off">
               </div>
               <div>
-                <label>BIC optional</label>
+                <label>BIC</label>
                 <input id="staffBic" autocomplete="off">
               </div>
               <div>
-                <label>Bankbezeichnung optional</label>
+                <label>Bankbezeichnung</label>
                 <input id="staffBankName">
               </div>
             </div>
@@ -764,7 +765,7 @@
                 <input id="clockDateTime" type="datetime-local">
               </div>
               <div class="full">
-                <label>Notiz optional</label>
+                <label>Notiz</label>
                 <input id="clockNote" placeholder="z. B. Korrektur, Test, vergessen auszustempeln">
               </div>
             </div>
@@ -1012,7 +1013,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6067"></script>
-<script src="app.js?v=6067"></script>
+<script src="config.js?v=6068"></script>
+<script src="app.js?v=6068"></script>
 </body>
 </html>
