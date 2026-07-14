@@ -4401,3 +4401,36 @@ button[disabled]{
   padding-top:2px!important;
   padding-bottom:2px!important;
 }
+
+
+/* v6.0.64: Kopie gleich groß wie Wochen-Navigation */
+#copyServiceNextWeekBtn,
+#copyKitchenNextWeekBtn,
+#prevWeekService,
+#nextWeekService,
+#prevWeekKitchen,
+#nextWeekKitchen{
+  min-width:150px!important;
+  width:150px!important;
+  height:46px!important;
+  min-height:46px!important;
+  padding:0 14px!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  white-space:nowrap!important;
+  box-sizing:border-box!important;
+  font-size:14px!important;
+  line-height:1!important;
+}
+@media(max-width:820px){
+  #copyServiceNextWeekBtn,
+  #copyKitchenNextWeekBtn,
+  #prevWeekService,
+  #nextWeekService,
+  #prevWeekKitchen,
+  #nextWeekKitchen{
+    width:100%!important;
+    min-width:0!important;
+  }
+}
