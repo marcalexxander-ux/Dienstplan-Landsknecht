@@ -4493,3 +4493,39 @@ button[disabled]{
     min-height:42px!important;
   }
 }
+
+
+/* v6.0.66: Mitarbeiter-Spalte schmaler, damit Sonntag besser sichtbar bleibt */
+#planGridService th:first-child,
+#planGridService td:first-child,
+#planGridKitchen th:first-child,
+#planGridKitchen td:first-child{
+  width:145px!important;
+  min-width:145px!important;
+  max-width:145px!important;
+  padding-left:6px!important;
+  padding-right:6px!important;
+}
+
+#planGridService .compactPersonCell .orderCellName,
+#planGridKitchen .compactPersonCell .orderCellName{
+  font-size:12.5px!important;
+  line-height:1.02!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere;
+}
+
+#planGridService .compactPersonCell .deptBadge,
+#planGridKitchen .compactPersonCell .deptBadge{
+  font-size:11px!important;
+  padding:1px 4px!important;
+  max-width:100%;
+  white-space:normal!important;
+  line-height:1.05!important;
+}
+
+/* Gesamttabelle etwas schmaler, Uhrzeiten bleiben vollständig sichtbar */
+#planGridService table,
+#planGridKitchen table{
+  min-width:1125px!important;
+}
