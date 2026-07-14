@@ -4235,3 +4235,117 @@ button[disabled]{
   font-weight:800!important;
   white-space:nowrap!important;
 }
+
+
+/* v6.0.62: Dienstplan kompakter und ruhiger */
+#planGridService td,
+#planGridKitchen td{
+  height:48px!important;
+  padding-top:3px!important;
+  padding-bottom:3px!important;
+}
+
+#planGridService th,
+#planGridKitchen th{
+  padding-top:7px!important;
+  padding-bottom:7px!important;
+}
+
+#planGridService input[data-profile],
+#planGridKitchen input[data-profile],
+#planGridService .shiftInput,
+#planGridKitchen .shiftInput{
+  height:34px!important;
+  padding:0 6px!important;
+  font-size:12.5px!important;
+  line-height:1!important;
+  border-radius:10px!important;
+}
+
+#planGridService th:first-child,
+#planGridService td:first-child,
+#planGridKitchen th:first-child,
+#planGridKitchen td:first-child{
+  width:170px!important;
+  min-width:170px!important;
+  max-width:170px!important;
+  padding:5px 8px!important;
+}
+
+#planGridService th:not(:first-child),
+#planGridService td:not(:first-child),
+#planGridKitchen th:not(:first-child),
+#planGridKitchen td:not(:first-child){
+  width:132px!important;
+  min-width:132px!important;
+  max-width:132px!important;
+  padding:4px 5px!important;
+}
+
+#planGridService .employeeCell,
+#planGridKitchen .employeeCell{
+  padding-top:5px!important;
+  padding-bottom:5px!important;
+}
+
+#planGridService .employeeName,
+#planGridKitchen .employeeName,
+#planGridService td:first-child b,
+#planGridKitchen td:first-child b{
+  display:block;
+  margin:0!important;
+  font-size:13px!important;
+  line-height:1.05!important;
+}
+
+#planGridService .deptBadge,
+#planGridKitchen .deptBadge{
+  display:inline-flex;
+  margin-top:2px!important;
+  margin-bottom:0!important;
+  padding:2px 6px!important;
+  font-size:11.5px!important;
+  line-height:1!important;
+  border-radius:999px!important;
+}
+
+#planGridService .employeeHint,
+#planGridKitchen .employeeHint,
+#planGridService .dragHint,
+#planGridKitchen .dragHint,
+#planGridService small,
+#planGridKitchen small{
+  margin:0!important;
+}
+
+#planGridService .employeeHint,
+#planGridKitchen .employeeHint,
+#planGridService .dragHint,
+#planGridKitchen .dragHint{
+  display:none!important;
+}
+
+/* Auf-/Ab-Pfeile ausblenden */
+#planGridService .moveUpBtn,
+#planGridService .moveDownBtn,
+#planGridKitchen .moveUpBtn,
+#planGridKitchen .moveDownBtn,
+#planGridService button[title*="hoch" i],
+#planGridService button[title*="runter" i],
+#planGridService button[aria-label*="hoch" i],
+#planGridService button[aria-label*="runter" i],
+#planGridKitchen button[title*="hoch" i],
+#planGridKitchen button[title*="runter" i],
+#planGridKitchen button[aria-label*="hoch" i],
+#planGridKitchen button[aria-label*="runter" i]{
+  display:none!important;
+}
+
+/* Event-/Tagesinfo-Kopf ebenfalls kompakter */
+#planGridService .eventCard,
+#planGridKitchen .eventCard{
+  padding:6px 8px!important;
+  font-size:12px!important;
+  line-height:1.15!important;
+  border-radius:9px!important;
+}
