@@ -4166,17 +4166,72 @@ button[disabled]{
 }
 
 
-/* v6.0.60: sichtbare Versionskontrolle + Cache-Busting */
-.appVersionBadge{
-  position:fixed;
-  right:10px;
-  bottom:10px;
-  z-index:9998;
-  padding:5px 9px;
-  border-radius:999px;
-  background:rgba(16,35,28,.78);
-  color:#fff;
-  font-size:.72rem;
-  font-weight:800;
-  pointer-events:none;
+
+/* v6.0.61: Einheitliche Dienstplan-Tabelle */
+#planGridService,
+#planGridKitchen{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+#planGridService table,
+#planGridKitchen table{
+  table-layout:fixed!important;
+  width:100%;
+  min-width:1180px;
+  border-collapse:collapse;
+}
+#planGridService th,
+#planGridService td,
+#planGridKitchen th,
+#planGridKitchen td{
+  box-sizing:border-box;
+  vertical-align:middle;
+}
+#planGridService th:first-child,
+#planGridService td:first-child,
+#planGridKitchen th:first-child,
+#planGridKitchen td:first-child{
+  width:190px!important;
+  min-width:190px!important;
+  max-width:190px!important;
+}
+#planGridService th:not(:first-child),
+#planGridService td:not(:first-child),
+#planGridKitchen th:not(:first-child),
+#planGridKitchen td:not(:first-child){
+  width:140px!important;
+  min-width:140px!important;
+  max-width:140px!important;
+}
+#planGridService input[data-profile],
+#planGridKitchen input[data-profile],
+#planGridService .shiftInput,
+#planGridKitchen .shiftInput{
+  width:100%!important;
+  height:46px!important;
+  min-width:0!important;
+  padding:0 8px!important;
+  box-sizing:border-box!important;
+  text-align:center!important;
+  font-size:14px!important;
+  font-weight:800!important;
+  line-height:1.15!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  letter-spacing:-0.15px;
+}
+#planGridService td,
+#planGridKitchen td{
+  height:64px;
+}
+#planGridService .shift-frei,
+#planGridService .shift-urlaub,
+#planGridService .shift-krank,
+#planGridKitchen .shift-frei,
+#planGridKitchen .shift-urlaub,
+#planGridKitchen .shift-krank{
+  font-size:14px!important;
+  font-weight:800!important;
+  white-space:nowrap!important;
 }
