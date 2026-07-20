@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.69";
+const APP_VERSION="v6.0.70";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -693,7 +693,18 @@ async function loadDashboardLight(){
 
 
 function dashboardV57Card(title,value,sub,cls=""){
-  return `<div class="dashStatV57 ${cls}"><span>${escapeHtml(title)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(sub||"")}</small></div>`;
+  const map={
+    "Heute im Dienst":"service",
+    "Krank":"sick",
+    "Urlaub":"vacation",
+    "Offene Anträge":"requests",
+    "Events":"events"
+  };
+  const view=map[title]||"";
+  return `<button type="button" class="dashStatV57 ${cls}" ${view?`data-dash-sheet="${view}"`:""}>
+    <span>${escapeHtml(title)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(sub||"")}</small>
+    <em class="dashStatTouchHintV70">Antippen</em>
+  </button>`;
 }
 function dashboardV57ShiftText(s){
   if(!s) return "—";
@@ -1142,7 +1153,52 @@ async function loadDashboardV57(){
     `).join("") : `<div class="dashEmptyV57">Keine kommenden Events eingetragen.</div>`;
   }
 }
+function openDashboardSheetV70(view){
+  const data=dashboardMobileStateV69.views?.[view];
+  const sheet=$("dashTouchSheetV70");
+  if(!sheet || !data) return;
+  if($("dashTouchSheetTitleV70")) $("dashTouchSheetTitleV70").textContent=data.title||"Übersicht";
+  if($("dashTouchSheetSubtitleV70")) $("dashTouchSheetSubtitleV70").textContent=data.subtitle||"";
+  if($("dashTouchSheetContentV70")) $("dashTouchSheetContentV70").innerHTML=data.html||dashMobileEmptyV69("Keine Daten vorhanden.");
+  sheet.classList.remove("hidden");
+  sheet.setAttribute("aria-hidden","false");
+  document.body.classList.add("dashSheetOpenV70");
+
+  sheet.querySelectorAll("[data-tab-jump]").forEach(btn=>{
+    btn.onclick=()=>{
+      closeDashboardSheetV70();
+      const tab=btn.dataset.tabJump;
+      const nav=document.querySelector(`button[data-tab="${tab}"]`);
+      if(nav) nav.click();
+    };
+  });
+}
+
+function closeDashboardSheetV70(){
+  const sheet=$("dashTouchSheetV70");
+  if(!sheet) return;
+  sheet.classList.add("hidden");
+  sheet.setAttribute("aria-hidden","true");
+  document.body.classList.remove("dashSheetOpenV70");
+}
+
+function setupDashboardSheetV70(){
+  if($("dashTouchCloseV70")) $("dashTouchCloseV70").onclick=closeDashboardSheetV70;
+  if($("dashTouchBackdropV70")) $("dashTouchBackdropV70").onclick=closeDashboardSheetV70;
+
+  $("dashboardStatsV57")?.addEventListener("click",e=>{
+    const card=e.target.closest("[data-dash-sheet]");
+    if(!card) return;
+    openDashboardSheetV70(card.dataset.dashSheet);
+  });
+
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape") closeDashboardSheetV70();
+  });
+}
+
 function setupDashboardV57(){
+  setupDashboardSheetV70();
   setupDashboardMobileV69();
   if($("refreshDashboardV57")) $("refreshDashboardV57").onclick = loadDashboardV57;
 
@@ -4583,7 +4639,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6069`;
+  return `${base}?stempeluhr=1&v=6070`;
 }
 
 function normalizeIpValue(ip){

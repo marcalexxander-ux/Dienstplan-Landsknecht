@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6069">
+  <link rel="stylesheet" href="styles.css?v=6070">
 </head>
 <body>
 <header class="topbar">
@@ -131,6 +131,20 @@
   </div>
 
   <div id="dashboardStatsV57" class="dashboardStatsV57"></div>
+  <div id="dashTouchSheetV70" class="dashTouchSheetV70 hidden" aria-hidden="true">
+    <button id="dashTouchBackdropV70" class="dashTouchBackdropV70" type="button" aria-label="Schließen"></button>
+    <section class="dashTouchDialogV70" role="dialog" aria-modal="true" aria-labelledby="dashTouchSheetTitleV70">
+      <div class="dashTouchHandleV70"></div>
+      <div class="dashTouchSheetHeadV70">
+        <div>
+          <h3 id="dashTouchSheetTitleV70">Heute im Dienst</h3>
+          <small id="dashTouchSheetSubtitleV70"></small>
+        </div>
+        <button id="dashTouchCloseV70" type="button" class="dashTouchCloseV70" aria-label="Schließen">✕</button>
+      </div>
+      <div id="dashTouchSheetContentV70" class="dashTouchSheetContentV70"></div>
+    </section>
+  </div>
   <div class="dashboardColumnsV57">
     <div class="dashboardColumnV57">
       <div class="dashPanelV57"><h3>Heute im Dienst</h3><div id="dashboardTodayWorkersV57" class="dashListV57"></div></div>
@@ -1033,7 +1047,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6069"></script>
-<script src="app.js?v=6069"></script>
+<script src="config.js?v=6070"></script>
+<script src="app.js?v=6070"></script>
 </body>
 </html>
