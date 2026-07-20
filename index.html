@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6073">
+  <link rel="stylesheet" href="styles.css?v=6074">
 </head>
 <body>
 <header class="topbar">
@@ -895,10 +895,19 @@
       </section>
 
 <section id="events" class="tabPage hidden managementOnly eventsPage">
-  <div class="eventsTouchNavV73" aria-label="Eventbereiche">
-    <button type="button" class="eventsTouchBtnV73 active" data-events-view="upcoming">📅 Bevorstehende Events</button>
-    <button type="button" class="eventsTouchBtnV73" data-events-view="messe">🏢 Messe Düsseldorf</button>
-    <button type="button" class="eventsTouchBtnV73" data-events-view="create">➕ Event erstellen</button>
+  <div class="eventsTouchNavV73 eventsTouchGridV74" aria-label="Eventbereiche">
+    <button type="button" class="eventsTouchBtnV73 eventsTouchTileV74 active" data-events-view="upcoming">
+      <span class="eventsTouchIconV74">📅</span>
+      <span class="eventsTouchTextV74"><b>Bevorstehende Events</b><small>Eigene Veranstaltungen</small></span>
+    </button>
+    <button type="button" class="eventsTouchBtnV73 eventsTouchTileV74" data-events-view="messe">
+      <span class="eventsTouchIconV74">🏢</span>
+      <span class="eventsTouchTextV74"><b>Messe Düsseldorf</b><small>Importierte Messetermine</small></span>
+    </button>
+    <button type="button" class="eventsTouchBtnV73 eventsTouchTileV74 eventsTouchCreateV74" data-events-view="create">
+      <span class="eventsTouchIconV74">➕</span>
+      <span class="eventsTouchTextV74"><b>Event erstellen</b><small>Neuen Eintrag anlegen</small></span>
+    </button>
   </div>
 
   <div class="eventsTouchPanelV73 active" data-events-panel="upcoming">
@@ -1066,7 +1075,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6073"></script>
-<script src="app.js?v=6073"></script>
+<script src="config.js?v=6074"></script>
+<script src="app.js?v=6074"></script>
 </body>
 </html>

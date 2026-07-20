@@ -5057,3 +5057,102 @@ button[disabled]{
     font-size:13px;
   }
 }
+
+
+/* v6.0.74 – Events mobil wie Heute verteilt */
+@media(max-width:820px){
+  .eventsTouchNavV73.eventsTouchGridV74{
+    position:static;
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    overflow:visible;
+    margin:0 0 14px;
+    padding:0;
+    background:none;
+  }
+
+  .eventsTouchTileV74{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:10px;
+    width:100%;
+    min-width:0;
+    min-height:92px;
+    padding:14px;
+    border-radius:20px;
+    white-space:normal;
+    text-align:left;
+  }
+
+  .eventsTouchCreateV74{
+    grid-column:1 / -1;
+    min-height:74px;
+  }
+
+  .eventsTouchIconV74{
+    flex:0 0 auto;
+    font-size:24px;
+    line-height:1;
+  }
+
+  .eventsTouchTextV74{
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+  }
+
+  .eventsTouchTextV74 b{
+    font-size:14px;
+    line-height:1.2;
+  }
+
+  .eventsTouchTextV74 small{
+    color:#6f7d75;
+    font-size:11.5px;
+    line-height:1.25;
+  }
+
+  .eventsTouchBtnV73.active .eventsTouchTextV74 small{
+    color:rgba(255,255,255,.78);
+  }
+
+  .eventsTouchPanelV73 .card{
+    border-radius:22px;
+    padding:18px;
+  }
+
+  .eventsTouchPanelV73 .card h2{
+    margin:0 0 8px;
+    font-size:28px;
+    line-height:1.05;
+  }
+
+  .eventsTouchPanelV73 .card .subline{
+    margin:0 0 16px;
+    font-size:14px;
+    line-height:1.4;
+  }
+}
+
+@media(max-width:390px){
+  .eventsTouchNavV73.eventsTouchGridV74{
+    gap:10px;
+  }
+
+  .eventsTouchTileV74{
+    min-height:86px;
+    padding:12px;
+    gap:8px;
+  }
+
+  .eventsTouchTextV74 b{
+    font-size:13px;
+  }
+
+  .eventsTouchTextV74 small{
+    font-size:10.5px;
+  }
+}
