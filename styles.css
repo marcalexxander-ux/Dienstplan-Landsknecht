@@ -4954,3 +4954,24 @@ button[disabled]{
 @media(min-width:821px){
   .dashTouchSheetV70{display:none!important}
 }
+
+
+/* v6.0.71 – Urlaub pro Mitarbeiter nur einmal */
+@media(max-width:820px){
+  .dashTouchOpenRowV71{
+    width:100%;
+    color:inherit;
+    text-align:left;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  .dashTouchOpenRowV71:active{
+    transform:scale(.985);
+  }
+  .dashTouchOpenRowV71 > strong{
+    max-width:46%;
+    text-align:right;
+    white-space:normal;
+    line-height:1.2;
+  }
+}

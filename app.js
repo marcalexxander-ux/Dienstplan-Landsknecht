@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.70";
+const APP_VERSION="v6.0.71";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -922,15 +922,31 @@ function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacati
       </div>
     </div>`).join("") : dashMobileEmptyV69("Keine kommenden Events eingetragen.");
 
-  const vacationHtml = (todayVacations||[]).length ? todayVacations.map(v=>{
+  const vacationByProfile = new Map();
+  (todayVacations||[]).forEach(v=>{
+    if(!v?.profile_id) return;
+    const existing = vacationByProfile.get(v.profile_id);
+    if(!existing){
+      vacationByProfile.set(v.profile_id,{...v});
+      return;
+    }
+    if(String(v.date_from||"") < String(existing.date_from||"")) existing.date_from=v.date_from;
+    if(String(v.date_to||"") > String(existing.date_to||"")) existing.date_to=v.date_to;
+  });
+  const uniqueTodayVacations = [...vacationByProfile.values()];
+
+  const vacationHtml = uniqueTodayVacations.length ? uniqueTodayVacations.map(v=>{
     const p=profileById(v.profile_id);
-    return `<div class="dashTouchRowV69">
+    const from = v.date_from ? fmtDate(v.date_from) : "";
+    const to = v.date_to ? fmtDate(v.date_to) : "";
+    const period = from && to ? (from===to ? from : `${from} – ${to}`) : "Urlaub";
+    return `<button type="button" class="dashTouchRowV69 dashTouchOpenRowV71" data-tab-jump="vacation">
       <div class="dashTouchMainV69">
         <b>${escapeHtml(p?.first_name||"")} ${escapeHtml(p?.last_name||"")}</b>
         <small>${escapeHtml(displayDept(p?.department))}</small>
       </div>
-      <strong>Urlaub</strong>
-    </div>`;
+      <strong>${escapeHtml(period)}</strong>
+    </button>`;
   }).join("") : dashMobileEmptyV69("Heute ist niemand im Urlaub.");
 
   const sickHtml = (sickToday||[]).length ? sickToday.map(s=>{
@@ -970,7 +986,7 @@ function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacati
   };
 
   if(isManagement()){
-    dashboardMobileStateV69.views.vacation={title:"Heute im Urlaub",subtitle:`${todayVacations.length} Mitarbeiter`,html:vacationHtml};
+    dashboardMobileStateV69.views.vacation={title:"Heute im Urlaub",subtitle:`${uniqueTodayVacations.length} Mitarbeiter`,html:vacationHtml};
     dashboardMobileStateV69.views.sick={title:"Heute krank",subtitle:`${sickToday.length} Mitarbeiter`,html:sickHtml};
     dashboardMobileStateV69.views.requests={title:"Offene Anträge",subtitle:`${openVacations.length} Urlaubsanträge`,html:requestHtml};
   }
@@ -978,7 +994,7 @@ function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacati
   const badgeValues={
     dashBadgeServiceV69:workToday.length,
     dashBadgeEventsV69:events.length,
-    dashBadgeVacationV69:todayVacations.length,
+    dashBadgeVacationV69:uniqueTodayVacations.length,
     dashBadgeSickV69:sickToday.length,
     dashBadgeRequestsV69:openVacations.length,
     dashBadgeInfosV69:infos.length
@@ -1070,7 +1086,7 @@ async function loadDashboardV57(){
     $("dashboardStatsV57").innerHTML = isManagement() ? [
       dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
       dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
-      dashboardV57Card("Urlaub", String(todayVacations.length), "heute"),
+      dashboardV57Card("Urlaub", String(new Set(todayVacations.map(v=>v.profile_id).filter(Boolean)).size), "heute"),
       dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub"),
       dashboardV57Card("Events", String(events.length), "kommend")
     ].join("") : [
@@ -4639,7 +4655,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6070`;
+  return `${base}?stempeluhr=1&v=6071`;
 }
 
 function normalizeIpValue(ip){
