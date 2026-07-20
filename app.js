@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.71";
+const APP_VERSION="v6.0.72";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -703,7 +703,6 @@ function dashboardV57Card(title,value,sub,cls=""){
   const view=map[title]||"";
   return `<button type="button" class="dashStatV57 ${cls}" ${view?`data-dash-sheet="${view}"`:""}>
     <span>${escapeHtml(title)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(sub||"")}</small>
-    <em class="dashStatTouchHintV70">Antippen</em>
   </button>`;
 }
 function dashboardV57ShiftText(s){
@@ -920,7 +919,7 @@ function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacati
         <b>${escapeHtml(eventPlanLabel(e))}</b>
         <small>${fmtDate(e.event_date)}${e.note ? " · "+escapeHtml(e.note) : ""}</small>
       </div>
-    </div>`).join("") : dashMobileEmptyV69("Keine kommenden Events eingetragen.");
+    </div>`).join("") : dashMobileEmptyV69("Heute sind keine Events eingetragen.");
 
   const vacationByProfile = new Map();
   (todayVacations||[]).forEach(v=>{
@@ -981,7 +980,7 @@ function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacati
 
   dashboardMobileStateV69.views = {
     service:{title:"Heute im Dienst",subtitle:`${workToday.length} geplante Schichten`,html:workHtml},
-    events:{title:"Events",subtitle:`${events.length} kommende Einträge`,html:eventHtml},
+    events:{title:"Heutige Events",subtitle:`${events.length} heute`,html:eventHtml},
     infos:{title:"Tagesinfos",subtitle:"Informationen für heute",html:infoHtml}
   };
 
@@ -1035,7 +1034,7 @@ async function loadDashboardV57(){
   const openVacations = await dashboardSafe(sb.from("vacation_requests").select("*").eq("status","beantragt").order("date_from",{ascending:true}).limit(8));
   const todayVacations = await dashboardSafe(sb.from("vacation_requests").select("*").lte("date_from",today).gte("date_to",today).eq("status","genehmigt"));
   const monthSchedules = await dashboardSafe(sb.from("schedules").select("*").gte("work_date",fromMonth).lte("work_date",toMonth));
-  const events = await dashboardSafe(sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).limit(6));
+  const events = await dashboardSafe(sb.from("events").select("*").eq("event_date",today).order("event_date",{ascending:true}).limit(20));
 
   let visibleTodaySchedules = todaySchedules;
   let visibleMonthSchedules = monthSchedules;
@@ -1085,13 +1084,13 @@ async function loadDashboardV57(){
   if($("dashboardStatsV57")){
     $("dashboardStatsV57").innerHTML = isManagement() ? [
       dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
-      dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
+      dashboardV57Card("Events", String(events.length), "heute"),
       dashboardV57Card("Urlaub", String(new Set(todayVacations.map(v=>v.profile_id).filter(Boolean)).size), "heute"),
-      dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub"),
-      dashboardV57Card("Events", String(events.length), "kommend")
+      dashboardV57Card("Krank", String(sickToday.length), "heute", sickToday.length ? "warn" : ""),
+      dashboardV57Card("Offene Anträge", String(openVacations.length), "Urlaub")
     ].join("") : [
       dashboardV57Card("Heute im Dienst", String(workToday.length), "geplante Schichten"),
-      dashboardV57Card("Events", String(events.length), "kommend")
+      dashboardV57Card("Events", String(events.length), "heute")
     ].join("");
   }
 
@@ -1166,7 +1165,7 @@ async function loadDashboardV57(){
   if($("dashboardEventsV57")){
     $("dashboardEventsV57").innerHTML = events.length ? events.map(e=>`
       <div class="dashItemV57"><div><b>${escapeHtml(eventPlanLabel(e))}</b><br><small>${fmtDate(e.event_date)}${e.note ? " · " + escapeHtml(e.note) : ""}</small></div></div>
-    `).join("") : `<div class="dashEmptyV57">Keine kommenden Events eingetragen.</div>`;
+    `).join("") : `<div class="dashEmptyV57">Heute sind keine Events eingetragen.</div>`;
   }
 }
 function openDashboardSheetV70(view){
@@ -4655,7 +4654,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6071`;
+  return `${base}?stempeluhr=1&v=6072`;
 }
 
 function normalizeIpValue(ip){
