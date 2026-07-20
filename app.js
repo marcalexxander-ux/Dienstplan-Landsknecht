@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.72";
+const APP_VERSION="v6.0.73";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -742,6 +742,7 @@ function clearEventForm(){
   if($("eventPlan")) $("eventPlan").checked=true;
   if($("eventImportant")) $("eventImportant").checked=false;
   setEventRooms([]);
+  if($("eventFormTitleV73")) $("eventFormTitleV73").textContent="Event erstellen";
 }
 function eventTypeIcon(type){
   const t=String(type||"").toLowerCase();
@@ -799,20 +800,22 @@ async function saveEvent(){
   }
   clearEventForm();
   await loadEvents();
+  setEventsTouchViewV73("upcoming");
   await loadDashboardV57?.();
   await loadMonth();
   await loadPlanService();
   await loadPlanKitchen();
 }
-async function loadEvents(){
-  if(!$("eventList") || !isManagement()) return;
-  const today=todayISO();
-  const {data,error}=await sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).order("start_time",{ascending:true}).limit(80);
-  if(error){
-    $("eventList").innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
-    return;
-  }
-  $("eventList").innerHTML=(data||[]).map(e=>`
+function isMesseDuesseldorfEventV73(e){
+  const marker = `${e?.title||""} ${e?.note||""}`.toLowerCase();
+  return marker.includes("auto_import_messe_duesseldorf_2026") ||
+    marker.includes("messe düsseldorf") ||
+    marker.includes("messe duesseldorf") ||
+    String(e?.title||"").trim().toLowerCase().startsWith("messe:");
+}
+
+function eventEntryHtmlV73(e){
+  return `
     <div class="entry eventEntry ${e.important?"eventImportant":""}">
       <div class="eventEntryText">
         <b>${fmtDate(e.event_date)}</b><br>
@@ -823,8 +826,28 @@ async function loadEvents(){
         <button class="secondary" onclick="editEvent('${e.id}')">Bearbeiten</button>
         <button class="danger" onclick="deleteEvent('${e.id}')">Aus App entfernen</button>
       </div>
-    </div>
-  `).join("") || "<p>Keine kommenden Events.</p>";
+    </div>`;
+}
+
+async function loadEvents(){
+  if(!$("eventList") || !isManagement()) return;
+  const today=todayISO();
+  const {data,error}=await sb.from("events").select("*").gte("event_date",today).order("event_date",{ascending:true}).order("start_time",{ascending:true}).limit(200);
+  if(error){
+    const msg=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
+    $("eventList").innerHTML=msg;
+    if($("messeEventList")) $("messeEventList").innerHTML=msg;
+    return;
+  }
+
+  const all=data||[];
+  const messe=all.filter(isMesseDuesseldorfEventV73);
+  const upcoming=all.filter(e=>!isMesseDuesseldorfEventV73(e));
+
+  $("eventList").innerHTML=upcoming.map(eventEntryHtmlV73).join("") || "<p>Keine bevorstehenden Events.</p>";
+  if($("messeEventList")){
+    $("messeEventList").innerHTML=messe.map(eventEntryHtmlV73).join("") || "<p>Keine Messe-Einträge vorhanden.</p>";
+  }
 }
 async function editEvent(id){
   const {data,error}=await sb.from("events").select("*").eq("id",id).single();
@@ -842,6 +865,8 @@ async function editEvent(id){
   $("eventImportant").checked=!!data.important;
   setEventRooms(data.rooms);
   setActiveTab("events");
+  setEventsTouchViewV73("create");
+  if($("eventFormTitleV73")) $("eventFormTitleV73").textContent="Event bearbeiten";
   setTimeout(()=>$("eventTitle")?.focus(),100);
 }
 async function deleteEvent(id){
@@ -854,7 +879,28 @@ async function deleteEvent(id){
   await loadPlanService();
   await loadPlanKitchen();
 }
+
+function setEventsTouchViewV73(view){
+  document.querySelectorAll(".eventsTouchBtnV73").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.eventsView===view);
+  });
+  document.querySelectorAll(".eventsTouchPanelV73").forEach(panel=>{
+    panel.classList.toggle("active",panel.dataset.eventsPanel===view);
+  });
+  if(view==="create" && $("eventFormTitleV73") && !$("editingEventId")?.value){
+    $("eventFormTitleV73").textContent="Event erstellen";
+  }
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function setupEventsTouchV73(){
+  document.querySelectorAll(".eventsTouchBtnV73").forEach(btn=>{
+    btn.onclick=()=>setEventsTouchViewV73(btn.dataset.eventsView);
+  });
+}
+
 function setupEvents(){
+  setupEventsTouchV73();
   if($("eventDate")) $("eventDate").value ||= todayISO();
   if($("saveEvent")) $("saveEvent").onclick=saveEvent;
   if($("clearEvent")) $("clearEvent").onclick=clearEventForm;
@@ -4654,7 +4700,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6072`;
+  return `${base}?stempeluhr=1&v=6073`;
 }
 
 function normalizeIpValue(ip){
