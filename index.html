@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6068">
+  <link rel="stylesheet" href="styles.css?v=6069">
 </head>
 <body>
 <header class="topbar">
@@ -110,6 +110,26 @@
       <p id="dashboardGreeting">Aktueller Überblick</p>
     </div>
   </div>
+
+  <div id="dashboardMobileV69" class="dashboardMobileV69">
+    <div class="dashTouchTabsV69" role="tablist" aria-label="Heute Bereiche">
+      <button type="button" class="dashTouchTabV69 active" data-dash-view="service">👥 Dienst <span id="dashBadgeServiceV69">0</span></button>
+      <button type="button" class="dashTouchTabV69" data-dash-view="events">📅 Events <span id="dashBadgeEventsV69">0</span></button>
+      <button type="button" class="dashTouchTabV69 managementOnly" data-dash-view="vacation">🏝️ Urlaub <span id="dashBadgeVacationV69">0</span></button>
+      <button type="button" class="dashTouchTabV69 managementOnly" data-dash-view="sick">🤒 Krank <span id="dashBadgeSickV69">0</span></button>
+      <button type="button" class="dashTouchTabV69 managementOnly" data-dash-view="requests">📨 Anträge <span id="dashBadgeRequestsV69">0</span></button>
+      <button type="button" class="dashTouchTabV69" data-dash-view="infos">📢 Infos <span id="dashBadgeInfosV69">0</span></button>
+    </div>
+
+    <div class="dashTouchCardV69">
+      <div class="dashTouchCardHeadV69">
+        <h3 id="dashTouchTitleV69">Heute im Dienst</h3>
+        <small id="dashTouchSubtitleV69">Aktuelle Übersicht</small>
+      </div>
+      <div id="dashTouchContentV69" class="dashTouchContentV69"></div>
+    </div>
+  </div>
+
   <div id="dashboardStatsV57" class="dashboardStatsV57"></div>
   <div class="dashboardColumnsV57">
     <div class="dashboardColumnV57">
@@ -1013,7 +1033,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6068"></script>
-<script src="app.js?v=6068"></script>
+<script src="config.js?v=6069"></script>
+<script src="app.js?v=6069"></script>
 </body>
 </html>

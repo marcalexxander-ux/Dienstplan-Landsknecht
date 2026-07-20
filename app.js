@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.68";
+const APP_VERSION="v6.0.69";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -852,6 +852,142 @@ function setupEvents(){
 window.editEvent=editEvent;
 window.deleteEvent=deleteEvent;
 
+const dashboardMobileStateV69 = {
+  active:"service",
+  views:{}
+};
+
+function dashMobileEmptyV69(text){
+  return `<div class="dashTouchEmptyV69">${escapeHtml(text)}</div>`;
+}
+
+function setDashboardMobileViewV69(view){
+  if(!dashboardMobileStateV69.views[view]) view="service";
+  dashboardMobileStateV69.active=view;
+
+  document.querySelectorAll(".dashTouchTabV69").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.dashView===view);
+  });
+
+  const data=dashboardMobileStateV69.views[view] || {
+    title:"Heute im Dienst",
+    subtitle:"Aktuelle Übersicht",
+    html:dashMobileEmptyV69("Keine Daten vorhanden.")
+  };
+  if($("dashTouchTitleV69")) $("dashTouchTitleV69").textContent=data.title;
+  if($("dashTouchSubtitleV69")) $("dashTouchSubtitleV69").textContent=data.subtitle||"";
+  if($("dashTouchContentV69")) $("dashTouchContentV69").innerHTML=data.html;
+}
+
+function setupDashboardMobileV69(){
+  document.querySelectorAll(".dashTouchTabV69").forEach(btn=>{
+    btn.onclick=()=>setDashboardMobileViewV69(btn.dataset.dashView);
+  });
+}
+
+function updateDashboardMobileV69({workToday,sickToday,todayVacations,openVacations,events,infos}){
+  if(!$("dashboardMobileV69")) return;
+
+  const sortedWork = sortOwnShiftFirst((workToday||[])
+    .map(s=>({s,p:profileById(s.profile_id)}))
+    .filter(x=>x.p)
+    .sort((a,b)=>String(a.s.start_time||"").localeCompare(String(b.s.start_time||"")) ||
+      String(a.p.last_name||"").localeCompare(String(b.p.last_name||""))));
+
+  const workHtml = sortedWork.length ? sortedWork.map(({s,p})=>`
+    <div class="dashTouchRowV69${ownShiftClass(p)}">
+      <div class="dashTouchMainV69">
+        <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b>
+        <small>${escapeHtml(displayDept(p.department))}</small>
+      </div>
+      <strong>${escapeHtml(dashboardV57ShiftText(s))}</strong>
+    </div>`).join("") : dashMobileEmptyV69("Heute sind keine Schichten eingetragen.");
+
+  const eventHtml = (events||[]).length ? events.map(e=>`
+    <div class="dashTouchRowV69 dashTouchStackV69">
+      <div class="dashTouchMainV69">
+        <b>${escapeHtml(eventPlanLabel(e))}</b>
+        <small>${fmtDate(e.event_date)}${e.note ? " · "+escapeHtml(e.note) : ""}</small>
+      </div>
+    </div>`).join("") : dashMobileEmptyV69("Keine kommenden Events eingetragen.");
+
+  const vacationHtml = (todayVacations||[]).length ? todayVacations.map(v=>{
+    const p=profileById(v.profile_id);
+    return `<div class="dashTouchRowV69">
+      <div class="dashTouchMainV69">
+        <b>${escapeHtml(p?.first_name||"")} ${escapeHtml(p?.last_name||"")}</b>
+        <small>${escapeHtml(displayDept(p?.department))}</small>
+      </div>
+      <strong>Urlaub</strong>
+    </div>`;
+  }).join("") : dashMobileEmptyV69("Heute ist niemand im Urlaub.");
+
+  const sickHtml = (sickToday||[]).length ? sickToday.map(s=>{
+    const p=profileById(s.profile_id);
+    return `<div class="dashTouchRowV69 dashTouchSickV69">
+      <div class="dashTouchMainV69">
+        <b>${escapeHtml(p?.first_name||"")} ${escapeHtml(p?.last_name||"")}</b>
+        <small>${escapeHtml(displayDept(p?.department))}</small>
+      </div>
+      <strong>Krank</strong>
+    </div>`;
+  }).join("") : dashMobileEmptyV69("Heute ist niemand krank gemeldet.");
+
+  const requestHtml = (openVacations||[]).length ? openVacations.map(v=>{
+    const p=profileById(v.profile_id);
+    return `<div class="dashTouchRowV69">
+      <div class="dashTouchMainV69">
+        <b>${escapeHtml(p?.first_name||"")} ${escapeHtml(p?.last_name||"")}</b>
+        <small>${fmtDate(v.date_from)} bis ${fmtDate(v.date_to)}</small>
+      </div>
+      <button type="button" class="dashTouchActionV69" data-tab-jump="vacation">Öffnen</button>
+    </div>`;
+  }).join("") : dashMobileEmptyV69("Keine offenen Urlaubsanträge.");
+
+  const infoHtml = (infos||[]).length ? infos.map(i=>`
+    <div class="dashTouchRowV69 dashTouchStackV69">
+      <div class="dashTouchMainV69">
+        <b>${fmtDate(i.info_date)}</b>
+        <small>${escapeHtml(i.info_text)}</small>
+      </div>
+    </div>`).join("") : dashMobileEmptyV69("Keine Tagesinfo für heute.");
+
+  dashboardMobileStateV69.views = {
+    service:{title:"Heute im Dienst",subtitle:`${workToday.length} geplante Schichten`,html:workHtml},
+    events:{title:"Events",subtitle:`${events.length} kommende Einträge`,html:eventHtml},
+    infos:{title:"Tagesinfos",subtitle:"Informationen für heute",html:infoHtml}
+  };
+
+  if(isManagement()){
+    dashboardMobileStateV69.views.vacation={title:"Heute im Urlaub",subtitle:`${todayVacations.length} Mitarbeiter`,html:vacationHtml};
+    dashboardMobileStateV69.views.sick={title:"Heute krank",subtitle:`${sickToday.length} Mitarbeiter`,html:sickHtml};
+    dashboardMobileStateV69.views.requests={title:"Offene Anträge",subtitle:`${openVacations.length} Urlaubsanträge`,html:requestHtml};
+  }
+
+  const badgeValues={
+    dashBadgeServiceV69:workToday.length,
+    dashBadgeEventsV69:events.length,
+    dashBadgeVacationV69:todayVacations.length,
+    dashBadgeSickV69:sickToday.length,
+    dashBadgeRequestsV69:openVacations.length,
+    dashBadgeInfosV69:infos.length
+  };
+  Object.entries(badgeValues).forEach(([id,val])=>{if($(id))$(id).textContent=String(val)});
+
+  if(!dashboardMobileStateV69.views[dashboardMobileStateV69.active]){
+    dashboardMobileStateV69.active="service";
+  }
+  setDashboardMobileViewV69(dashboardMobileStateV69.active);
+
+  document.querySelectorAll("[data-tab-jump]").forEach(btn=>{
+    btn.onclick=()=>{
+      const tab=btn.dataset.tabJump;
+      const nav=document.querySelector(`button[data-tab="${tab}"]`);
+      if(nav) nav.click();
+    };
+  });
+}
+
 async function loadDashboardV57(){
   if(!$("dashboardV57") || !session) return;
   if(!profiles.length) await loadProfiles();
@@ -909,6 +1045,15 @@ async function loadDashboardV57(){
 
   const minijobLimit = Number($("minijobLimit")?.value || 603);
   const minijobWarnCount = Object.values(minijobTotals).filter(t=>minijobLimit && t.earned >= minijobLimit*0.8).length;
+
+  updateDashboardMobileV69({
+    workToday,
+    sickToday,
+    todayVacations,
+    openVacations,
+    events,
+    infos
+  });
 
   if($("dashboardStatsV57")){
     $("dashboardStatsV57").innerHTML = isManagement() ? [
@@ -998,6 +1143,7 @@ async function loadDashboardV57(){
   }
 }
 function setupDashboardV57(){
+  setupDashboardMobileV69();
   if($("refreshDashboardV57")) $("refreshDashboardV57").onclick = loadDashboardV57;
 
   document.querySelectorAll(".sidebar button[data-tab], nav button[data-tab]").forEach(btn=>{
@@ -4437,7 +4583,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6068`;
+  return `${base}?stempeluhr=1&v=6069`;
 }
 
 function normalizeIpValue(ip){
