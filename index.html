@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6077">
+  <link rel="stylesheet" href="styles.css?v=6078">
 </head>
 <body>
 <header class="topbar">
@@ -393,12 +393,41 @@
         </div>
       </section>
 
-      <section id="staff" class="tabPage card hidden">
-        <div class="sectionHeader">
+      <section id="staff" class="tabPage card hidden" data-staff-mobile-view="list">
+        <div class="staffTouchNavV78" aria-label="Mitarbeiter Bereiche">
+          <button type="button" class="staffTouchBtnV78" data-staff-view="create">
+            <span>➕</span><b>Mitarbeiter erstellen</b>
+          </button>
+          <button type="button" class="staffTouchBtnV78" data-staff-view="questionnaire">
+            <span>📋</span><b>Personalfragebogen</b>
+          </button>
+          <button type="button" class="staffTouchBtnV78 active staffTouchWideV78" data-staff-view="list">
+            <span>👥</span><b>Alle Mitarbeiter</b>
+          </button>
+        </div>
+
+        <div id="staffQuestionnairePickerV78" class="staffQuestionnairePickerV78 hidden">
+          <div class="staffMobileSectionHeadV78">
+            <h3>Mitarbeiter auswählen</h3>
+            <p>Alphabetisch auswählen und Personalfragebogen bearbeiten.</p>
+          </div>
+          <div id="staffQuestionnaireGridV78" class="staffAlphabetGridV78"></div>
+          <div id="staffSelectedPersonV78" class="staffSelectedPersonV78 hidden"></div>
+        </div>
+
+        <div id="staffAllEmployeesV78" class="staffAllEmployeesV78">
+          <div class="staffMobileSectionHeadV78">
+            <h3>Alle Mitarbeiter</h3>
+            <p>Alphabetisch sortiert. Mitarbeiter antippen, um die Daten zu öffnen.</p>
+          </div>
+          <div id="staffAlphabetGridV78" class="staffAlphabetGridV78"></div>
+        </div>
+
+        <div class="sectionHeader staffDesktopHeaderV78">
           <h2>Mitarbeiterverwaltung</h2>
           <button id="newStaffBtn" class="secondary">➕ Mitarbeiter erstellen</button>
         </div>
-        <div class="formGrid">
+        <div class="formGrid staffFormGridV78">
           <div><label>Vorname <span class="requiredMark">*</span></label><input id="staffFirstName"></div>
           <div><label>Nachname <span class="requiredMark">*</span></label><input id="staffLastName"></div>
           <div><label>E-Mail <span class="requiredMark">*</span></label><input id="staffEmail" type="email"></div>
@@ -726,11 +755,11 @@
 
         </div>
         <input id="editingStaffId" type="hidden">
-        <div class="buttonRow">
+        <div class="buttonRow staffSaveRowV78">
           <button id="saveStaff">Mitarbeiter speichern</button>
           <button id="clearStaff" class="secondary">Felder leeren</button>
         </div>
-        <div id="staffList"></div>
+        <div id="staffList" class="staffDesktopListV78"></div>
       </section>
 
 
@@ -1078,7 +1107,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6077"></script>
-<script src="app.js?v=6077"></script>
+<script src="config.js?v=6078"></script>
+<script src="app.js?v=6078"></script>
 </body>
 </html>
