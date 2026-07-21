@@ -5381,3 +5381,291 @@ button[disabled]{
     display:none!important;
   }
 }
+
+
+/* v6.0.81 – Mitarbeiter-Modul, erst nach Login initialisiert */
+.staffMobileShellV81{display:none}
+
+@media(max-width:820px){
+  #staff{
+    padding:14px!important;
+    overflow:hidden;
+  }
+
+  #staff > .sectionHeader,
+  #staff .staffDesktopListV81{
+    display:none!important;
+  }
+
+  .staffMobileShellV81{
+    display:block;
+  }
+
+  .staffTouchNavV81{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px;
+    margin-bottom:14px;
+  }
+
+  .staffTouchBtnV81{
+    display:flex;
+    align-items:center;
+    justify-content:flex-start;
+    gap:8px;
+    min-height:62px;
+    padding:11px 12px;
+    border:1px solid #dce5df;
+    border-radius:18px;
+    background:#f6f8f7;
+    color:#24473a;
+    font-size:20px;
+    text-align:left;
+  }
+
+  .staffTouchBtnV81 span{
+    font-size:13px;
+    font-weight:800;
+    line-height:1.15;
+  }
+
+  .staffTouchBtnV81.active{
+    background:#164d3a;
+    border-color:#164d3a;
+    color:#fff;
+    box-shadow:0 7px 16px rgba(21,77,58,.15);
+  }
+
+  .staffTouchWideV81{
+    grid-column:1/-1;
+  }
+
+  .staffMobilePanelV81{
+    padding:14px;
+    border:1px solid #dfe7e2;
+    border-radius:21px;
+    background:#fff;
+    box-shadow:0 8px 22px rgba(23,55,43,.06);
+  }
+
+  .staffMobileHeadV81{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    margin-bottom:10px;
+  }
+
+  .staffMobileHeadV81 h3{
+    margin:0;
+    color:#164d3a;
+    font-size:23px;
+  }
+
+  .staffMobileHeadV81 p{
+    margin:2px 0 0;
+    color:#718078;
+    font-size:12.5px;
+  }
+
+  .staffMobileHeadV81 input{
+    min-height:44px;
+    padding:9px 12px;
+    font-size:14px;
+  }
+
+  .staffAlphabetListV81{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    max-height:calc(100vh - 430px);
+    overflow-y:auto;
+    padding:1px;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .staffCardV81{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    width:100%;
+    min-height:64px;
+    padding:9px 11px;
+    border:1px solid #e2e9e5;
+    border-radius:16px;
+    background:#f9fbfa;
+    color:#17221d;
+    text-align:left;
+  }
+
+  .staffCardV81:active{transform:scale(.985)}
+
+  .staffAvatarV81{
+    display:flex;
+    flex:0 0 40px;
+    width:40px;
+    height:40px;
+    align-items:center;
+    justify-content:center;
+    border-radius:50%;
+    background:#e8f2ed;
+    color:#164d3a;
+    font-size:17px;
+    font-weight:900;
+  }
+
+  .staffCardTextV81{
+    display:flex;
+    min-width:0;
+    flex:1;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .staffCardTextV81 b{
+    font-size:14px;
+    line-height:1.2;
+  }
+
+  .staffCardTextV81 small{
+    overflow:hidden;
+    color:#6b786f;
+    font-size:11px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .staffCardTextV81 em{
+    align-self:flex-start;
+    padding:2px 6px;
+    border-radius:999px;
+    background:#fff2cc;
+    color:#7d5b00;
+    font-size:9.5px;
+    font-style:normal;
+    font-weight:800;
+  }
+
+  .staffArrowV81{
+    color:#6d8278;
+    font-size:26px;
+  }
+
+  .staffSelectedBannerV81{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin:0 0 12px;
+    padding:11px 13px;
+    border-radius:16px;
+    background:#eaf3ee;
+  }
+
+  .staffSelectedBannerV81 div{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+  }
+
+  .staffSelectedBannerV81 b{
+    color:#164d3a;
+    font-size:14px;
+  }
+
+  .staffSelectedBannerV81 small{
+    color:#68776f;
+    font-size:11.5px;
+  }
+
+  .staffSelectedBannerV81 button{
+    min-height:38px;
+    padding:7px 10px;
+    font-size:11.5px;
+  }
+
+  #staff[data-staff-mobile-view="list"] .staffMainFormV81,
+  #staff[data-staff-mobile-view="list"] .staffSaveRowV81{
+    display:none!important;
+  }
+
+  #staff[data-staff-mobile-view="create"] #staffMobileListPanelV81,
+  #staff[data-staff-mobile-view="create"] #staffQuestionnaireSelectV81,
+  #staff[data-staff-mobile-view="create"] #staffSelectedBannerV81{
+    display:none!important;
+  }
+
+  #staff[data-staff-mobile-view="create"] .staffPersonnelPartV81{
+    display:none!important;
+  }
+
+  #staff[data-staff-mobile-view="questionnaire"] #staffMobileListPanelV81{
+    display:none!important;
+  }
+
+  #staff[data-staff-mobile-view="questionnaire"] .staffCreatePartV81{
+    display:none!important;
+  }
+
+  #staff[data-staff-mobile-view="questionnaire"] .staffMainFormV81{
+    display:grid!important;
+  }
+
+  #staff[data-staff-mobile-view="questionnaire"] #staffQuestionnaireSelectV81:not(.hidden) ~ #staffSelectedBannerV81,
+  #staff[data-staff-mobile-view="questionnaire"] #staffQuestionnaireSelectV81:not(.hidden) ~ .staffMainFormV81{
+    display:none!important;
+  }
+
+  #staff .staffMainFormV81{
+    grid-template-columns:1fr!important;
+    gap:11px!important;
+    max-height:calc(100vh - 390px);
+    overflow-y:auto;
+    padding:2px 1px 12px;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  #staff .personnelTabs{
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    overflow:visible!important;
+  }
+
+  #staff .personnelTab{
+    min-height:44px;
+    padding:8px;
+    font-size:11.5px;
+    white-space:normal;
+  }
+
+  #staff .staffSaveRowV81{
+    display:grid!important;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+
+  #staff .staffSaveRowV81 button{
+    min-height:44px;
+    padding:8px 9px;
+    font-size:12px;
+  }
+
+  .staffEmptyV81{
+    padding:28px 12px;
+    color:#748078;
+    text-align:center;
+    font-size:13px;
+  }
+}
+
+@media(max-width:390px){
+  .staffTouchBtnV81{
+    min-height:57px;
+    padding:9px 10px;
+  }
+  .staffTouchBtnV81 span{font-size:12px}
+  .staffAlphabetListV81{max-height:calc(100vh - 410px)}
+}

@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.80";
+const APP_VERSION="v6.0.81";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -243,6 +243,9 @@ function setActiveTab(tabId){
   const activeTouch = document.querySelector(`#mobileTouchNav button[data-tab="${normalized}"]`);
   if(activeTouch) activeTouch.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
   if(normalized==="events") loadEvents?.();
+  if(normalized==="staff" && session && isManagement()){
+    try{ initStaffMobileV81(); }catch(err){ console.error("Staff mobile module:",err); }
+  }
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
   if(normalized==="timeClock") loadTimeClock?.();
@@ -1531,7 +1534,7 @@ setupCopyPlanModal();
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
 if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
 if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
-if($("newStaffBtn")) if($("newStaffBtn")) $("newStaffBtn").onclick=clearStaffForm;
+if($("newStaffBtn")) $("newStaffBtn").onclick=()=>{clearStaffForm();if(window.innerWidth<=820)setStaffMobileViewV81?.("create");};
 
 function scheduleCopyShouldSkip(s){
   const status = String(s?.status || "").trim().toLowerCase();
@@ -3707,6 +3710,163 @@ function clearPersonnelData(){
   });
 }
 
+
+let staffMobileInitializedV81=false;
+let staffMobileViewV81="list";
+let staffMobileSelectedV81="";
+
+function staffSortV81(a,b){
+  const aa=`${a?.last_name||""} ${a?.first_name||""}`.trim();
+  const bb=`${b?.last_name||""} ${b?.first_name||""}`.trim();
+  return aa.localeCompare(bb,"de",{sensitivity:"base"});
+}
+
+function staffAllEntriesV81(){
+  const active=(profiles||[]).filter(p=>!isRemovedProfile(p)).map(p=>({...p,_pending:false}));
+  const pending=(pendingStaffInvites||[]).map(p=>({...p,_pending:true}));
+  return [...active,...pending].sort(staffSortV81);
+}
+
+function staffCardV81(p){
+  const name=`${p.first_name||""} ${p.last_name||""}`.trim()||"Ohne Namen";
+  const initial=(p.first_name||p.last_name||"?").slice(0,1).toUpperCase();
+  return `<button type="button" class="staffCardV81" data-staff-id="${escapeHtml(p.id||"")}" data-staff-pending="${p._pending?"1":"0"}">
+    <span class="staffAvatarV81">${escapeHtml(initial)}</span>
+    <span class="staffCardTextV81">
+      <b>${escapeHtml(name)}</b>
+      <small>${escapeHtml(displayDept(p.department))}${p.email?` · ${escapeHtml(p.email)}`:""}</small>
+      ${p._pending?'<em>Einladung ausstehend</em>':""}
+    </span>
+    <span class="staffArrowV81">›</span>
+  </button>`;
+}
+
+function renderStaffMobileListsV81(){
+  if(!staffMobileInitializedV81) return;
+  const all=staffAllEntriesV81();
+  const draw=(targetId,query)=>{
+    const target=$(targetId);
+    if(!target) return;
+    const q=String(query||"").trim().toLowerCase();
+    const rows=q ? all.filter(p=>{
+      const hay=`${p.first_name||""} ${p.last_name||""} ${p.department||""} ${p.email||""}`.toLowerCase();
+      return hay.includes(q);
+    }) : all;
+    target.innerHTML=rows.map(staffCardV81).join("") || '<div class="staffEmptyV81">Keine Mitarbeiter gefunden.</div>';
+    target.querySelectorAll(".staffCardV81").forEach(btn=>{
+      btn.onclick=()=>{
+        const id=btn.dataset.staffId;
+        const pending=btn.dataset.staffPending==="1";
+        openStaffQuestionnaireV81(id,pending);
+      };
+    });
+  };
+  draw("staffAlphabetListV81",$("staffSearchV81")?.value);
+  draw("staffQuestionnaireListV81",$("staffQuestionnaireSearchV81")?.value);
+}
+
+function prepareStaffFormV81(){
+  const form=document.querySelector("#staff .staffMainFormV81");
+  if(!form || form.dataset.preparedV81==="1") return;
+  form.dataset.preparedV81="1";
+
+  let personnelStarted=false;
+  [...form.children].forEach(child=>{
+    if(child.classList.contains("formGridTitle")) personnelStarted=true;
+    child.classList.add(personnelStarted ? "staffPersonnelPartV81" : "staffCreatePartV81");
+  });
+
+  const plannable=$("staffPlannable")?.closest("label");
+  if(plannable) plannable.classList.add("staffPersonnelPartV81");
+  $("saveStaff")?.closest(".buttonRow")?.classList.add("staffSaveRowV81");
+}
+
+function setStaffMobileViewV81(view){
+  staffMobileViewV81=view;
+  const staff=$("staff");
+  if(!staff) return;
+  staff.dataset.staffMobileView=view;
+
+  document.querySelectorAll(".staffTouchBtnV81").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.staffView===view);
+  });
+
+  $("staffMobileListPanelV81")?.classList.toggle("hidden",view!=="list");
+  $("staffQuestionnaireSelectV81")?.classList.toggle("hidden",view!=="questionnaire" || !!staffMobileSelectedV81);
+
+  if(view==="create"){
+    staffMobileSelectedV81="";
+    clearStaffForm();
+    hideStaffSelectedBannerV81();
+  }
+  if(view==="questionnaire" && !staffMobileSelectedV81){
+    hideStaffSelectedBannerV81();
+  }
+
+  renderStaffMobileListsV81();
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function hideStaffSelectedBannerV81(){
+  const banner=$("staffSelectedBannerV81");
+  if(!banner) return;
+  banner.classList.add("hidden");
+  banner.innerHTML="";
+}
+
+function showStaffSelectedBannerV81(p){
+  const banner=$("staffSelectedBannerV81");
+  if(!banner) return;
+  banner.classList.remove("hidden");
+  banner.innerHTML=`<div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><small>${escapeHtml(displayDept(p.department))}</small></div>
+    <button type="button" class="secondary" id="staffChangePersonV81">Andere Person</button>`;
+  if($("staffChangePersonV81")) $("staffChangePersonV81").onclick=()=>{
+    staffMobileSelectedV81="";
+    clearStaffForm();
+    hideStaffSelectedBannerV81();
+    $("staffQuestionnaireSelectV81")?.classList.remove("hidden");
+    renderStaffMobileListsV81();
+  };
+}
+
+function openStaffQuestionnaireV81(id,pending=false){
+  try{
+    const p=pending ? pendingStaffInvites.find(x=>x.id===id) : profiles.find(x=>x.id===id);
+    if(!p) return;
+    if(pending) editPendingStaff(id); else editStaff(id);
+    staffMobileSelectedV81=(pending?"pending:":"")+id;
+    showStaffSelectedBannerV81(p);
+    setStaffMobileViewV81("questionnaire");
+    $("staffQuestionnaireSelectV81")?.classList.add("hidden");
+    setPersonnelTab("personal");
+  }catch(err){
+    console.error("Mitarbeiter öffnen:",err);
+    alert("Mitarbeiter konnte nicht geöffnet werden.");
+  }
+}
+
+function initStaffMobileV81(){
+  if(window.innerWidth>820) return;
+  if(staffMobileInitializedV81){
+    renderStaffMobileListsV81();
+    return;
+  }
+  if(!session || !isManagement() || !$("staff")) return;
+
+  staffMobileInitializedV81=true;
+  prepareStaffFormV81();
+
+  document.querySelectorAll(".staffTouchBtnV81").forEach(btn=>{
+    btn.onclick=()=>setStaffMobileViewV81(btn.dataset.staffView);
+  });
+
+  if($("staffSearchV81")) $("staffSearchV81").oninput=renderStaffMobileListsV81;
+  if($("staffQuestionnaireSearchV81")) $("staffQuestionnaireSearchV81").oninput=renderStaffMobileListsV81;
+
+  renderStaffMobileListsV81();
+  setStaffMobileViewV81("list");
+}
+
 function setPersonnelTab(tab){
   document.querySelectorAll(".personnelTab").forEach(btn=>btn.classList.toggle("active",btn.dataset.personnelTab===tab));
   document.querySelectorAll(".personnelPanel").forEach(panel=>panel.classList.toggle("active",panel.dataset.personnelPanel===tab));
@@ -3975,6 +4135,7 @@ function renderStaff(){
   const pendingHtml=pendingStaffInvites.map(p=>`<div class="entry pendingStaffEntry"><div class="pendingBadge">Einladung ausstehend</div><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<div class="staffActions"><button class="secondary" onclick="editPendingStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="danger" onclick="deletePendingStaff('${p.id}')">Entfernen</button></div></div>`).join("");
 
   $("staffList").innerHTML=pendingHtml+activeHtml;
+  if(staffMobileInitializedV81) renderStaffMobileListsV81();
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -4760,7 +4921,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6080`;
+  return `${base}?stempeluhr=1&v=6081`;
 }
 
 function normalizeIpValue(ip){

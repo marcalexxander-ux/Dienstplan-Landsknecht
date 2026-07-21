@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6080">
+  <link rel="stylesheet" href="styles.css?v=6081">
 </head>
 <body>
 <header class="topbar">
@@ -359,7 +359,7 @@
             <div class="card compact">
               <h3>Mitarbeiter</h3>
               <select id="vacAdminProfile"></select>
-              <div class="formGrid">
+              <div class="formGrid staffMainFormV81">
                 <div><label>Von</label><input id="vacAdminFrom" type="date"></div>
                 <div><label>Bis</label><input id="vacAdminTo" type="date"></div>
               </div>
@@ -393,7 +393,33 @@
         </div>
       </section>
 
-      <section id="staff" class="tabPage card hidden">
+      <section id="staff" class="tabPage card hidden" data-staff-mobile-view="list">
+        <div id="staffMobileShellV81" class="staffMobileShellV81">
+          <div class="staffTouchNavV81" aria-label="Mitarbeiter Bereiche">
+            <button type="button" class="staffTouchBtnV81" data-staff-view="create">➕ <span>Mitarbeiter erstellen</span></button>
+            <button type="button" class="staffTouchBtnV81" data-staff-view="questionnaire">📋 <span>Personalfragebogen</span></button>
+            <button type="button" class="staffTouchBtnV81 active staffTouchWideV81" data-staff-view="list">👥 <span>Alle Mitarbeiter</span></button>
+          </div>
+
+          <div id="staffMobileListPanelV81" class="staffMobilePanelV81">
+            <div class="staffMobileHeadV81">
+              <div><h3>Alle Mitarbeiter</h3><p>Alphabetisch auswählen.</p></div>
+              <input id="staffSearchV81" type="search" placeholder="Mitarbeiter suchen">
+            </div>
+            <div id="staffAlphabetListV81" class="staffAlphabetListV81"></div>
+          </div>
+
+          <div id="staffQuestionnaireSelectV81" class="staffMobilePanelV81 hidden">
+            <div class="staffMobileHeadV81">
+              <div><h3>Personalfragebogen</h3><p>Mitarbeiter auswählen.</p></div>
+              <input id="staffQuestionnaireSearchV81" type="search" placeholder="Mitarbeiter suchen">
+            </div>
+            <div id="staffQuestionnaireListV81" class="staffAlphabetListV81"></div>
+          </div>
+
+          <div id="staffSelectedBannerV81" class="staffSelectedBannerV81 hidden"></div>
+        </div>
+
         <div class="sectionHeader">
           <h2>Mitarbeiterverwaltung</h2>
           <button id="newStaffBtn" class="secondary">➕ Mitarbeiter erstellen</button>
@@ -730,7 +756,7 @@
           <button id="saveStaff">Mitarbeiter speichern</button>
           <button id="clearStaff" class="secondary">Felder leeren</button>
         </div>
-        <div id="staffList"></div>
+        <div id="staffList" class="staffDesktopListV81"></div>
       </section>
 
 
@@ -1078,7 +1104,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6080"></script>
-<script src="app.js?v=6080"></script>
+<script src="config.js?v=6081"></script>
+<script src="app.js?v=6081"></script>
 </body>
 </html>
