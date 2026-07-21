@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.76";
+const APP_VERSION="v6.0.77";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -2315,7 +2315,8 @@ async function deleteDailyInfo(date){
 window.deleteDailyInfo = deleteDailyInfo;
 
 async function loadInfos(){
-  const{data,error}=await sb.from("daily_infos").select("*").order("info_date",{ascending:false}).limit(80);
+  const today=todayISO();
+  const{data,error}=await sb.from("daily_infos").select("*").gte("info_date",today).order("info_date",{ascending:true}).limit(80);
   if(error){
     $("infoList").innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
     return;
@@ -2333,7 +2334,7 @@ async function loadInfos(){
         <button type="button" class="danger" onclick="deleteDailyInfo('${i.info_date}')">Aus App entfernen</button>
       </div>`:""}
     </div>
-  `).join("")||"<p>Keine Tagesinfos.</p>";
+  `).join("")||"<p>Keine aktuellen oder zukünftigen Tagesinfos.</p>";
 }
 
 if($("saveTime")) $("saveTime").onclick=async()=>{
@@ -4723,7 +4724,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6076`;
+  return `${base}?stempeluhr=1&v=6077`;
 }
 
 function normalizeIpValue(ip){
