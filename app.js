@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.74";
+const APP_VERSION="v6.0.75";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -281,9 +281,9 @@ function setupVacationMobileTabs(){
   document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>{
     btn.onclick=()=>{
       setVacationPanel(btn.dataset.vacTarget);
-      const panel = document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${btn.dataset.vacTarget}"]`);
-      if(panel && window.innerWidth<=820){
-        setTimeout(()=>panel.scrollIntoView({behavior:"smooth", block:"start"}),40);
+      if(window.innerWidth<=820){
+        const content=document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${btn.dataset.vacTarget}"]`);
+        if(content) content.scrollTop=0;
       }
     };
   });
@@ -4700,7 +4700,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6074`;
+  return `${base}?stempeluhr=1&v=6075`;
 }
 
 function normalizeIpValue(ip){
