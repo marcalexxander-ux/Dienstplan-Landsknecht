@@ -5669,3 +5669,105 @@ button[disabled]{
   .staffTouchBtnV81 span{font-size:12px}
   .staffAlphabetListV81{max-height:calc(100vh - 410px)}
 }
+
+
+/* v6.0.82 – Mitarbeiter Mobile Feinschliff */
+@media(max-width:820px){
+  .staffTouchNavV81{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  }
+
+  .staffTouchBtnV81{
+    min-width:0;
+    overflow:hidden;
+    gap:7px;
+    padding:10px 9px;
+  }
+
+  .staffTouchBtnV81 span{
+    display:block;
+    min-width:0;
+    max-width:100%;
+    overflow-wrap:anywhere;
+    word-break:normal;
+    hyphens:auto;
+    font-size:12px;
+    line-height:1.15;
+  }
+
+  .staffTouchBtnV81[data-staff-view="questionnaire"] span{
+    font-size:10.8px;
+    letter-spacing:-0.15px;
+  }
+
+  .staffTouchBtnV81[data-staff-view="create"]{
+    align-items:center;
+  }
+
+  .staffTouchBtnV81[data-staff-view="create"]::first-letter{
+    font-size:18px;
+  }
+
+  .staffMobilePanelV81{
+    padding:12px;
+  }
+
+  .staffMobileHeadV81{
+    gap:7px;
+    margin-bottom:8px;
+  }
+
+  .staffMobileHeadV81 h3{
+    font-size:21px;
+  }
+
+  .staffMobileHeadV81 input{
+    min-height:40px;
+    padding:7px 10px;
+    font-size:13px;
+  }
+
+  .staffAlphabetListV81{
+    gap:6px;
+    max-height:calc(100vh - 395px);
+  }
+
+  .staffCardV81{
+    min-height:56px;
+    padding:7px 9px;
+    border-radius:14px;
+  }
+
+  .staffAvatarV81{
+    flex-basis:36px;
+    width:36px;
+    height:36px;
+    font-size:15px;
+  }
+
+  .staffCardTextV81 b{
+    font-size:13px;
+  }
+
+  .staffCardTextV81 small{
+    display:block;
+    font-size:10.5px;
+    line-height:1.2;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .staffArrowV81{
+    font-size:22px;
+  }
+}
+
+@media(max-width:390px){
+  .staffTouchBtnV81[data-staff-view="questionnaire"] span{
+    font-size:10.2px;
+  }
+
+  .staffAlphabetListV81{
+    max-height:calc(100vh - 380px);
+  }
+}

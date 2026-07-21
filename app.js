@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.81";
+const APP_VERSION="v6.0.82";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -3716,9 +3716,14 @@ let staffMobileViewV81="list";
 let staffMobileSelectedV81="";
 
 function staffSortV81(a,b){
-  const aa=`${a?.last_name||""} ${a?.first_name||""}`.trim();
-  const bb=`${b?.last_name||""} ${b?.first_name||""}`.trim();
-  return aa.localeCompare(bb,"de",{sensitivity:"base"});
+  const lastA=String(a?.last_name||"").trim();
+  const lastB=String(b?.last_name||"").trim();
+  const firstA=String(a?.first_name||"").trim();
+  const firstB=String(b?.first_name||"").trim();
+
+  const byLast=lastA.localeCompare(lastB,"de",{sensitivity:"base",numeric:true});
+  if(byLast!==0) return byLast;
+  return firstA.localeCompare(firstB,"de",{sensitivity:"base",numeric:true});
 }
 
 function staffAllEntriesV81(){
@@ -4921,7 +4926,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6081`;
+  return `${base}?stempeluhr=1&v=6082`;
 }
 
 function normalizeIpValue(ip){
