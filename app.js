@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.75";
+const APP_VERSION="v6.0.76";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -261,6 +261,23 @@ function setVacationPanel(target){
     panel.classList.toggle("vacMobileActive", panel.dataset.vacPanel===target);
   });
   try{ localStorage.setItem("vacationMobilePanel",target); }catch(e){}
+
+  if(window.innerWidth<=820){
+    document.body.classList.add("vacMobileSheetOpenV76");
+    $("vacMobileBackdropV76")?.classList.remove("hidden");
+    $("vacMobileCloseV76")?.classList.remove("hidden");
+    const panel=document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${target}"]`);
+    if(panel) panel.scrollTop=0;
+  }
+}
+
+function closeVacationMobileSheetV76(){
+  if(window.innerWidth>820) return;
+  document.body.classList.remove("vacMobileSheetOpenV76");
+  $("vacMobileBackdropV76")?.classList.add("hidden");
+  $("vacMobileCloseV76")?.classList.add("hidden");
+  document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>btn.classList.remove("active"));
+  document.querySelectorAll("#vacation .vacMobilePanel").forEach(panel=>panel.classList.remove("vacMobileActive"));
 }
 function firstVisibleVacationTarget(){
   const buttons = Array.from(document.querySelectorAll("#vacation .vacTouchBtn"));
@@ -271,6 +288,11 @@ function refreshVacationMobileTabs(){
   const buttons = Array.from(document.querySelectorAll("#vacation .vacTouchBtn"));
   if(!buttons.length) return;
 
+  if(window.innerWidth<=820){
+    closeVacationMobileSheetV76();
+    return;
+  }
+
   const saved = (()=>{try{return localStorage.getItem("vacationMobilePanel")||""}catch(e){return ""}})();
   const savedBtn = saved ? buttons.find(b=>b.dataset.vacTarget===saved && isVisibleElement(b)) : null;
   const activeBtn = buttons.find(b=>b.classList.contains("active") && isVisibleElement(b));
@@ -279,13 +301,14 @@ function refreshVacationMobileTabs(){
 }
 function setupVacationMobileTabs(){
   document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>{
-    btn.onclick=()=>{
-      setVacationPanel(btn.dataset.vacTarget);
-      if(window.innerWidth<=820){
-        const content=document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${btn.dataset.vacTarget}"]`);
-        if(content) content.scrollTop=0;
-      }
-    };
+    btn.onclick=()=>setVacationPanel(btn.dataset.vacTarget);
+  });
+  if($("vacMobileBackdropV76")) $("vacMobileBackdropV76").onclick=closeVacationMobileSheetV76;
+  if($("vacMobileCloseV76")) $("vacMobileCloseV76").onclick=closeVacationMobileSheetV76;
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape" && document.body.classList.contains("vacMobileSheetOpenV76")){
+      closeVacationMobileSheetV76();
+    }
   });
   refreshVacationMobileTabs();
 }
@@ -4700,7 +4723,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6075`;
+  return `${base}?stempeluhr=1&v=6076`;
 }
 
 function normalizeIpValue(ip){

@@ -5295,3 +5295,89 @@ button[disabled]{
     padding:14px!important;
   }
 }
+
+
+/* v6.0.76 – Urlaubsbereiche öffnen als Kartei/Bottom-Sheet */
+@media(max-width:820px){
+  #vacation .vacMobilePanel{
+    display:none!important;
+  }
+
+  body.vacMobileSheetOpenV76{
+    overflow:hidden!important;
+  }
+
+  body.vacMobileSheetOpenV76 #vacation .vacMobilePanel.vacMobileActive{
+    display:block!important;
+    position:fixed!important;
+    left:10px!important;
+    right:10px!important;
+    bottom:0!important;
+    z-index:10002!important;
+    width:auto!important;
+    max-height:82vh!important;
+    margin:0!important;
+    padding:56px 16px calc(22px + env(safe-area-inset-bottom))!important;
+    border:0!important;
+    border-radius:28px 28px 0 0!important;
+    background:#fff!important;
+    box-shadow:0 -18px 50px rgba(0,0,0,.24)!important;
+    overflow-y:auto!important;
+    animation:vacSheetUpV76 .22s ease-out;
+  }
+
+  @keyframes vacSheetUpV76{
+    from{transform:translateY(100%)}
+    to{transform:translateY(0)}
+  }
+
+  .vacMobileBackdropV76{
+    position:fixed!important;
+    inset:0!important;
+    z-index:10000!important;
+    border:0!important;
+    border-radius:0!important;
+    background:rgba(5,18,13,.46)!important;
+    backdrop-filter:blur(2px);
+  }
+
+  .vacMobileCloseV76{
+    position:fixed!important;
+    top:auto!important;
+    right:24px!important;
+    bottom:calc(82vh - 46px)!important;
+    z-index:10003!important;
+    width:42px!important;
+    height:42px!important;
+    padding:0!important;
+    border-radius:50%!important;
+    background:#eef3f0!important;
+    color:#24473a!important;
+    font-size:17px!important;
+    box-shadow:none!important;
+  }
+
+  body.vacMobileSheetOpenV76 #vacation .vacTouchNav{
+    pointer-events:none;
+  }
+}
+
+@media(max-width:390px){
+  body.vacMobileSheetOpenV76 #vacation .vacMobilePanel.vacMobileActive{
+    left:6px!important;
+    right:6px!important;
+    max-height:84vh!important;
+    padding:54px 14px calc(20px + env(safe-area-inset-bottom))!important;
+  }
+  .vacMobileCloseV76{
+    right:18px!important;
+    bottom:calc(84vh - 45px)!important;
+  }
+}
+
+@media(min-width:821px){
+  .vacMobileBackdropV76,
+  .vacMobileCloseV76{
+    display:none!important;
+  }
+}
