@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.78";
+const APP_VERSION="v6.0.80";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -633,10 +633,46 @@ function renderAuth(){
   }
 }
 
-$("loginBtn").onclick=async()=>{
-  const{error}=await sb.auth.signInWithPassword({email:$("email").value.trim(),password:$("password").value});
-  if(error)alert(error.message);
-};
+async function stableLoginV80(){
+  const email=$("email")?.value?.trim()||"";
+  const password=$("password")?.value||"";
+  const btn=$("loginBtn");
+
+  if(!email || !password){
+    alert("Bitte E-Mail und Passwort eingeben.");
+    return;
+  }
+  if(!sb || !sb.auth){
+    alert("Die Verbindung zur App ist noch nicht bereit. Bitte die Seite einmal neu laden.");
+    return;
+  }
+
+  const original=btn?.textContent||"Einloggen";
+  if(btn){
+    btn.disabled=true;
+    btn.textContent="Wird eingeloggt …";
+  }
+
+  try{
+    const result=await sb.auth.signInWithPassword({email,password});
+    if(result?.error) alert(result.error.message);
+  }catch(err){
+    alert("Login-Fehler: "+(err?.message||String(err)));
+  }finally{
+    if(btn){
+      btn.disabled=false;
+      btn.textContent=original;
+    }
+  }
+}
+
+if($("loginBtn")) $("loginBtn").addEventListener("click",stableLoginV80);
+if($("password")) $("password").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){
+    e.preventDefault();
+    stableLoginV80();
+  }
+});
 $("registerBtn").onclick=async()=>{
   const email=$("email").value.trim(),password=$("password").value;
   if(!email||!password)return alert("Bitte E-Mail und Passwort eingeben.");
@@ -659,7 +695,6 @@ document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[dat
 setupVacationMobileTabs();
 setupTouchShiftEditor();
 setupPersonnelTabs();
-setupStaffMobileV78();
 
 
 
@@ -1496,7 +1531,7 @@ setupCopyPlanModal();
 if($("servicePdfBtn")) $("servicePdfBtn").onclick=printServicePlan;
 if($("kitchenPdfBtn")) $("kitchenPdfBtn").onclick=printKitchenPlan;
 if($("monthPdfBtn")) $("monthPdfBtn").onclick=printMonthPlan;
-if($("newStaffBtn")) $("newStaffBtn").onclick=()=>{clearStaffForm();setStaffMobileViewV78?.("create");};
+if($("newStaffBtn")) if($("newStaffBtn")) $("newStaffBtn").onclick=clearStaffForm;
 
 function scheduleCopyShouldSkip(s){
   const status = String(s?.status || "").trim().toLowerCase();
@@ -3672,151 +3707,6 @@ function clearPersonnelData(){
   });
 }
 
-
-let staffMobileViewV78="list";
-let staffQuestionnaireSelectedV78="";
-
-function staffNameSortV78(a,b){
-  const ak=`${a?.last_name||""} ${a?.first_name||""}`.trim();
-  const bk=`${b?.last_name||""} ${b?.first_name||""}`.trim();
-  return ak.localeCompare(bk,"de",{sensitivity:"base"});
-}
-
-function staffMobileCardV78(p, pending=false, mode="list"){
-  const id=p?.id||"";
-  const name=`${p?.first_name||""} ${p?.last_name||""}`.trim()||"Ohne Namen";
-  const dept=displayDept(p?.department);
-  const pendingLabel=pending?'<span class="staffPendingBadgeV78">Einladung offen</span>':"";
-  const fn = pending
-    ? `openPendingStaffMobileV78('${id}','${mode}')`
-    : `openStaffMobileV78('${id}','${mode}')`;
-  return `<button type="button" class="staffAlphabetCardV78${pending?" pending":""}" onclick="${fn}">
-    <span class="staffInitialV78">${escapeHtml((p?.first_name||p?.last_name||"?").slice(0,1).toUpperCase())}</span>
-    <span class="staffAlphabetTextV78">
-      <b>${escapeHtml(name)}</b>
-      <small>${escapeHtml(dept)}${p?.email?` · ${escapeHtml(p.email)}`:""}</small>
-      ${pendingLabel}
-    </span>
-    <span class="staffChevronV78">›</span>
-  </button>`;
-}
-
-function renderStaffMobileV78(){
-  const active=(profiles||[]).filter(p=>!isRemovedProfile(p)).slice().sort(staffNameSortV78);
-  const pending=(pendingStaffInvites||[]).slice().sort(staffNameSortV78);
-
-  const listHtml=[
-    ...active.map(p=>staffMobileCardV78(p,false,"list")),
-    ...pending.map(p=>staffMobileCardV78(p,true,"list"))
-  ].join("") || '<div class="staffMobileEmptyV78">Keine Mitarbeiter vorhanden.</div>';
-
-  const questionnaireHtml=[
-    ...active.map(p=>staffMobileCardV78(p,false,"questionnaire")),
-    ...pending.map(p=>staffMobileCardV78(p,true,"questionnaire"))
-  ].join("") || '<div class="staffMobileEmptyV78">Keine Mitarbeiter vorhanden.</div>';
-
-  if($("staffAlphabetGridV78")) $("staffAlphabetGridV78").innerHTML=listHtml;
-  if($("staffQuestionnaireGridV78")) $("staffQuestionnaireGridV78").innerHTML=questionnaireHtml;
-}
-
-function prepareStaffBaseFieldsV78(){
-  const grid=document.querySelector("#staff .staffFormGridV78");
-  if(!grid || grid.dataset.v78Prepared==="1") return;
-  grid.dataset.v78Prepared="1";
-  let beforePersonnel=true;
-  [...grid.children].forEach(child=>{
-    if(child.classList.contains("formGridTitle")) beforePersonnel=false;
-    if(beforePersonnel) child.classList.add("staffBaseFieldV78");
-  });
-  const plannable=$("staffPlannable")?.closest("label");
-  if(plannable) plannable.classList.add("staffPlannableFieldV78");
-}
-
-function setStaffMobileViewV78(view,{clear=false}={}){
-  staffMobileViewV78=view;
-  const section=$("staff");
-  if(!section) return;
-  section.dataset.staffMobileView=view;
-
-  document.querySelectorAll(".staffTouchBtnV78").forEach(btn=>{
-    btn.classList.toggle("active",btn.dataset.staffView===view);
-  });
-
-  if(view==="create" && clear){
-    clearStaffForm();
-    staffQuestionnaireSelectedV78="";
-  }
-  if(view==="questionnaire"){
-    renderStaffMobileV78();
-    if(!staffQuestionnaireSelectedV78){
-      section.classList.add("staffQuestionnaireNoSelectionV78");
-    }
-  }else{
-    section.classList.remove("staffQuestionnaireNoSelectionV78");
-  }
-  if(view==="list") renderStaffMobileV78();
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-
-function updateStaffSelectedBannerV78(p){
-  const el=$("staffSelectedPersonV78");
-  if(!el) return;
-  if(!p){
-    el.classList.add("hidden");
-    el.innerHTML="";
-    return;
-  }
-  el.classList.remove("hidden");
-  el.innerHTML=`<div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b><small>${escapeHtml(displayDept(p.department))}</small></div>
-  <button type="button" class="secondary" onclick="clearStaffQuestionnaireSelectionV78()">Andere Person</button>`;
-}
-
-function openStaffMobileV78(id,mode="list"){
-  const p=profiles.find(x=>x.id===id);
-  if(!p) return;
-  editStaff(id);
-  staffQuestionnaireSelectedV78=id;
-  updateStaffSelectedBannerV78(p);
-  $("staff")?.classList.remove("staffQuestionnaireNoSelectionV78");
-  setStaffMobileViewV78("questionnaire");
-  setPersonnelTab("personal");
-}
-
-function openPendingStaffMobileV78(id,mode="list"){
-  const p=pendingStaffInvites.find(x=>x.id===id);
-  if(!p) return;
-  editPendingStaff(id);
-  staffQuestionnaireSelectedV78=`pending:${id}`;
-  updateStaffSelectedBannerV78(p);
-  $("staff")?.classList.remove("staffQuestionnaireNoSelectionV78");
-  setStaffMobileViewV78("questionnaire");
-  setPersonnelTab("personal");
-}
-
-function clearStaffQuestionnaireSelectionV78(){
-  staffQuestionnaireSelectedV78="";
-  clearStaffForm();
-  updateStaffSelectedBannerV78(null);
-  $("staff")?.classList.add("staffQuestionnaireNoSelectionV78");
-  renderStaffMobileV78();
-}
-
-function setupStaffMobileV78(){
-  prepareStaffBaseFieldsV78();
-  document.querySelectorAll(".staffTouchBtnV78").forEach(btn=>{
-    btn.onclick=()=>{
-      const view=btn.dataset.staffView;
-      setStaffMobileViewV78(view,{clear:view==="create"});
-    };
-  });
-  renderStaffMobileV78();
-  setStaffMobileViewV78("list");
-}
-
-window.openStaffMobileV78=openStaffMobileV78;
-window.openPendingStaffMobileV78=openPendingStaffMobileV78;
-window.clearStaffQuestionnaireSelectionV78=clearStaffQuestionnaireSelectionV78;
-
 function setPersonnelTab(tab){
   document.querySelectorAll(".personnelTab").forEach(btn=>btn.classList.toggle("active",btn.dataset.personnelTab===tab));
   document.querySelectorAll(".personnelPanel").forEach(panel=>panel.classList.toggle("active",panel.dataset.personnelPanel===tab));
@@ -4085,7 +3975,6 @@ function renderStaff(){
   const pendingHtml=pendingStaffInvites.map(p=>`<div class="entry pendingStaffEntry"><div class="pendingBadge">Einladung ausstehend</div><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<div class="staffActions"><button class="secondary" onclick="editPendingStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="danger" onclick="deletePendingStaff('${p.id}')">Entfernen</button></div></div>`).join("");
 
   $("staffList").innerHTML=pendingHtml+activeHtml;
-  renderStaffMobileV78?.();
 }
 
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
@@ -4871,7 +4760,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6078`;
+  return `${base}?stempeluhr=1&v=6080`;
 }
 
 function normalizeIpValue(ip){
