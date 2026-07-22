@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.86";
+const APP_VERSION="v6.1.0";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -8,6 +8,7 @@ const SERVICE_DEPARTMENTS=["Restaurantleitung","Service","Minijob Service","Bar"
 const KITCHEN_DEPARTMENTS=["Küchenleitung","Küchen Leitung","Küche","Minijob Küche","Spüler","Reinigung"];
 let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyInfoCache=[];
 let lastClockEvaluationRows=[];
+let planningAssistantCacheV610={};
 let clockSaving=false;
 let publishedPlanCache={};
 let passwordRecoveryMode=false;
@@ -1877,18 +1878,197 @@ function scheduleCellValueForVisibility(item){
   return item.status || "";
 }
 
+
+/* v6.1.0 – Planungsassistent, Phase 1: reine Berechnungs-Engine.
+   Die Engine zeigt noch keine Warnungen an und blockiert niemals eine Eingabe. */
+function planMinutesFromTimeV610(value){
+  const match=String(value||"").match(/^(\d{1,2}):(\d{2})/);
+  if(!match) return null;
+  const hour=Number(match[1]),minute=Number(match[2]);
+  if(hour<0||hour>23||minute<0||minute>59) return null;
+  return hour*60+minute;
+}
+
+function planShiftDurationMinutesV610(schedule){
+  if(!schedule || schedule.status!=="arbeit") return 0;
+  const start=planMinutesFromTimeV610(schedule.start_time);
+  const end=planMinutesFromTimeV610(schedule.end_time);
+  if(start===null||end===null) return 0;
+  let duration=end-start;
+  if(duration<=0) duration+=24*60;
+  return duration;
+}
+
+function planShiftDateTimeV610(workDate,timeValue,isEnd=false){
+  const minutes=planMinutesFromTimeV610(timeValue);
+  if(minutes===null) return null;
+  const date=parseISODateLocal(workDate);
+  date.setHours(Math.floor(minutes/60),minutes%60,0,0);
+  if(isEnd){
+    const startOfDay=planMinutesFromTimeV610("00:00");
+    void startOfDay;
+  }
+  return date;
+}
+
+function planShiftBoundsV610(schedule){
+  if(!schedule || schedule.status!=="arbeit") return null;
+  const startMinutes=planMinutesFromTimeV610(schedule.start_time);
+  const endMinutes=planMinutesFromTimeV610(schedule.end_time);
+  if(startMinutes===null||endMinutes===null) return null;
+  const start=parseISODateLocal(schedule.work_date);
+  start.setHours(Math.floor(startMinutes/60),startMinutes%60,0,0);
+  const end=new Date(start);
+  end.setHours(Math.floor(endMinutes/60),endMinutes%60,0,0);
+  if(end<=start) end.setDate(end.getDate()+1);
+  return {start,end};
+}
+
+function roundPlanHoursV610(minutes){
+  return Math.round((Number(minutes||0)/60)*100)/100;
+}
+
+function buildPlanningAssistantEngineV610({weekStart,schedules,people,kind}){
+  const weekEnd=addDaysISO(weekStart,6);
+  const relevantProfiles=new Set((people||[]).map(p=>p.id));
+  const all=(schedules||[]).filter(s=>relevantProfiles.has(s.profile_id));
+  const weekRows=all.filter(s=>s.work_date>=weekStart&&s.work_date<=weekEnd);
+  const workRows=all.filter(s=>s.status==="arbeit"&&planShiftBoundsV610(s));
+
+  const weeklyByProfile={};
+  const dailyByDate={};
+  const dailyByDepartment={};
+  const duplicateWarnings=[];
+  const overlapWarnings=[];
+  const restWarnings=[];
+
+  // Wochen- und Tagesstunden.
+  weekRows.forEach(s=>{
+    const minutes=planShiftDurationMinutesV610(s);
+    if(!minutes) return;
+    weeklyByProfile[s.profile_id]=(weeklyByProfile[s.profile_id]||0)+minutes;
+    dailyByDate[s.work_date]=(dailyByDate[s.work_date]||0)+minutes;
+    const p=(people||[]).find(x=>x.id===s.profile_id)||{};
+    const department=p.department||"Ohne Bereich";
+    dailyByDepartment[s.work_date] ||= {};
+    dailyByDepartment[s.work_date][department]=(dailyByDepartment[s.work_date][department]||0)+minutes;
+  });
+
+  // Mehrere Datensätze am selben Tag und zeitliche Überschneidungen erkennen.
+  const byProfileDate={};
+  all.forEach(s=>{
+    const key=`${s.profile_id}_${s.work_date}`;
+    byProfileDate[key] ||= [];
+    byProfileDate[key].push(s);
+  });
+  Object.entries(byProfileDate).forEach(([key,rows])=>{
+    const work=rows.filter(s=>s.status==="arbeit"&&planShiftBoundsV610(s));
+    if(rows.length>1){
+      duplicateWarnings.push({
+        type:"duplicate_records",
+        severity:"warning",
+        profileId:rows[0].profile_id,
+        workDate:rows[0].work_date,
+        count:rows.length,
+        scheduleIds:rows.map(s=>s.id).filter(Boolean)
+      });
+    }
+    const sorted=work.slice().sort((a,b)=>planShiftBoundsV610(a).start-planShiftBoundsV610(b).start);
+    for(let i=0;i<sorted.length;i++){
+      const a=planShiftBoundsV610(sorted[i]);
+      for(let j=i+1;j<sorted.length;j++){
+        const b=planShiftBoundsV610(sorted[j]);
+        if(b.start<a.end){
+          overlapWarnings.push({
+            type:"overlap",
+            severity:"warning",
+            profileId:sorted[i].profile_id,
+            workDate:sorted[i].work_date,
+            firstScheduleId:sorted[i].id||"",
+            secondScheduleId:sorted[j].id||"",
+            overlapMinutes:Math.round((Math.min(a.end,b.end)-b.start)/60000)
+          });
+        }
+      }
+    }
+  });
+
+  // Ruhezeit zwischen aufeinanderfolgenden Arbeitsschichten; Richtwert 11 Stunden.
+  const byProfile={};
+  workRows.forEach(s=>{byProfile[s.profile_id] ||= [];byProfile[s.profile_id].push(s)});
+  Object.entries(byProfile).forEach(([profileId,rows])=>{
+    const sorted=rows.slice().sort((a,b)=>planShiftBoundsV610(a).start-planShiftBoundsV610(b).start);
+    for(let i=1;i<sorted.length;i++){
+      const previous=sorted[i-1],current=sorted[i];
+      const prevBounds=planShiftBoundsV610(previous),curBounds=planShiftBoundsV610(current);
+      const restMinutes=Math.round((curBounds.start-prevBounds.end)/60000);
+      if(restMinutes>=0 && restMinutes<11*60 && current.work_date>=weekStart && current.work_date<=weekEnd){
+        restWarnings.push({
+          type:"rest_time",
+          severity:"warning",
+          profileId,
+          previousDate:previous.work_date,
+          currentDate:current.work_date,
+          previousScheduleId:previous.id||"",
+          currentScheduleId:current.id||"",
+          restMinutes,
+          requiredMinutes:11*60
+        });
+      }
+    }
+  });
+
+  const result={
+    version:"6.1.0",
+    phase:1,
+    kind,
+    weekStart,
+    weekEnd,
+    generatedAt:new Date().toISOString(),
+    weeklyHoursByProfile:Object.fromEntries(Object.entries(weeklyByProfile).map(([id,m])=>[id,roundPlanHoursV610(m)])),
+    dailyHoursByDate:Object.fromEntries(Object.entries(dailyByDate).map(([date,m])=>[date,roundPlanHoursV610(m)])),
+    dailyHoursByDepartment:Object.fromEntries(Object.entries(dailyByDepartment).map(([date,depts])=>[
+      date,Object.fromEntries(Object.entries(depts).map(([dept,m])=>[dept,roundPlanHoursV610(m)]))
+    ])),
+    warnings:{
+      restTime:restWarnings,
+      duplicateRecords:duplicateWarnings,
+      overlaps:overlapWarnings,
+      all:[...restWarnings,...duplicateWarnings,...overlapWarnings]
+    },
+    summary:{
+      employees:(people||[]).length,
+      workShifts:weekRows.filter(s=>s.status==="arbeit").length,
+      totalWeekHours:roundPlanHoursV610(Object.values(weeklyByProfile).reduce((a,b)=>a+b,0)),
+      warningCount:restWarnings.length+duplicateWarnings.length+overlapWarnings.length
+    }
+  };
+  return result;
+}
+
+function storePlanningAssistantResultV610(result){
+  if(!result) return;
+  const key=`${result.kind}_${result.weekStart}`;
+  planningAssistantCacheV610[key]=result;
+  window.planningAssistantV610=planningAssistantCacheV610;
+  window.dispatchEvent(new CustomEvent("planning-assistant-calculated",{detail:result}));
+  console.info(`[Planungsassistent v6.1.0] ${result.kind} ${result.weekStart}`,result);
+}
+
 async function loadPlanFiltered(title,week,departments,targetId){
   const kind = title==="Küche" ? "kitchen" : "service";
   if(!(await ensureEmployeeCanSeeWeek(kind,week,targetId,`Dienstplan ${title}`))) return;
   const from=week,to=addDaysISO(week,6);
+  const assistantFrom=addDaysISO(from,-1),assistantTo=addDaysISO(to,1);
   const[{data:schedules},{data:infos},{data:events}]=await Promise.all([
-    sb.from("schedules").select("*").gte("work_date",from).lte("work_date",to),
+    sb.from("schedules").select("*").gte("work_date",assistantFrom).lte("work_date",assistantTo),
     sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
     sb.from("events").select("*").gte("event_date",from).lte("event_date",to)
   ]);
 
   const byKey={};
-  (schedules||[]).forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
+  (schedules||[]).filter(s=>s.work_date>=from&&s.work_date<=to)
+    .forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
 
   const infoByDate={};
   (infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
@@ -1905,6 +2085,15 @@ async function loadPlanFiltered(title,week,departments,targetId){
       (Number(a.sort_order??9999)-Number(b.sort_order??9999)) ||
       String(a.last_name||"").localeCompare(String(b.last_name||""))
     );
+
+  const assistantPeople=people.slice();
+  const assistantResult=buildPlanningAssistantEngineV610({
+    weekStart:week,
+    schedules:schedules||[],
+    people:assistantPeople,
+    kind
+  });
+  storePlanningAssistantResultV610(assistantResult);
 
   const editablePlan = canEditPlan(kind);
 
@@ -5554,7 +5743,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6086`;
+  return `${base}?stempeluhr=1&v=6100`;
 }
 
 function normalizeIpValue(ip){
