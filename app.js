@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.83";
+const APP_VERSION="v6.0.84";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1977,6 +1977,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
   $(targetId).innerHTML=html;
   setupDesktopQuickPlanV83(targetId);
+  setupShiftDragDropV84(targetId,kind);
   setupDragAndDrop(targetId);
   setupMobileShiftTouch(targetId);
   applyShiftInputColors($(targetId));
@@ -2202,6 +2203,143 @@ function setupDesktopQuickPlanV83(targetId){
   });
 }
 
+
+let shiftDragStateV84=null;
+
+function employeeNameV84(profileId){
+  const p=profileById(profileId);
+  return `${p?.first_name||""} ${p?.last_name||""}`.trim() || "Mitarbeiter";
+}
+
+function clearShiftDragVisualsV84(targetId){
+  document.querySelectorAll(`#${targetId} .shiftDragSourceV84, #${targetId} .shiftDropValidV84, #${targetId} .shiftDropSwapV84`)
+    .forEach(el=>el.classList.remove("shiftDragSourceV84","shiftDropValidV84","shiftDropSwapV84"));
+}
+
+function dragCellValueV84(inp){
+  const parsed=normalizeQuickShiftV83(inp?.value||"");
+  return parsed.ok ? parsed.value : String(inp?.value||"").trim();
+}
+
+async function applyShiftDragV84(source,target,targetId,kind,copyMode){
+  if(!source||!target||source===target) return;
+
+  const sourceValue=dragCellValueV84(source);
+  const targetValue=dragCellValueV84(target);
+  if(!sourceValue) return;
+
+  const sourceName=employeeNameV84(source.dataset.profile);
+  const targetName=employeeNameV84(target.dataset.profile);
+  const sourceDate=fmtDate(source.dataset.date);
+  const targetDate=fmtDate(target.dataset.date);
+
+  let question="";
+  if(copyMode){
+    question=targetValue
+      ? `Schicht kopieren und vorhandenen Eintrag ersetzen?\n\n${sourceName} (${sourceDate}) → ${targetName} (${targetDate})\n${sourceValue}`
+      : `Schicht kopieren?\n\n${sourceName} (${sourceDate}) → ${targetName} (${targetDate})\n${sourceValue}`;
+  }else if(targetValue){
+    question=`Schichten tauschen?\n\n${sourceName} (${sourceDate}): ${sourceValue}\n${targetName} (${targetDate}): ${targetValue}`;
+  }else{
+    question=`Schicht verschieben?\n\n${sourceName} (${sourceDate}) → ${targetName} (${targetDate})\n${sourceValue}`;
+  }
+
+  if(!confirm(question)) return;
+
+  const sourceOriginal=source.value;
+  const targetOriginal=target.value;
+  const sourceId=source.dataset.id||"";
+  const targetIdValue=target.dataset.id||"";
+
+  try{
+    // Ziel erhält immer den Quellwert.
+    target.value=sourceValue;
+    await saveScheduleCell(target);
+
+    if(!copyMode){
+      // Bei belegtem Ziel: Tauschen. Sonst Quelle leeren.
+      source.value=targetValue;
+      await saveScheduleCell(source);
+    }
+
+    if(kind==="kitchen") await loadPlanKitchen();
+    else await loadPlanService();
+  }catch(error){
+    source.value=sourceOriginal;
+    target.value=targetOriginal;
+    source.dataset.id=sourceId;
+    target.dataset.id=targetIdValue;
+    console.error("Drag & Drop v6.0.84:",error);
+    alert("Die Schicht konnte nicht vollständig verschoben werden. Bitte den Dienstplan neu laden und prüfen.");
+  }
+}
+
+function setupShiftDragDropV84(targetId,kind){
+  if(!isManagement() || window.innerWidth<=820) return;
+
+  const inputs=[...document.querySelectorAll(`#${targetId} input.quickPlanCellV83`)];
+
+  inputs.forEach(inp=>{
+    const hasValue=!!dragCellValueV84(inp);
+    inp.draggable=hasValue;
+    inp.classList.toggle("shiftDraggableV84",hasValue);
+
+    inp.addEventListener("dragstart",e=>{
+      const value=dragCellValueV84(inp);
+      if(!value){
+        e.preventDefault();
+        return;
+      }
+
+      e.stopPropagation();
+      shiftDragStateV84={
+        source:inp,
+        targetId,
+        kind,
+        copyMode:!!e.altKey
+      };
+      inp.classList.add("shiftDragSourceV84");
+      e.dataTransfer.effectAllowed=e.altKey?"copy":"move";
+      e.dataTransfer.setData("text/plain",value);
+    });
+
+    inp.addEventListener("dragend",e=>{
+      e.stopPropagation();
+      clearShiftDragVisualsV84(targetId);
+      shiftDragStateV84=null;
+    });
+
+    inp.addEventListener("dragover",e=>{
+      if(!shiftDragStateV84 || shiftDragStateV84.source===inp) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const occupied=!!dragCellValueV84(inp);
+      inp.closest("td")?.classList.toggle("shiftDropSwapV84",occupied);
+      inp.closest("td")?.classList.toggle("shiftDropValidV84",!occupied);
+      e.dataTransfer.dropEffect=(e.altKey||shiftDragStateV84.copyMode)?"copy":"move";
+    });
+
+    inp.addEventListener("dragleave",e=>{
+      e.stopPropagation();
+      inp.closest("td")?.classList.remove("shiftDropValidV84","shiftDropSwapV84");
+    });
+
+    inp.addEventListener("drop",async e=>{
+      if(!shiftDragStateV84 || shiftDragStateV84.source===inp) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const state=shiftDragStateV84;
+      const copyMode=!!(e.altKey||state.copyMode);
+      clearShiftDragVisualsV84(targetId);
+      shiftDragStateV84=null;
+
+      await applyShiftDragV84(state.source,inp,targetId,kind,copyMode);
+    });
+  });
+}
+
 let touchShiftState = {profileId:null, workDate:null, id:"", kind:"service", status:"arbeit"};
 
 function setupMobileShiftTouch(targetId){
@@ -2414,6 +2552,8 @@ async function saveScheduleCell(inp){
     : payload.status;
 
   inp.value = displayValue;
+  inp.draggable = !!displayValue;
+  inp.classList.toggle("shiftDraggableV84",!!displayValue);
   applyShiftInputColors(document);
 
   await loadDashboardLight();
@@ -5151,7 +5291,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6083`;
+  return `${base}?stempeluhr=1&v=6084`;
 }
 
 function normalizeIpValue(ip){
