@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.84";
+const APP_VERSION="v6.0.86";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1947,6 +1947,15 @@ async function loadPlanFiltered(title,week,departments,targetId){
   mobile += `</div>`;
 
   let html=mobile;
+  if(editablePlan){
+    html += `<div class="planUndoToolbarV86" data-undo-target="${targetId}">
+      <div class="planUndoButtonsV86">
+        <button type="button" class="undoPlanBtnV86" title="Rückgängig · Strg/⌘ + Z">↶ Rückgängig</button>
+        <button type="button" class="redoPlanBtnV86" title="Wiederholen · Strg + Y oder ⌘ + Umschalt + Z">↷ Wiederholen</button>
+      </div>
+      <span class="planHistoryStatusV86">Noch keine Änderung in dieser Sitzung</span>
+    </div>`;
+  }
   html += '<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div>';
   html += '<div class="desktopPlanGrid grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
 
@@ -1978,12 +1987,214 @@ async function loadPlanFiltered(title,week,departments,targetId){
   $(targetId).innerHTML=html;
   setupDesktopQuickPlanV83(targetId);
   setupShiftDragDropV84(targetId,kind);
+  setupUndoRedoV86(targetId,kind);
   setupDragAndDrop(targetId);
   setupMobileShiftTouch(targetId);
   applyShiftInputColors($(targetId));
 }
 
 
+
+
+const planHistoryV86={
+  undo:[],
+  redo:[],
+  applying:false,
+  max:50,
+  lastMessage:"Noch keine Änderung in dieser Sitzung"
+};
+
+function normalizedHistoryValueV86(value){
+  const parsed=normalizeQuickShiftV83(value||"");
+  return parsed.ok ? parsed.value : String(value||"").trim();
+}
+
+function historyCellLabelV86(change){
+  return `${employeeNameV84(change.profileId)} · ${fmtDate(change.workDate)}`;
+}
+
+function updateUndoRedoUiV86(message=""){
+  if(message) planHistoryV86.lastMessage=message;
+
+  document.querySelectorAll(".undoPlanBtnV86").forEach(btn=>{
+    btn.disabled=!planHistoryV86.undo.length || planHistoryV86.applying;
+  });
+  document.querySelectorAll(".redoPlanBtnV86").forEach(btn=>{
+    btn.disabled=!planHistoryV86.redo.length || planHistoryV86.applying;
+  });
+  document.querySelectorAll(".planHistoryStatusV86").forEach(el=>{
+    el.textContent=planHistoryV86.applying ? "Änderung wird ausgeführt …" : planHistoryV86.lastMessage;
+  });
+}
+
+function showPlanHistoryToastV86(message){
+  let toast=document.querySelector("#planHistoryToastV86");
+  if(!toast){
+    toast=document.createElement("div");
+    toast.id="planHistoryToastV86";
+    toast.className="planHistoryToastV86";
+    document.body.appendChild(toast);
+  }
+  toast.textContent=message;
+  toast.classList.add("show");
+  clearTimeout(showPlanHistoryToastV86.timer);
+  showPlanHistoryToastV86.timer=setTimeout(()=>toast.classList.remove("show"),2600);
+}
+
+function pushPlanHistoryV86(action){
+  if(planHistoryV86.applying || !action?.changes?.length) return;
+
+  const changes=action.changes
+    .map(change=>({
+      profileId:change.profileId,
+      workDate:change.workDate,
+      before:normalizedHistoryValueV86(change.before),
+      after:normalizedHistoryValueV86(change.after)
+    }))
+    .filter(change=>change.before!==change.after);
+
+  if(!changes.length) return;
+
+  planHistoryV86.undo.push({
+    label:action.label || "Dienstplan geändert",
+    kind:action.kind || "service",
+    changes,
+    createdAt:Date.now()
+  });
+  if(planHistoryV86.undo.length>planHistoryV86.max) planHistoryV86.undo.shift();
+  planHistoryV86.redo=[];
+  updateUndoRedoUiV86(`Letzte Änderung: ${action.label || historyCellLabelV86(changes[0])}`);
+}
+
+async function currentScheduleIdV86(profileId,workDate){
+  const visible=document.querySelector(
+    `input.quickPlanCellV83[data-profile="${CSS.escape(profileId)}"][data-date="${CSS.escape(workDate)}"]`
+  );
+  if(visible?.dataset.id) return visible.dataset.id;
+
+  const {data,error}=await sb.from("schedules")
+    .select("id")
+    .eq("profile_id",profileId)
+    .eq("work_date",workDate)
+    .maybeSingle();
+
+  if(error){
+    console.error("Undo/Redo ID-Abfrage:",error);
+    return "";
+  }
+  return data?.id||"";
+}
+
+async function writeHistoryValueV86(change,value){
+  const id=await currentScheduleIdV86(change.profileId,change.workDate);
+  const virtualInput={
+    value:value||"",
+    dataset:{
+      profile:change.profileId,
+      date:change.workDate,
+      id:id||""
+    },
+    classList:{toggle(){},add(){},remove(){}}
+  };
+  return await saveScheduleCell(virtualInput,{skipHistory:true,skipHeavyRefresh:true});
+}
+
+async function applyPlanHistoryActionV86(action,direction){
+  if(!action || planHistoryV86.applying) return false;
+
+  planHistoryV86.applying=true;
+  updateUndoRedoUiV86();
+
+  const ordered=direction==="undo" ? [...action.changes].reverse() : [...action.changes];
+  let ok=true;
+
+  try{
+    for(const change of ordered){
+      const value=direction==="undo" ? change.before : change.after;
+      const saved=await writeHistoryValueV86(change,value);
+      if(saved===false){
+        ok=false;
+        break;
+      }
+    }
+
+    if(ok){
+      await loadDashboardLight();
+      await loadMonth();
+      await loadMinijobCenter();
+      await loadEmployeeOwnOverview();
+      if(action.kind==="kitchen") await loadPlanKitchen();
+      else await loadPlanService();
+    }
+  }catch(error){
+    ok=false;
+    console.error("Undo/Redo v6.0.86:",error);
+    alert("Die Änderung konnte nicht vollständig ausgeführt werden. Bitte den Dienstplan neu laden und prüfen.");
+  }finally{
+    planHistoryV86.applying=false;
+  }
+
+  return ok;
+}
+
+async function undoPlanV86(){
+  if(!planHistoryV86.undo.length || planHistoryV86.applying) return;
+  const action=planHistoryV86.undo.pop();
+  const ok=await applyPlanHistoryActionV86(action,"undo");
+  if(ok){
+    planHistoryV86.redo.push(action);
+    const message=`↶ Rückgängig: ${action.label}`;
+    updateUndoRedoUiV86(message);
+    showPlanHistoryToastV86(message);
+  }else{
+    planHistoryV86.undo.push(action);
+    updateUndoRedoUiV86("Rückgängig konnte nicht ausgeführt werden");
+  }
+}
+
+async function redoPlanV86(){
+  if(!planHistoryV86.redo.length || planHistoryV86.applying) return;
+  const action=planHistoryV86.redo.pop();
+  const ok=await applyPlanHistoryActionV86(action,"redo");
+  if(ok){
+    planHistoryV86.undo.push(action);
+    const message=`↷ Wiederholt: ${action.label}`;
+    updateUndoRedoUiV86(message);
+    showPlanHistoryToastV86(message);
+  }else{
+    planHistoryV86.redo.push(action);
+    updateUndoRedoUiV86("Wiederholen konnte nicht ausgeführt werden");
+  }
+}
+
+function setupUndoRedoV86(targetId,kind){
+  const toolbar=document.querySelector(`.planUndoToolbarV86[data-undo-target="${targetId}"]`);
+  if(toolbar){
+    toolbar.querySelector(".undoPlanBtnV86")?.addEventListener("click",undoPlanV86);
+    toolbar.querySelector(".redoPlanBtnV86")?.addEventListener("click",redoPlanV86);
+  }
+  updateUndoRedoUiV86();
+}
+
+if(!window.__planUndoKeyboardV86){
+  window.__planUndoKeyboardV86=true;
+  document.addEventListener("keydown",e=>{
+    const modifier=e.ctrlKey||e.metaKey;
+    if(!modifier || planHistoryV86.applying) return;
+
+    const key=e.key.toLowerCase();
+    const inEditablePlan=!!document.querySelector(".desktopPlanGrid input.quickPlanCellV83");
+    if(!inEditablePlan) return;
+
+    if(key==="z" && !e.shiftKey){
+      e.preventDefault();
+      undoPlanV86();
+    }else if((key==="y" && e.ctrlKey) || (key==="z" && e.metaKey && e.shiftKey)){
+      e.preventDefault();
+      redoPlanV86();
+    }
+  });
+}
 
 function parseQuickTimePartV83(part){
   const value=String(part||"").trim().replace(",",".");
@@ -2068,6 +2279,7 @@ function moveQuickPlanFocusV83(targetId,current,rowDelta,colDelta){
 
 async function commitQuickPlanV83(inp,targetId,moveAfter=false){
   if(inp.dataset.savingV83==="1") return;
+  const beforeValue=normalizedHistoryValueV86(inp.dataset.originalV83||"");
   const parsed=normalizeQuickShiftV83(inp.value);
 
   if(!parsed.ok){
@@ -2080,11 +2292,28 @@ async function commitQuickPlanV83(inp,targetId,moveAfter=false){
 
   inp.classList.remove("quickPlanInvalidV83");
   inp.value=parsed.value;
+  const afterValue=parsed.value;
   inp.dataset.savingV83="1";
+  let saved=false;
   try{
-    await saveScheduleCell(inp);
+    saved=await saveScheduleCell(inp,{skipHistory:true});
   }finally{
     inp.dataset.savingV83="";
+  }
+
+  if(saved!==false && beforeValue!==afterValue){
+    const p=profileById(inp.dataset.profile);
+    pushPlanHistoryV86({
+      kind:planKindForDepartment(p?.department),
+      label:`${employeeNameV84(inp.dataset.profile)} · ${fmtDate(inp.dataset.date)} · ${afterValue||"gelöscht"}`,
+      changes:[{
+        profileId:inp.dataset.profile,
+        workDate:inp.dataset.date,
+        before:beforeValue,
+        after:afterValue
+      }]
+    });
+    inp.dataset.originalV83=afterValue;
   }
 
   if(moveAfter) moveQuickPlanFocusV83(targetId,inp,1,0);
@@ -2254,14 +2483,43 @@ async function applyShiftDragV84(source,target,targetId,kind,copyMode){
   try{
     // Ziel erhält immer den Quellwert.
     target.value=sourceValue;
-    await saveScheduleCell(target);
+    const targetSaved=await saveScheduleCell(target,{skipHistory:true,skipHeavyRefresh:true});
+    if(targetSaved===false) throw new Error("Ziel konnte nicht gespeichert werden.");
 
     if(!copyMode){
       // Bei belegtem Ziel: Tauschen. Sonst Quelle leeren.
       source.value=targetValue;
-      await saveScheduleCell(source);
+      const sourceSaved=await saveScheduleCell(source,{skipHistory:true,skipHeavyRefresh:true});
+      if(sourceSaved===false) throw new Error("Quelle konnte nicht gespeichert werden.");
     }
 
+    const changes=[{
+      profileId:target.dataset.profile,
+      workDate:target.dataset.date,
+      before:targetValue,
+      after:sourceValue
+    }];
+    if(!copyMode){
+      changes.push({
+        profileId:source.dataset.profile,
+        workDate:source.dataset.date,
+        before:sourceValue,
+        after:targetValue
+      });
+    }
+
+    pushPlanHistoryV86({
+      kind,
+      label:copyMode
+        ? `${sourceName} → ${targetName} kopiert`
+        : (targetValue ? `${sourceName} ↔ ${targetName} getauscht` : `${sourceName} → ${targetName} verschoben`),
+      changes
+    });
+
+    await loadDashboardLight();
+    await loadMonth();
+    await loadMinijobCenter();
+    await loadEmployeeOwnOverview();
     if(kind==="kitchen") await loadPlanKitchen();
     else await loadPlanService();
   }catch(error){
@@ -2480,35 +2738,37 @@ function setupTouchShiftEditor(){
   }
 }
 
-async function saveScheduleCell(inp){
+async function saveScheduleCell(inp,options={}){
   const profileId = inp.dataset.profile;
   const targetProfile = profileById(profileId);
   const targetKind = planKindForDepartment(targetProfile.department);
-  if(!canEditPlan(targetKind)) return alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten.");
+  if(!canEditPlan(targetKind)){ alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten."); return false; }
   const workDate = inp.dataset.date;
   const rawOriginal = (inp.value || "").trim();
   const quickNormalized = normalizeQuickShiftV83(rawOriginal);
   if(!quickNormalized.ok){
     alert("Ungültige Eingabe. Beispiele: fr, s, f, k, u oder 12-16 / 17-23:30.");
-    return;
+    return false;
   }
   const raw = quickNormalized.value.toLowerCase();
   inp.value = quickNormalized.value;
 
-  if(!profileId || !workDate) return;
+  if(!profileId || !workDate) return false;
 
   if(!raw){
     if(inp.dataset.id){
       const del = await sb.from("schedules").delete().eq("id", inp.dataset.id);
       if(del.error){
         alert("Fehler beim Löschen: " + del.error.message);
-        return;
+        return false;
       }
       inp.dataset.id = "";
     }
-    await loadMonth();
-    await loadMinijobCenter();
-    return;
+    if(!options.skipHeavyRefresh){
+      await loadMonth();
+      await loadMinijobCenter();
+    }
+    return true;
   }
 
   let payload = {
@@ -2533,7 +2793,7 @@ async function saveScheduleCell(inp){
     payload.status = "krank";
   }else{
     alert("Bitte fr, s, f, k, u oder eine Uhrzeit wie 12-16 bzw. 17-23:30 eingeben.");
-    return;
+    return false;
   }
 
   const res = inp.dataset.id
@@ -2542,7 +2802,7 @@ async function saveScheduleCell(inp){
 
   if(res.error){
     alert("Fehler beim Speichern: " + res.error.message);
-    return;
+    return false;
   }
 
   inp.dataset.id = res.data.id;
@@ -2556,10 +2816,13 @@ async function saveScheduleCell(inp){
   inp.classList.toggle("shiftDraggableV84",!!displayValue);
   applyShiftInputColors(document);
 
-  await loadDashboardLight();
-  await loadMonth();
-  await loadMinijobCenter();
-  await loadEmployeeOwnOverview();
+  if(!options.skipHeavyRefresh){
+    await loadDashboardLight();
+    await loadMonth();
+    await loadMinijobCenter();
+    await loadEmployeeOwnOverview();
+  }
+  return true;
 }
 
 $("prevMonth").onclick=()=>{const[y,m]=($("monthSelect").value||monthISO()).split("-").map(Number);$("monthSelect").value=monthISO(new Date(y,m-2,1));loadMonth()};
@@ -5291,7 +5554,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6084`;
+  return `${base}?stempeluhr=1&v=6086`;
 }
 
 function normalizeIpValue(ip){
