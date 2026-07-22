@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.0.82";
+const APP_VERSION="v6.0.83";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1963,8 +1963,8 @@ async function loadPlanFiltered(title,week,departments,targetId){
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
       const val=cellValue(item);
       html+=editablePlan
-        ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)}" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="08:00-16:00 / frei / urlaub / krank"></td>`
-        : `<td>${val ? shiftPill(val) : "<span class='small'>—</span>"}</td>`;
+        ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)} quickPlanCellV83" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="" autocomplete="off" spellcheck="false"></td>`
+        : `<td>${val ? shiftPill(val) : ""}</td>`;
     });
     html+="</tr>";
   });
@@ -1976,12 +1976,231 @@ async function loadPlanFiltered(title,week,departments,targetId){
   html+="</tbody></table></div>";
 
   $(targetId).innerHTML=html;
-  document.querySelectorAll(`#${targetId} input`).forEach(inp=>inp.onchange=()=>{applyShiftInputColors($(targetId));saveScheduleCell(inp)});
+  setupDesktopQuickPlanV83(targetId);
   setupDragAndDrop(targetId);
   setupMobileShiftTouch(targetId);
   applyShiftInputColors($(targetId));
 }
 
+
+
+function parseQuickTimePartV83(part){
+  const value=String(part||"").trim().replace(",",".");
+  if(!value) return null;
+
+  let hour,minute=0;
+
+  if(/^\d{1,2}$/.test(value)){
+    hour=Number(value);
+  }else if(/^\d{1,2}:\d{1,2}$/.test(value)){
+    const [h,m]=value.split(":").map(Number);
+    hour=h; minute=m;
+  }else if(/^\d{1,2}\.\d{1,2}$/.test(value)){
+    const [h,decimal]=value.split(".");
+    hour=Number(h);
+    if(decimal.length===1){
+      minute=Math.round((Number(decimal)/10)*60);
+    }else{
+      minute=Number(decimal);
+    }
+  }else{
+    return null;
+  }
+
+  if(minute===60){hour+=1;minute=0}
+  if(!Number.isInteger(hour)||!Number.isInteger(minute)||hour<0||hour>23||minute<0||minute>59) return null;
+  return `${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}`;
+}
+
+function normalizeQuickShiftV83(value){
+  const raw=String(value||"").trim().toLowerCase()
+    .replace(/[–—]/g,"-")
+    .replace(/\s+/g,"");
+
+  if(!raw) return {ok:true,value:"",kind:"empty"};
+
+  const shortcuts={
+    "f":"frei","frei":"frei",
+    "k":"krank","krank":"krank",
+    "u":"urlaub","urlaub":"urlaub",
+    "fr":"10:00-18:00","früh":"10:00-18:00","frueh":"10:00-18:00",
+    "s":"17:00-23:30","spät":"17:00-23:30","spaet":"17:00-23:30"
+  };
+  if(shortcuts[raw]){
+    const normalized=shortcuts[raw];
+    return {ok:true,value:normalized,kind:normalized.includes(":")?"arbeit":"status"};
+  }
+
+  const parts=raw.split("-");
+  if(parts.length!==2) return {ok:false};
+
+  const start=parseQuickTimePartV83(parts[0]);
+  const end=parseQuickTimePartV83(parts[1]);
+  if(!start||!end) return {ok:false};
+
+  return {ok:true,value:`${start}-${end}`,kind:"arbeit"};
+}
+
+function quickPlanInputsV83(targetId){
+  return [...document.querySelectorAll(`#${targetId} input.quickPlanCellV83`)];
+}
+
+function moveQuickPlanFocusV83(targetId,current,rowDelta,colDelta){
+  const table=current.closest("table");
+  const row=current.closest("tr");
+  const cell=current.closest("td");
+  if(!table||!row||!cell) return;
+
+  const rows=[...table.querySelectorAll("tbody tr")];
+  const cells=[...row.querySelectorAll("td")];
+  const rowIndex=rows.indexOf(row);
+  const colIndex=cells.indexOf(cell);
+  const nextRow=rows[rowIndex+rowDelta];
+  if(!nextRow) return;
+  const nextCells=[...nextRow.querySelectorAll("td")];
+  const target=nextCells[colIndex+colDelta]?.querySelector("input.quickPlanCellV83");
+  if(target){
+    target.focus();
+    target.select();
+  }
+}
+
+async function commitQuickPlanV83(inp,targetId,moveAfter=false){
+  if(inp.dataset.savingV83==="1") return;
+  const parsed=normalizeQuickShiftV83(inp.value);
+
+  if(!parsed.ok){
+    inp.classList.add("quickPlanInvalidV83");
+    alert("Ungültige Eingabe. Beispiele: fr, s, f, k, u oder 12-16 / 17-23:30.");
+    inp.focus();
+    inp.select();
+    return;
+  }
+
+  inp.classList.remove("quickPlanInvalidV83");
+  inp.value=parsed.value;
+  inp.dataset.savingV83="1";
+  try{
+    await saveScheduleCell(inp);
+  }finally{
+    inp.dataset.savingV83="";
+  }
+
+  if(moveAfter) moveQuickPlanFocusV83(targetId,inp,1,0);
+}
+
+function closeQuickPlanMenuV83(){
+  document.querySelector("#quickPlanMenuV83")?.remove();
+}
+
+function openQuickPlanMenuV83(inp,x,y,targetId){
+  closeQuickPlanMenuV83();
+  const menu=document.createElement("div");
+  menu.id="quickPlanMenuV83";
+  menu.className="quickPlanMenuV83";
+  menu.innerHTML=`
+    <button type="button" data-value="fr"><b>Früh</b><small>10:00–18:00</small></button>
+    <button type="button" data-value="s"><b>Spät</b><small>17:00–23:30</small></button>
+    <button type="button" data-value="u"><b>Urlaub</b></button>
+    <button type="button" data-value="k"><b>Krank</b></button>
+    <button type="button" data-value="f"><b>Frei</b></button>
+    <button type="button" data-custom="1"><b>Uhrzeit eingeben</b><small>z. B. 12-16</small></button>
+    <button type="button" data-value=""><b>Feld leeren</b></button>`;
+  document.body.appendChild(menu);
+
+  const maxX=window.innerWidth-menu.offsetWidth-8;
+  const maxY=window.innerHeight-menu.offsetHeight-8;
+  menu.style.left=`${Math.max(8,Math.min(x,maxX))}px`;
+  menu.style.top=`${Math.max(8,Math.min(y,maxY))}px`;
+
+  menu.querySelectorAll("button").forEach(btn=>{
+    btn.onclick=async()=>{
+      if(btn.dataset.custom==="1"){
+        closeQuickPlanMenuV83();
+        inp.focus();
+        inp.select();
+        return;
+      }
+      inp.value=btn.dataset.value??"";
+      closeQuickPlanMenuV83();
+      await commitQuickPlanV83(inp,targetId,false);
+      inp.focus();
+      inp.select();
+    };
+  });
+
+  setTimeout(()=>document.addEventListener("click",closeQuickPlanMenuV83,{once:true}),0);
+}
+
+function setupDesktopQuickPlanV83(targetId){
+  const inputs=quickPlanInputsV83(targetId);
+
+  inputs.forEach(inp=>{
+    inp.onfocus=()=>{
+      inp.dataset.originalV83=inp.value;
+      inp.select();
+    };
+
+    inp.oninput=()=>{
+      inp.classList.remove("quickPlanInvalidV83");
+      const preview=normalizeQuickShiftV83(inp.value);
+      if(preview.ok && inp.value.trim()) inp.title=`Wird gespeichert als: ${preview.value}`;
+      else inp.removeAttribute("title");
+    };
+
+    inp.onchange=async()=>{
+      applyShiftInputColors($(targetId));
+      await commitQuickPlanV83(inp,targetId,false);
+    };
+
+    inp.onkeydown=async e=>{
+      if(e.key==="Enter"){
+        e.preventDefault();
+        await commitQuickPlanV83(inp,targetId,true);
+        return;
+      }
+
+      if(e.key==="Escape"){
+        e.preventDefault();
+        inp.value=inp.dataset.originalV83||"";
+        inp.blur();
+        return;
+      }
+
+      if(e.key==="ArrowUp"){
+        e.preventDefault();
+        moveQuickPlanFocusV83(targetId,inp,-1,0);
+        return;
+      }
+      if(e.key==="ArrowDown"){
+        e.preventDefault();
+        moveQuickPlanFocusV83(targetId,inp,1,0);
+        return;
+      }
+
+      const atStart=inp.selectionStart===0&&inp.selectionEnd===0;
+      const atEnd=inp.selectionStart===inp.value.length&&inp.selectionEnd===inp.value.length;
+      if(e.key==="ArrowLeft"&&atStart){
+        e.preventDefault();
+        moveQuickPlanFocusV83(targetId,inp,0,-1);
+      }else if(e.key==="ArrowRight"&&atEnd){
+        e.preventDefault();
+        moveQuickPlanFocusV83(targetId,inp,0,1);
+      }
+    };
+
+    inp.oncontextmenu=e=>{
+      e.preventDefault();
+      openQuickPlanMenuV83(inp,e.clientX,e.clientY,targetId);
+    };
+
+    inp.ondblclick=e=>{
+      e.preventDefault();
+      const rect=inp.getBoundingClientRect();
+      openQuickPlanMenuV83(inp,rect.left,rect.bottom+4,targetId);
+    };
+  });
+}
 
 let touchShiftState = {profileId:null, workDate:null, id:"", kind:"service", status:"arbeit"};
 
@@ -2130,7 +2349,13 @@ async function saveScheduleCell(inp){
   if(!canEditPlan(targetKind)) return alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten.");
   const workDate = inp.dataset.date;
   const rawOriginal = (inp.value || "").trim();
-  const raw = rawOriginal.toLowerCase();
+  const quickNormalized = normalizeQuickShiftV83(rawOriginal);
+  if(!quickNormalized.ok){
+    alert("Ungültige Eingabe. Beispiele: fr, s, f, k, u oder 12-16 / 17-23:30.");
+    return;
+  }
+  const raw = quickNormalized.value.toLowerCase();
+  inp.value = quickNormalized.value;
 
   if(!profileId || !workDate) return;
 
@@ -2169,7 +2394,7 @@ async function saveScheduleCell(inp){
   }else if(raw.includes("krank")){
     payload.status = "krank";
   }else{
-    alert("Bitte im Format 17:00-22:00 oder frei / urlaub / krank eintragen.");
+    alert("Bitte fr, s, f, k, u oder eine Uhrzeit wie 12-16 bzw. 17-23:30 eingeben.");
     return;
   }
 
@@ -4926,7 +5151,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6082`;
+  return `${base}?stempeluhr=1&v=6083`;
 }
 
 function normalizeIpValue(ip){

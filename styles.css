@@ -5771,3 +5771,76 @@ button[disabled]{
     max-height:calc(100vh - 380px);
   }
 }
+
+
+/* v6.0.83 – Desktop-Schnellplanung */
+@media(min-width:821px){
+  .desktopPlanGrid input.quickPlanCellV83{
+    min-width:112px;
+    background:#fff;
+    font-weight:700;
+    text-align:center;
+  }
+
+  .desktopPlanGrid input.quickPlanCellV83:placeholder-shown{
+    background:#fff;
+  }
+
+  .desktopPlanGrid input.quickPlanCellV83:focus{
+    position:relative;
+    z-index:2;
+    outline:3px solid rgba(22,77,58,.20);
+    border-color:#164d3a;
+    box-shadow:0 0 0 1px #164d3a;
+  }
+
+  .desktopPlanGrid input.quickPlanInvalidV83{
+    border-color:#b42318!important;
+    background:#fff1f0!important;
+    color:#8f1811!important;
+  }
+}
+
+.quickPlanMenuV83{
+  position:fixed;
+  z-index:99999;
+  display:grid;
+  width:210px;
+  overflow:hidden;
+  border:1px solid #d7e1db;
+  border-radius:15px;
+  background:#fff;
+  box-shadow:0 16px 42px rgba(20,46,36,.22);
+}
+
+.quickPlanMenuV83 button{
+  display:flex;
+  min-height:46px;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:9px 12px;
+  border:0;
+  border-bottom:1px solid #edf1ef;
+  border-radius:0;
+  background:#fff;
+  color:#19372c;
+  text-align:left;
+}
+
+.quickPlanMenuV83 button:last-child{
+  border-bottom:0;
+}
+
+.quickPlanMenuV83 button:hover{
+  background:#edf5f1;
+}
+
+.quickPlanMenuV83 button b{
+  font-size:13px;
+}
+
+.quickPlanMenuV83 button small{
+  color:#708078;
+  font-size:10.5px;
+}
