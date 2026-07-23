@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6110">
+  <link rel="stylesheet" href="styles.css?v=6120">
 </head>
 <body>
 <header class="topbar">
@@ -82,6 +82,7 @@
       <button data-tab="events" class="managementOnly">📅 Events</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob</button>
+      <button data-tab="assistantSettings" class="managementOnly">⚙️ Assistent</button>
       <button id="mobileTouchLogoutBtn" type="button" class="mobileTouchLogoutBtn">↩ Abmelden</button>
     </nav>
     <aside class="sidebar">
@@ -96,6 +97,7 @@
       <button data-tab="vacation">🏝️ Urlaub</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob-Center</button>
+      <button data-tab="assistantSettings" class="managementOnly">⚙️ Planungsassistent</button>
       <div class="spacer"></div>
       <button id="logoutBtn" class="logout">↩ Abmelden</button>
     </aside>
@@ -923,6 +925,69 @@
         <div id="minijobCenterList"></div>
       </section>
 
+
+      <section id="assistantSettings" class="tabPage card hidden managementOnly assistantSettingsPageV612">
+        <div class="sectionHeader">
+          <div>
+            <h2>Planungsassistent</h2>
+            <p class="subline">Du bestimmst, welche Hinweise und Auswertungen im Dienstplan erscheinen. Keine Einstellung blockiert eine Schicht.</p>
+          </div>
+        </div>
+
+        <div id="planningAssistantSettingsFormV612" class="assistantSettingsGridV612">
+          <div class="assistantSettingsMasterV612">
+            <label class="assistantSwitchRowV612 master">
+              <span><b>Planungsassistent aktiv</b><small>Alle sichtbaren Hinweise und Stundenanzeigen gemeinsam ein- oder ausschalten.</small></span>
+              <input id="paEnabledV612" type="checkbox">
+            </label>
+            <p id="planningAssistantMasterHintV612" class="assistantSettingsHintV612">Die Berechnung bleibt im Hintergrund verfügbar. Es wird nichts gesperrt oder automatisch verändert.</p>
+          </div>
+
+          <div class="assistantSettingsCardV612">
+            <h3>Warnungen</h3>
+            <label class="assistantSwitchRowV612">
+              <span><b>Ruhezeiten prüfen</b><small>Hinweis, wenn zwischen zwei Arbeitsschichten weniger als der gewählte Richtwert liegt.</small></span>
+              <input id="paRestTimeV612" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantNumberRowV612">
+              <span><b>Richtwert Ruhezeit</b><small>Nur Warnschwelle; die Schicht kann immer gespeichert werden.</small></span>
+              <span><input id="paRestHoursV612" data-assistant-dependent type="number" min="1" max="24" step="0.5"> Stunden</span>
+            </label>
+            <label class="assistantSwitchRowV612">
+              <span><b>Doppelbelegungen prüfen</b><small>Warnt bei mehreren Datensätzen oder zeitlichen Überschneidungen am selben Tag.</small></span>
+              <input id="paDuplicateV612" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantSwitchRowV612">
+              <span><b>Warnungen mobil anzeigen</b><small>Warnsymbole zusätzlich in der mobilen Dienstplanübersicht einblenden.</small></span>
+              <input id="paMobileWarningsV612" data-assistant-dependent type="checkbox">
+            </label>
+          </div>
+
+          <div class="assistantSettingsCardV612">
+            <h3>Stunden und Übersicht</h3>
+            <label class="assistantSwitchRowV612">
+              <span><b>Wochenstunden anzeigen</b><small>Geplante Wochenstunden direkt neben dem Mitarbeiternamen.</small></span>
+              <input id="paWeekHoursV612" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantSwitchRowV612">
+              <span><b>Tagesstunden anzeigen</b><small>Gesamte geplante Arbeitszeit im Kopf des jeweiligen Tages.</small></span>
+              <input id="paDayHoursV612" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantSwitchRowV612">
+              <span><b>Wochenzusammenfassung anzeigen</b><small>Gesamtstunden, Schichtzahl und Anzahl der aktiven Hinweise oberhalb des Plans.</small></span>
+              <input id="paSummaryV612" data-assistant-dependent type="checkbox">
+            </label>
+          </div>
+        </div>
+
+        <div class="assistantSettingsActionsV612">
+          <button id="savePlanningAssistantSettingsV612" type="button">Einstellungen speichern</button>
+          <button id="resetPlanningAssistantSettingsV612" type="button" class="secondary">Standard wiederherstellen</button>
+          <span id="planningAssistantSettingsStatusV612" aria-live="polite"></span>
+        </div>
+        <div class="assistantSettingsNoticeV612"><b>Grundsatz:</b> Die App informiert und unterstützt. Die Restaurantleitung entscheidet.</div>
+      </section>
+
 <section id="events" class="tabPage hidden managementOnly eventsPage">
   <div class="eventsTouchNavV73 eventsTouchGridV74" aria-label="Eventbereiche">
     <button type="button" class="eventsTouchBtnV73 eventsTouchTileV74 active" data-events-view="upcoming">
@@ -1104,7 +1169,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6110"></script>
-<script src="app.js?v=6110"></script>
+<script src="config.js?v=6120"></script>
+<script src="app.js?v=6120"></script>
 </body>
 </html>

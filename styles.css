@@ -6004,3 +6004,31 @@ button[disabled]{
   .planningAssistantSummaryV611 b{font-size:13px}
   .planningWarningDialogV611{border-radius:16px}
 }
+
+
+/* v6.1.2 – Planungsassistent Einstellungen */
+.assistantSettingsPageV612{max-width:1100px}
+.assistantSettingsGridV612{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.assistantSettingsMasterV612{grid-column:1/-1;padding:18px;border:1px solid #cfe0d7;border-radius:16px;background:#f4faf7}
+.assistantSettingsCardV612{padding:18px;border:1px solid #dfe7e2;border-radius:16px;background:#fff}
+.assistantSettingsCardV612 h3{margin:0 0 8px}
+.assistantSwitchRowV612,.assistantNumberRowV612{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 0;border-bottom:1px solid #edf1ef;cursor:pointer}
+.assistantSwitchRowV612:last-child,.assistantNumberRowV612:last-child{border-bottom:0}
+.assistantSwitchRowV612 span:first-child,.assistantNumberRowV612 span:first-child{display:flex;flex-direction:column;gap:4px}
+.assistantSwitchRowV612 small,.assistantNumberRowV612 small{color:#67766e;line-height:1.35}
+.assistantSwitchRowV612 input[type="checkbox"]{width:24px;height:24px;flex:0 0 auto;accent-color:#275f49}
+.assistantNumberRowV612 input{width:78px;margin:0 5px 0 0;text-align:center}
+.assistantSwitchRowV612.master{padding:0;border:0}
+.assistantSwitchRowV612.master b{font-size:18px}
+.assistantSettingsHintV612{margin:12px 0 0;color:#4f675c}
+.assistantSettingsHintV612.disabled{color:#9a655d}
+.assistantSettingsActionsV612{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+#planningAssistantSettingsStatusV612{color:#276044;font-weight:700}
+.assistantSettingsNoticeV612{margin-top:18px;padding:14px 16px;border-left:4px solid #2e7355;border-radius:8px;background:#f4faf7}
+#planningAssistantSettingsFormV612 :disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:820px){
+  .assistantSettingsGridV612{grid-template-columns:1fr}
+  .assistantSettingsMasterV612{grid-column:auto}
+  .assistantSwitchRowV612,.assistantNumberRowV612{align-items:flex-start}
+  .assistantSettingsActionsV612 button{width:100%}
+}
