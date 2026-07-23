@@ -6032,3 +6032,43 @@ button[disabled]{
   .assistantSwitchRowV612,.assistantNumberRowV612{align-items:flex-start}
   .assistantSettingsActionsV612 button{width:100%}
 }
+
+
+/* v6.1.3 – Planungsassistent Phase 4: Optimierung */
+.mobilePlanCards .mobileDayCard{
+  content-visibility:auto;
+  contain-intrinsic-size:280px;
+}
+
+.mobileDayHead{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.assistantMobileDayHoursV613{
+  flex:0 0 auto;
+  padding:3px 7px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  font-size:11px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.planningAssistantSummaryV611,
+.planUndoToolbarV86,
+.desktopPlanGrid,
+.mobilePlanCards{
+  contain:layout style;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .planningWarningOverlayV611,
+  .planningWarningDialogV611,
+  .planHistoryToastV86{
+    animation:none!important;
+    transition:none!important;
+  }
+}
