@@ -6072,3 +6072,64 @@ button[disabled]{
     transition:none!important;
   }
 }
+
+
+/* v6.2.0 – Vertrags- und Stundenprofile */
+.planningProfileBoxV620{
+  margin-top:4px;
+  padding:14px;
+  border:1px solid #dbe7e0;
+  border-radius:14px;
+  background:#f8fbf9;
+}
+
+.planningProfileTitleV620{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.planningProfileTitleV620 b{
+  display:block;
+  color:#173f31;
+  font-size:15px;
+}
+
+.planningProfileTitleV620 small,
+.planningProfileHelpV620{
+  display:block;
+  margin-top:4px;
+  color:#6a776f;
+  font-size:11px;
+  line-height:1.35;
+}
+
+.planningProfileGridV620{
+  margin:0;
+}
+
+.planningCheckLineV620{
+  align-self:center;
+  min-height:44px;
+  padding:10px 12px;
+  border:1px solid #dce8e1;
+  border-radius:11px;
+  background:#fff;
+}
+
+.staffPlanningSummaryV620{
+  color:#4f6d60!important;
+  font-weight:700;
+}
+
+@media(max-width:820px){
+  .planningProfileBoxV620{
+    padding:12px;
+  }
+
+  .planningProfileGridV620{
+    grid-template-columns:1fr;
+  }
+}

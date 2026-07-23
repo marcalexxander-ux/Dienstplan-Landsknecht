@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.1.3";
+const APP_VERSION="v6.2.0";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -4777,7 +4777,8 @@ const PERSONNEL_FIELD_IDS=[
   "staffBirthName","staffStreet","staffPostalCode","staffCity","staffBirthPlace","staffBirthCountry",
   "staffNationality","staffMaritalStatus","staffGender","staffSocialSecurityNumber","staffSeverelyDisabled",
   "staffPersonnelNumber","staffFirstHireDate","staffJobTitle","staffOccupation","staffEmploymentType",
-  "staffWeeklyHours","staffProbation","staffProbationMonths","staffOtherEmployment",
+  "staffWeeklyHours","staffMaxWeeklyHours","staffHoursCheckEnabled","staffPlanningNotes",
+  "staffProbation","staffProbationMonths","staffOtherEmployment",
   "staffOtherEmploymentMinijob","staffSchoolQualification","staffVocationalQualification",
   "staffFixedTerm","staffFixedTermUntil","staffContractSignedAt","staffTaxId","staffTaxClass",
   "staffChildAllowance","staffReligion","staffHealthInsurance","staffParentStatus","staffBeaObjection",
@@ -4847,6 +4848,39 @@ function staffAllEntriesV81(){
   return [...active,...pending].sort(staffSortV81);
 }
 
+
+function staffPlanningProfileV620(p){
+  const data=p?.personnel_data||{};
+  const target=Number(data.weeklyHours);
+  const maximum=Number(data.maxWeeklyHours);
+  return {
+    target:Number.isFinite(target)&&target>0?target:null,
+    maximum:Number.isFinite(maximum)&&maximum>0?maximum:null,
+    enabled:data.hoursCheckEnabled===true,
+    note:String(data.planningNotes||"").trim()
+  };
+}
+
+function contractTypeLabelV620(value){
+  const labels={
+    minijob:"Minijob",
+    teilzeit:"Teilzeit",
+    vollzeit:"Vollzeit",
+    aushilfe:"Aushilfe",
+    geschaeftsfuehrung:"Geschäftsführung"
+  };
+  return labels[value]||value||"—";
+}
+
+function staffPlanningSummaryV620(p){
+  const plan=staffPlanningProfileV620(p);
+  const parts=[];
+  if(plan.target!==null) parts.push(`Soll ${String(plan.target).replace(".",",")} h`);
+  if(plan.maximum!==null) parts.push(`Max. ${String(plan.maximum).replace(".",",")} h`);
+  if(plan.enabled) parts.push("Prüfung aktiv");
+  return parts.join(" · ");
+}
+
 function staffCardV81(p){
   const name=`${p.first_name||""} ${p.last_name||""}`.trim()||"Ohne Namen";
   const initial=(p.first_name||p.last_name||"?").slice(0,1).toUpperCase();
@@ -4855,6 +4889,7 @@ function staffCardV81(p){
     <span class="staffCardTextV81">
       <b>${escapeHtml(name)}</b>
       <small>${escapeHtml(displayDept(p.department))}${p.email?` · ${escapeHtml(p.email)}`:""}</small>
+      ${staffPlanningSummaryV620(p)?`<small class="staffPlanningSummaryV620">${escapeHtml(staffPlanningSummaryV620(p))}</small>`:""}
       ${p._pending?'<em>Einladung ausstehend</em>':""}
     </span>
     <span class="staffArrowV81">›</span>
@@ -5250,9 +5285,9 @@ Liebe Grüße`;
 window.sendStaffInvite = sendStaffInvite;
 
 function renderStaff(){
-  const activeHtml=profiles.filter(p=>!isRemovedProfile(p)).map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
+  const activeHtml=profiles.filter(p=>!isRemovedProfile(p)).map(p=>`<div class="entry"><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(contractTypeLabelV620(p.contract_type))}<br>Stundenlohn: ${p.hourly_rate?Number(p.hourly_rate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})+" €":"—"}<br>Planungsprofil: ${staffPlanningSummaryV620(p)?escapeHtml(staffPlanningSummaryV620(p)):"—"}<br>Reihenfolge: ${p.sort_order??"—"}<div class="staffActions"><button class="secondary" onclick="editStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button>${p.id!==profile.id?`<button class="danger" onclick="deactivateStaff('${p.id}')">Deaktivieren</button><button class="danger deleteStaffBtn" onclick="deleteStaff('${p.id}')">Aus App entfernen</button>`:""}</div></div>`).join("");
 
-  const pendingHtml=pendingStaffInvites.map(p=>`<div class="entry pendingStaffEntry"><div class="pendingBadge">Einladung ausstehend</div><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(p.contract_type||"—")}<div class="staffActions"><button class="secondary" onclick="editPendingStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="danger" onclick="deletePendingStaff('${p.id}')">Entfernen</button></div></div>`).join("");
+  const pendingHtml=pendingStaffInvites.map(p=>`<div class="entry pendingStaffEntry"><div class="pendingBadge">Einladung ausstehend</div><b>${escapeHtml(p.first_name)} ${escapeHtml(p.last_name)}</b><br>${escapeHtml(p.email||"")}<br>${escapeHtml(p.phone||"")}<br>Rolle: ${p.role==="management"||p.role==="admin"?"Geschäftsführung":"Mitarbeiter"}<br>Bereich: ${deptBadge(p.department)}<br>Einplanen: ${p.plannable?"Ja":"Nein"}<br>Vertragsart: ${escapeHtml(contractTypeLabelV620(p.contract_type))}<br>Planungsprofil: ${staffPlanningSummaryV620(p)?escapeHtml(staffPlanningSummaryV620(p)):"—"}<div class="staffActions"><button class="secondary" onclick="editPendingStaff('${p.id}')">Bearbeiten</button> <button class="inviteBtn" onclick="sendStaffInvite('${p.id}')">✉️ Einladung senden</button><button class="danger" onclick="deletePendingStaff('${p.id}')">Entfernen</button></div></div>`).join("");
 
   $("staffList").innerHTML=pendingHtml+activeHtml;
   if(staffMobileInitializedV81) renderStaffMobileListsV81();
@@ -6041,7 +6076,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6130`;
+  return `${base}?stempeluhr=1&v=6200`;
 }
 
 function normalizeIpValue(ip){
