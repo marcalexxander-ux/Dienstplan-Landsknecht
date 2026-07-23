@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.1.0";
+const APP_VERSION="v6.1.1";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -2019,8 +2019,8 @@ function buildPlanningAssistantEngineV610({weekStart,schedules,people,kind}){
   });
 
   const result={
-    version:"6.1.0",
-    phase:1,
+    version:"6.1.1",
+    phase:2,
     kind,
     weekStart,
     weekEnd,
@@ -2052,7 +2052,111 @@ function storePlanningAssistantResultV610(result){
   planningAssistantCacheV610[key]=result;
   window.planningAssistantV610=planningAssistantCacheV610;
   window.dispatchEvent(new CustomEvent("planning-assistant-calculated",{detail:result}));
-  console.info(`[Planungsassistent v6.1.0] ${result.kind} ${result.weekStart}`,result);
+  console.info(`[Planungsassistent v6.1.1] ${result.kind} ${result.weekStart}`,result);
+}
+
+
+function formatAssistantHoursV611(hours){
+  const value=Number(hours||0);
+  return `${value.toLocaleString("de-DE",{minimumFractionDigits:value%1?1:0,maximumFractionDigits:2})} h`;
+}
+
+function formatAssistantMinutesV611(minutes){
+  const total=Math.max(0,Number(minutes||0));
+  const h=Math.floor(total/60),m=total%60;
+  return m ? `${h} Std. ${m} Min.` : `${h} Std.`;
+}
+
+function planningWarningsForCellV611(result,profileId,workDate){
+  if(!result?.warnings) return [];
+  return (result.warnings.all||[]).filter(w=>
+    w.profileId===profileId &&
+    ((w.type==="rest_time" && w.currentDate===workDate) ||
+     (w.type!=="rest_time" && w.workDate===workDate))
+  );
+}
+
+function planningWarningLevelV611(warnings){
+  return (warnings||[]).some(w=>w.type==="overlap"||w.type==="duplicate_records") ? "critical" : "notice";
+}
+
+function planningWarningTitleV611(warning){
+  if(warning.type==="rest_time") return "Ruhezeit unterschritten";
+  if(warning.type==="overlap") return "Schichten überschneiden sich";
+  if(warning.type==="duplicate_records") return "Mehrere Einträge am selben Tag";
+  return "Planungshinweis";
+}
+
+function planningWarningDetailsV611(warning){
+  if(warning.type==="rest_time"){
+    return `Vorherige Schicht: ${fmtDate(warning.previousDate)}\nAktuelle Schicht: ${fmtDate(warning.currentDate)}\nRuhezeit: ${formatAssistantMinutesV611(warning.restMinutes)}\nRichtwert: ${formatAssistantMinutesV611(warning.requiredMinutes)}\n\nDie Schicht bleibt gespeichert. Die Entscheidung liegt bei der Restaurantleitung.`;
+  }
+  if(warning.type==="overlap"){
+    return `Am ${fmtDate(warning.workDate)} überschneiden sich zwei Schichteinträge um ${formatAssistantMinutesV611(warning.overlapMinutes)}.\n\nBitte die Einträge prüfen. Es wird nichts automatisch geändert.`;
+  }
+  if(warning.type==="duplicate_records"){
+    return `Am ${fmtDate(warning.workDate)} wurden ${warning.count} Datensätze für denselben Mitarbeiter gefunden.\n\nDas kann ein doppelter Eintrag sein. Es wird nichts automatisch gelöscht.`;
+  }
+  return "Bitte diesen Dienstplaneintrag prüfen.";
+}
+
+function assistantWarningButtonV611(result,profileId,workDate,compact=false){
+  const warnings=planningWarningsForCellV611(result,profileId,workDate);
+  if(!warnings.length) return "";
+  const level=planningWarningLevelV611(warnings);
+  const title=warnings.map(planningWarningTitleV611).join(" · ");
+  return `<button type="button" class="planWarningBtnV611 ${level} ${compact?"compact":""}" data-assistant-key="${result.kind}_${result.weekStart}" data-profile-id="${profileId}" data-work-date="${workDate}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${level==="critical"?"!":"⚠"}${warnings.length>1?`<small>${warnings.length}</small>`:""}</button>`;
+}
+
+function closePlanningWarningDialogV611(){
+  document.querySelector("#planningWarningDialogV611")?.remove();
+}
+
+function openPlanningWarningDialogV611(result,profileId,workDate){
+  const warnings=planningWarningsForCellV611(result,profileId,workDate);
+  if(!warnings.length) return;
+  closePlanningWarningDialogV611();
+  const person=profileById(profileId)||{};
+  const overlay=document.createElement("div");
+  overlay.id="planningWarningDialogV611";
+  overlay.className="planningWarningOverlayV611";
+  overlay.innerHTML=`<div class="planningWarningDialogV611" role="dialog" aria-modal="true" aria-label="Planungshinweise">
+    <div class="planningWarningDialogHeadV611">
+      <div><small>Planungsassistent</small><h3>${escapeHtml(`${person.first_name||""} ${person.last_name||""}`.trim()||"Mitarbeiter")} · ${fmtDate(workDate)}</h3></div>
+      <button type="button" class="planningWarningCloseV611" aria-label="Schließen">×</button>
+    </div>
+    <div class="planningWarningListV611">${warnings.map(w=>{
+      const critical=w.type==="overlap"||w.type==="duplicate_records";
+      return `<section class="planningWarningItemV611 ${critical?"critical":"notice"}">
+        <h4>${critical?"!":"⚠"} ${escapeHtml(planningWarningTitleV611(w))}</h4>
+        <p>${escapeHtml(planningWarningDetailsV611(w)).replace(/\n/g,"<br>")}</p>
+      </section>`;
+    }).join("")}</div>
+    <div class="planningWarningFootV611">Nur Hinweis – die App blockiert oder verändert keine Schicht.</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".planningWarningCloseV611").onclick=closePlanningWarningDialogV611;
+  overlay.addEventListener("click",e=>{if(e.target===overlay) closePlanningWarningDialogV611()});
+  overlay.querySelector(".planningWarningCloseV611")?.focus();
+}
+
+function setupPlanningAssistantDisplayV611(targetId,result){
+  document.querySelectorAll(`#${targetId} .planWarningBtnV611`).forEach(btn=>{
+    btn.onclick=e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      const key=btn.dataset.assistantKey;
+      const current=planningAssistantCacheV610[key]||result;
+      openPlanningWarningDialogV611(current,btn.dataset.profileId,btn.dataset.workDate);
+    };
+  });
+}
+
+if(!window.__planningWarningEscapeV611){
+  window.__planningWarningEscapeV611=true;
+  document.addEventListener("keydown",e=>{
+    if(e.key==="Escape" && document.querySelector("#planningWarningDialogV611")) closePlanningWarningDialogV611();
+  });
 }
 
 async function loadPlanFiltered(title,week,departments,targetId){
@@ -2125,7 +2229,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
         <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}${editablePlan ? " mobileShiftEditable" : ""}"
              ${editablePlan ? `role="button" tabindex="0" data-touch-profile="${p.id}" data-touch-date="${iso}" data-touch-id="${item?.id||""}" data-touch-value="${escapeHtml(cellValue(item))}" data-touch-kind="${kind}"` : ""}>
           <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small></div>
-          <strong>${escapeHtml(cellValue(item)) || (editablePlan ? "Antippen" : "")}</strong>
+          <div class="mobileShiftValueV611"><strong>${escapeHtml(cellValue(item)) || (editablePlan ? "Antippen" : "")}</strong>${isManagement()?assistantWarningButtonV611(assistantResult,p.id,iso,true):""}</div>
         </div>
       `).join("");
     }else{
@@ -2136,6 +2240,15 @@ async function loadPlanFiltered(title,week,departments,targetId){
   mobile += `</div>`;
 
   let html=mobile;
+  if(isManagement()){
+    html += `<div class="planningAssistantSummaryV611">
+      <div><small>Planungsassistent</small><b>${formatAssistantHoursV611(assistantResult.summary.totalWeekHours)} geplant</b></div>
+      <div class="planningAssistantSummaryStatsV611">
+        <span>${assistantResult.summary.workShifts} Schichten</span>
+        <span class="${assistantResult.summary.warningCount?"hasWarnings":""}">${assistantResult.summary.warningCount?`⚠ ${assistantResult.summary.warningCount} Hinweis${assistantResult.summary.warningCount===1?"":"e"}`:"✓ Keine Auffälligkeiten"}</span>
+      </div>
+    </div>`;
+  }
   if(editablePlan){
     html += `<div class="planUndoToolbarV86" data-undo-target="${targetId}">
       <div class="planUndoButtonsV86">
@@ -2145,24 +2258,26 @@ async function loadPlanFiltered(title,week,departments,targetId){
       <span class="planHistoryStatusV86">Noch keine Änderung in dieser Sitzung</span>
     </div>`;
   }
-  html += '<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span></div>';
+  html += '<div class="planLegend"><span class="legendMorning">Früh/Arbeit</span><span class="legendEvening">Spät</span><span class="legendVacation">Urlaub</span><span class="legendSick">Krank</span><span class="legendFree">Frei</span>'+(isManagement()?'<span class="legendAssistantNoticeV611">⚠ Ruhezeit</span><span class="legendAssistantCriticalV611">! Doppel/Überschneidung</span>':'')+'</div>';
   html += '<div class="desktopPlanGrid grid"><table><thead><tr><th>Mitarbeiter / Bereich</th>';
 
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
-    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
+    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${isManagement()?`<div class="assistantDayHoursV611" title="Geplante Arbeitsstunden an diesem Tag">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</div>`:""}${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
   });
 
   html+='</tr></thead><tbody>';
 
   people.forEach(p=>{
-    html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td>${renderPersonCell(p, people)} ${ownShiftBadge(p)}</td>`;
+    html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td><div class="assistantPersonCellV611"><div>${renderPersonCell(p, people)} ${ownShiftBadge(p)}</div>${isManagement()?`<span class="assistantWeekHoursV611" title="Arbeitsstunden in dieser Woche">${formatAssistantHoursV611(assistantResult.weeklyHoursByProfile[p.id]||0)}</span>`:""}</div></td>`;
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
       const val=cellValue(item);
+      const assistantWarnings=isManagement()?planningWarningsForCellV611(assistantResult,p.id,iso):[];
+      const assistantLevel=planningWarningLevelV611(assistantWarnings);
       html+=editablePlan
-        ? `<td class="${shiftClass(val)}"><input class="${shiftDisplayClass(val)} quickPlanCellV83" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="" autocomplete="off" spellcheck="false"></td>`
-        : `<td>${val ? shiftPill(val) : ""}</td>`;
+        ? `<td class="${shiftClass(val)} ${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}"><input class="${shiftDisplayClass(val)} quickPlanCellV83" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="" autocomplete="off" spellcheck="false">${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`
+        : `<td class="${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}">${val ? shiftPill(val) : ""}${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`;
     });
     html+="</tr>";
   });
@@ -2179,6 +2294,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   setupUndoRedoV86(targetId,kind);
   setupDragAndDrop(targetId);
   setupMobileShiftTouch(targetId);
+  setupPlanningAssistantDisplayV611(targetId,assistantResult);
   applyShiftInputColors($(targetId));
 }
 
@@ -5743,7 +5859,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6100`;
+  return `${base}?stempeluhr=1&v=6110`;
 }
 
 function normalizeIpValue(ip){

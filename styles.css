@@ -5956,3 +5956,51 @@ button[disabled]{
   opacity:1;
   transform:translateY(0);
 }
+
+
+/* v6.1.1 – Planungsassistent Phase 2: sichtbare Hinweise */
+.planningAssistantSummaryV611{
+  display:flex;align-items:center;justify-content:space-between;gap:14px;
+  margin:10px 0;padding:12px 14px;border:1px solid #d9e6df;border-radius:14px;background:#f8fbf9;
+}
+.planningAssistantSummaryV611>div:first-child{display:flex;flex-direction:column;gap:2px}
+.planningAssistantSummaryV611 small{color:#69786f;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+.planningAssistantSummaryStatsV611{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.planningAssistantSummaryStatsV611 span{padding:6px 9px;border-radius:999px;background:#edf3ef;font-size:12px;font-weight:700;color:#405248}
+.planningAssistantSummaryStatsV611 span.hasWarnings{background:#fff2d8;color:#8c5a00}
+.assistantDayHoursV611{display:inline-block;margin-top:5px;padding:3px 7px;border-radius:999px;background:#edf3ef;color:#405248;font-size:10px;font-weight:800;white-space:nowrap}
+.assistantPersonCellV611{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+.assistantPersonCellV611>div{min-width:0}
+.assistantWeekHoursV611{flex:0 0 auto;padding:4px 7px;border-radius:999px;background:#edf3ef;color:#405248;font-size:10px;font-weight:800;white-space:nowrap}
+.desktopPlanGrid td.assistantCellWarningV611{position:relative}
+.desktopPlanGrid td.assistantCellWarningV611.notice{box-shadow:inset 0 0 0 2px #e4b14c}
+.desktopPlanGrid td.assistantCellWarningV611.critical{box-shadow:inset 0 0 0 2px #d25a50}
+.planWarningBtnV611{position:absolute;right:3px;top:3px;z-index:5;width:22px;height:22px;padding:0;border:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;line-height:1;cursor:pointer;box-shadow:0 2px 7px rgba(0,0,0,.18)}
+.planWarningBtnV611.notice{background:#f7c65f;color:#563800}
+.planWarningBtnV611.critical{background:#d95d53;color:#fff}
+.planWarningBtnV611 small{position:absolute;right:-4px;top:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:#243a31;color:#fff;font-size:8px;line-height:14px}
+.planWarningBtnV611.compact{position:relative;right:auto;top:auto;flex:0 0 auto}
+.mobileShiftValueV611{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.legendAssistantNoticeV611,.legendAssistantCriticalV611{font-weight:700}
+.legendAssistantNoticeV611{background:#fff2d8!important;color:#835500!important}
+.legendAssistantCriticalV611{background:#fde5e2!important;color:#9d3028!important}
+.planningWarningOverlayV611{position:fixed;inset:0;z-index:100500;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,30,24,.52);backdrop-filter:blur(3px)}
+.planningWarningDialogV611{width:min(560px,100%);max-height:min(720px,calc(100vh - 36px));overflow:auto;border-radius:18px;background:#fff;box-shadow:0 24px 70px rgba(0,0,0,.28)}
+.planningWarningDialogHeadV611{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 18px 14px;border-bottom:1px solid #e6ece8}
+.planningWarningDialogHeadV611 small{color:#69786f;text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+.planningWarningDialogHeadV611 h3{margin:3px 0 0;font-size:18px}
+.planningWarningCloseV611{width:34px;height:34px;border:0;border-radius:50%;background:#eef3f0;color:#30483e;font-size:24px;line-height:1;cursor:pointer}
+.planningWarningListV611{display:grid;gap:10px;padding:16px 18px}
+.planningWarningItemV611{padding:13px 14px;border-radius:13px;border-left:5px solid}
+.planningWarningItemV611.notice{background:#fff7e5;border-color:#e4ad3e}
+.planningWarningItemV611.critical{background:#fff0ee;border-color:#d25a50}
+.planningWarningItemV611 h4{margin:0 0 7px;font-size:14px}
+.planningWarningItemV611 p{margin:0;color:#43544c;font-size:13px;line-height:1.55}
+.planningWarningFootV611{padding:12px 18px 16px;color:#69786f;font-size:11px;text-align:center}
+@media(max-width:820px){
+  .planningAssistantSummaryV611{margin:8px 0;padding:10px 11px;align-items:flex-start}
+  .planningAssistantSummaryStatsV611{gap:5px}
+  .planningAssistantSummaryStatsV611 span{font-size:10px;padding:5px 7px}
+  .planningAssistantSummaryV611 b{font-size:13px}
+  .planningWarningDialogV611{border-radius:16px}
+}
