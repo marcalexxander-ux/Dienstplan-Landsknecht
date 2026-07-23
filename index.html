@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6201">
+  <link rel="stylesheet" href="styles.css?v=6210">
 </head>
 <body>
 <header class="topbar">
@@ -990,6 +990,26 @@
           </div>
 
           <div class="assistantSettingsCardV612">
+            <h3>Vertrag und Minijob</h3>
+            <label class="assistantSwitchRowV612">
+              <span><b>Vertragsstunden überwachen</b><small>Vergleicht geplante Wochenstunden mit Soll- und Maximalstunden aus dem Mitarbeiterprofil.</small></span>
+              <input id="paContractMonitorV621" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantSwitchRowV612">
+              <span><b>Minijob überwachen</b><small>Berechnet den geplanten Monatsverdienst aus Monatsstunden × Stundenlohn.</small></span>
+              <input id="paMinijobMonitorV621" data-assistant-dependent type="checkbox">
+            </label>
+            <label class="assistantNumberRowV612">
+              <span><b>Monatliche Minijob-Grenze</b><small>Einstellbarer Richtwert. Stand 2026: 603 €.</small></span>
+              <span><input id="paMinijobLimitV621" data-assistant-dependent type="number" min="1" step="1"> €</span>
+            </label>
+            <label class="assistantNumberRowV612">
+              <span><b>Gelbe Vorwarnung ab</b><small>Ab diesem Anteil der eingestellten Grenze erscheint ein Hinweis.</small></span>
+              <span><input id="paMinijobWarningV621" data-assistant-dependent type="number" min="1" max="100" step="1"> %</span>
+            </label>
+          </div>
+
+          <div class="assistantSettingsCardV612">
             <h3>Stunden und Übersicht</h3>
             <label class="assistantSwitchRowV612">
               <span><b>Wochenstunden anzeigen</b><small>Geplante Wochenstunden direkt neben dem Mitarbeiternamen.</small></span>
@@ -1195,7 +1215,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6201"></script>
-<script src="app.js?v=6201"></script>
+<script src="config.js?v=6210"></script>
+<script src="app.js?v=6210"></script>
 </body>
 </html>

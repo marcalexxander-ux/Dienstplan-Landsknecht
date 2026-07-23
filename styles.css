@@ -6186,3 +6186,80 @@ button[disabled]{
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* v6.2.1 – Vertrags- und Minijob-Monitor */
+.profileMonitorRowV621{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  flex-wrap:wrap;
+  margin-top:5px;
+}
+
+.contractMonitorBadgeV621,
+.minijobMonitorBadgeV621{
+  display:inline-flex;
+  align-items:center;
+  min-height:23px;
+  padding:3px 7px;
+  border:1px solid #cfdcd5;
+  border-radius:999px;
+  background:#f5f8f6;
+  color:#385247;
+  font-size:10.5px;
+  font-weight:800;
+  line-height:1.1;
+  white-space:nowrap;
+}
+
+.contractMonitorBadgeV621.warning,
+.minijobMonitorBadgeV621.warning{
+  border-color:#e0ad36;
+  background:#fff6d8;
+  color:#775500;
+}
+
+.contractMonitorBadgeV621.critical,
+.minijobMonitorBadgeV621.critical{
+  border-color:#d96c6c;
+  background:#ffebeb;
+  color:#8b1e1e;
+}
+
+.planProfileWarningBtnV621{
+  display:inline-grid;
+  place-items:center;
+  width:24px;
+  height:24px;
+  min-width:24px;
+  padding:0;
+  border-radius:50%;
+  font-size:12px;
+  font-weight:900;
+}
+
+.planProfileWarningBtnV621.warning{
+  background:#d99910;
+  color:#fff;
+}
+
+.planProfileWarningBtnV621.critical{
+  background:#b42318;
+  color:#fff;
+}
+
+.mobileShiftRow .profileMonitorRowV621{
+  margin-top:4px;
+}
+
+.mobileShiftRow .contractMonitorBadgeV621,
+.mobileShiftRow .minijobMonitorBadgeV621{
+  font-size:9.5px;
+}
+
+@media(max-width:820px){
+  .assistantSettingsGridV612{
+    grid-template-columns:1fr!important;
+  }
+}

@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.2.0";
+const APP_VERSION="v6.2.1";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -22,7 +22,11 @@ const planningAssistantDefaultsV612={
   dayHours:true,
   summary:true,
   mobileWarnings:true,
-  restHours:11
+  contractMonitor:true,
+  minijobMonitor:true,
+  restHours:11,
+  minijobLimit:603,
+  minijobWarningPercent:85
 };
 let planningAssistantSettingsV612={...planningAssistantDefaultsV612};
 let clockSaving=false;
@@ -1899,10 +1903,14 @@ function scheduleCellValueForVisibility(item){
 function normalizePlanningAssistantSettingsV612(raw={}){
   const next={...planningAssistantDefaultsV612,...(raw||{})};
   Object.keys(planningAssistantDefaultsV612).forEach(key=>{
-    if(key!=="restHours") next[key]=next[key]!==false;
+    if(!["restHours","minijobLimit","minijobWarningPercent"].includes(key)) next[key]=next[key]!==false;
   });
   const hours=Number(next.restHours);
   next.restHours=Number.isFinite(hours)?Math.min(24,Math.max(1,Math.round(hours*2)/2)):11;
+  const minijobLimit=Number(next.minijobLimit);
+  next.minijobLimit=Number.isFinite(minijobLimit)?Math.max(1,Math.round(minijobLimit*100)/100):603;
+  const warningPercent=Number(next.minijobWarningPercent);
+  next.minijobWarningPercent=Number.isFinite(warningPercent)?Math.min(100,Math.max(1,Math.round(warningPercent))):85;
   return next;
 }
 
@@ -1931,6 +1939,8 @@ function enabledPlanningWarningsV612(result){
   return (result.warnings.all||[]).filter(w=>{
     if(w.type==="rest_time") return settings.restTime;
     if(w.type==="overlap"||w.type==="duplicate_records") return settings.duplicateEntries;
+    if(w.type==="contract_target_hours"||w.type==="contract_max_hours") return settings.contractMonitor;
+    if(w.type==="minijob_limit"||w.type==="minijob_near_limit") return settings.minijobMonitor;
     return true;
   });
 }
@@ -1946,7 +1956,11 @@ function renderPlanningAssistantSettingsV612(){
   set("paDayHoursV612",s.dayHours);
   set("paSummaryV612",s.summary);
   set("paMobileWarningsV612",s.mobileWarnings);
+  set("paContractMonitorV621",s.contractMonitor);
+  set("paMinijobMonitorV621",s.minijobMonitor);
   if($("paRestHoursV612")) $("paRestHoursV612").value=s.restHours;
+  if($("paMinijobLimitV621")) $("paMinijobLimitV621").value=s.minijobLimit;
+  if($("paMinijobWarningV621")) $("paMinijobWarningV621").value=s.minijobWarningPercent;
   updatePlanningAssistantSettingsStateV612();
 }
 
@@ -1973,7 +1987,11 @@ function setupPlanningAssistantSettingsV612(){
       dayHours:!!$("paDayHoursV612")?.checked,
       summary:!!$("paSummaryV612")?.checked,
       mobileWarnings:!!$("paMobileWarningsV612")?.checked,
-      restHours:Number($("paRestHoursV612")?.value||11)
+      contractMonitor:!!$("paContractMonitorV621")?.checked,
+      minijobMonitor:!!$("paMinijobMonitorV621")?.checked,
+      restHours:Number($("paRestHoursV612")?.value||11),
+      minijobLimit:Number($("paMinijobLimitV621")?.value||603),
+      minijobWarningPercent:Number($("paMinijobWarningV621")?.value||85)
     };
     savePlanningAssistantSettingsV612(next);
     planningAssistantEngineMemoV613.clear();
@@ -2044,12 +2062,22 @@ function roundPlanHoursV610(minutes){
   return Math.round((Number(minutes||0)/60)*100)/100;
 }
 
-function planningAssistantSignatureV613({weekStart,schedules,people,kind}){
-  const profilePart=(people||[]).map(p=>`${p.id}:${p.department||""}`).sort().join("|");
-  const schedulePart=(schedules||[]).map(s=>
+function planningAssistantSignatureV613({weekStart,schedules,monthlySchedules,people,kind,monthKey}){
+  const profilePart=(people||[]).map(p=>{
+    const plan=staffPlanningProfileV620(p);
+    return `${p.id}:${p.department||""}:${plan.target||""}:${plan.maximum||""}:${plan.enabled?1:0}:${plan.contractType}:${plan.hourlyRate||""}`;
+  }).sort().join("|");
+  const serialize=rows=>(rows||[]).map(s=>
     `${s.id||""}:${s.profile_id||""}:${s.work_date||""}:${s.status||""}:${s.start_time||""}:${s.end_time||""}`
   ).sort().join("|");
-  return `${kind}|${weekStart}|${planningAssistantSettingsV612.restHours}|${profilePart}|${schedulePart}`;
+  const settings=[
+    planningAssistantSettingsV612.restHours,
+    planningAssistantSettingsV612.contractMonitor?1:0,
+    planningAssistantSettingsV612.minijobMonitor?1:0,
+    planningAssistantSettingsV612.minijobLimit,
+    planningAssistantSettingsV612.minijobWarningPercent
+  ].join(":");
+  return `${kind}|${weekStart}|${monthKey||""}|${settings}|${profilePart}|${serialize(schedules)}|${serialize(monthlySchedules)}`;
 }
 
 function trimPlanningAssistantMemoV613(){
@@ -2059,8 +2087,8 @@ function trimPlanningAssistantMemoV613(){
   }
 }
 
-function buildPlanningAssistantEngineV610({weekStart,schedules,people,kind}){
-  const memoKey=planningAssistantSignatureV613({weekStart,schedules,people,kind});
+function buildPlanningAssistantEngineV610({weekStart,schedules,monthlySchedules,people,kind,monthKey}){
+  const memoKey=planningAssistantSignatureV613({weekStart,schedules,monthlySchedules,people,kind,monthKey});
   const memoized=planningAssistantEngineMemoV613.get(memoKey);
   if(memoized) return memoized;
 
@@ -2176,10 +2204,111 @@ function buildPlanningAssistantEngineV610({weekStart,schedules,people,kind}){
     }
   }
 
-  const allWarnings=[...restWarnings,...duplicateWarnings,...overlapWarnings];
+  const contractWarnings=[];
+  const minijobWarnings=[];
+  const contractStatusByProfile=Object.create(null);
+  const monthlyHoursByProfile=Object.create(null);
+  const monthlyEarningsByProfile=Object.create(null);
+
+  for(const s of (monthlySchedules||[])){
+    if(!relevantProfiles.has(s.profile_id)) continue;
+    const minutes=planShiftDurationMinutesV610(s);
+    if(minutes) monthlyHoursByProfile[s.profile_id]=(monthlyHoursByProfile[s.profile_id]||0)+minutes;
+  }
+
+  for(const p of peopleList){
+    const plan=staffPlanningProfileV620(p);
+    const weekHours=roundPlanHoursV610(weeklyByProfile[p.id]||0);
+    const monthHours=roundPlanHoursV610(monthlyHoursByProfile[p.id]||0);
+    const status={
+      enabled:plan.enabled,
+      target:plan.target,
+      maximum:plan.maximum,
+      weekHours,
+      contractLevel:"ok",
+      monthKey:monthKey||"",
+      monthHours,
+      hourlyRate:plan.hourlyRate,
+      monthlyEarnings:null,
+      minijobLimit:planningAssistantSettingsV612.minijobLimit,
+      minijobPercent:null,
+      minijobLevel:"ok"
+    };
+
+    if(planningAssistantSettingsV612.contractMonitor&&plan.enabled){
+      if(plan.maximum!==null&&weekHours>plan.maximum){
+        status.contractLevel="critical";
+        contractWarnings.push({
+          type:"contract_max_hours",
+          severity:"critical",
+          profileId:p.id,
+          workDate:weekStart,
+          weekHours,
+          maximum:plan.maximum,
+          target:plan.target
+        });
+      }else if(plan.target!==null&&weekHours>plan.target){
+        status.contractLevel="warning";
+        contractWarnings.push({
+          type:"contract_target_hours",
+          severity:"warning",
+          profileId:p.id,
+          workDate:weekStart,
+          weekHours,
+          target:plan.target,
+          maximum:plan.maximum
+        });
+      }
+    }
+
+    if(plan.contractType==="minijob"&&plan.hourlyRate!==null){
+      const earnings=Math.round(monthHours*plan.hourlyRate*100)/100;
+      const limit=planningAssistantSettingsV612.minijobLimit;
+      const percent=limit>0?Math.round((earnings/limit)*1000)/10:0;
+      status.monthlyEarnings=earnings;
+      status.minijobPercent=percent;
+      monthlyEarningsByProfile[p.id]=earnings;
+
+      if(planningAssistantSettingsV612.minijobMonitor){
+        if(earnings>limit){
+          status.minijobLevel="critical";
+          minijobWarnings.push({
+            type:"minijob_limit",
+            severity:"critical",
+            profileId:p.id,
+            workDate:weekStart,
+            monthKey:monthKey||"",
+            monthHours,
+            hourlyRate:plan.hourlyRate,
+            earnings,
+            limit,
+            percent
+          });
+        }else if(percent>=planningAssistantSettingsV612.minijobWarningPercent){
+          status.minijobLevel="warning";
+          minijobWarnings.push({
+            type:"minijob_near_limit",
+            severity:"warning",
+            profileId:p.id,
+            workDate:weekStart,
+            monthKey:monthKey||"",
+            monthHours,
+            hourlyRate:plan.hourlyRate,
+            earnings,
+            limit,
+            percent
+          });
+        }
+      }
+    }
+
+    contractStatusByProfile[p.id]=status;
+  }
+
+  const allWarnings=[...restWarnings,...duplicateWarnings,...overlapWarnings,...contractWarnings,...minijobWarnings];
   const warningIndex=Object.create(null);
   for(const warning of allWarnings){
-    const date=warning.type==="rest_time"?warning.currentDate:warning.workDate;
+    const date=warning.type==="rest_time"?warning.currentDate:(warning.workDate||weekStart);
     const key=`${warning.profileId}_${date}`;
     warningIndex[key] ||= [];
     warningIndex[key].push(warning);
@@ -2198,11 +2327,17 @@ function buildPlanningAssistantEngineV610({weekStart,schedules,people,kind}){
     dailyHoursByDepartment:Object.fromEntries(Object.entries(dailyByDepartment).map(([date,depts])=>[
       date,Object.fromEntries(Object.entries(depts).map(([dept,m])=>[dept,roundPlanHoursV610(m)]))
     ])),
+    monthKey:monthKey||"",
+    monthlyHoursByProfile:Object.fromEntries(Object.entries(monthlyHoursByProfile).map(([id,m])=>[id,roundPlanHoursV610(m)])),
+    monthlyEarningsByProfile,
+    contractStatusByProfile,
     warningIndex,
     warnings:{
       restTime:restWarnings,
       duplicateRecords:duplicateWarnings,
       overlaps:overlapWarnings,
+      contractHours:contractWarnings,
+      minijob:minijobWarnings,
       all:allWarnings
     },
     summary:{
@@ -2247,7 +2382,7 @@ function planningWarningsForCellV611(result,profileId,workDate){
   return warnings.filter(w=>{
     if(w.type==="rest_time") return planningAssistantSettingsV612.restTime;
     if(w.type==="overlap"||w.type==="duplicate_records") return planningAssistantSettingsV612.duplicateEntries;
-    return true;
+    return false;
   });
 }
 
@@ -2259,6 +2394,10 @@ function planningWarningTitleV611(warning){
   if(warning.type==="rest_time") return "Ruhezeit unterschritten";
   if(warning.type==="overlap") return "Schichten überschneiden sich";
   if(warning.type==="duplicate_records") return "Mehrere Einträge am selben Tag";
+  if(warning.type==="contract_target_hours") return "Wochensoll überschritten";
+  if(warning.type==="contract_max_hours") return "Maximale Wochenstunden überschritten";
+  if(warning.type==="minijob_near_limit") return "Minijob-Grenze fast erreicht";
+  if(warning.type==="minijob_limit") return "Minijob-Grenze überschritten";
   return "Planungshinweis";
 }
 
@@ -2272,6 +2411,16 @@ function planningWarningDetailsV611(warning){
   if(warning.type==="duplicate_records"){
     return `Am ${fmtDate(warning.workDate)} wurden ${warning.count} Datensätze für denselben Mitarbeiter gefunden.\n\nDas kann ein doppelter Eintrag sein. Es wird nichts automatisch gelöscht.`;
   }
+  if(warning.type==="contract_target_hours"){
+    return `Geplant: ${formatAssistantHoursV611(warning.weekHours)}\nWochensoll: ${formatAssistantHoursV611(warning.target)}${warning.maximum?`\nMaximalwert: ${formatAssistantHoursV611(warning.maximum)}`:""}\n\nNur Hinweis – die Planung bleibt gespeichert.`;
+  }
+  if(warning.type==="contract_max_hours"){
+    return `Geplant: ${formatAssistantHoursV611(warning.weekHours)}\nMaximale Wochenstunden: ${formatAssistantHoursV611(warning.maximum)}${warning.target?`\nWochensoll: ${formatAssistantHoursV611(warning.target)}`:""}\n\nBitte prüfen. Die Schicht wird nicht blockiert.`;
+  }
+  if(warning.type==="minijob_near_limit"||warning.type==="minijob_limit"){
+    const month=warning.monthKey?warning.monthKey.split("-").reverse().join("."):"aktueller Monat";
+    return `Monat: ${month}\nGeplante Stunden: ${formatAssistantHoursV611(warning.monthHours)}\nStundenlohn: ${Number(warning.hourlyRate).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €\nGeplanter Verdienst: ${Number(warning.earnings).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €\nEingestellte Grenze: ${Number(warning.limit).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €\nAuslastung: ${String(warning.percent).replace(".",",")} %\n\nDie Anzeige ist eine Planungshilfe und keine abschließende sozialversicherungsrechtliche Bewertung.`;
+  }
   return "Bitte diesen Dienstplaneintrag prüfen.";
 }
 
@@ -2281,6 +2430,66 @@ function assistantWarningButtonV611(result,profileId,workDate,compact=false){
   const level=planningWarningLevelV611(warnings);
   const title=warnings.map(planningWarningTitleV611).join(" · ");
   return `<button type="button" class="planWarningBtnV611 ${level} ${compact?"compact":""}" data-assistant-key="${result.kind}_${result.weekStart}" data-profile-id="${profileId}" data-work-date="${workDate}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${level==="critical"?"!":"⚠"}${warnings.length>1?`<small>${warnings.length}</small>`:""}</button>`;
+}
+
+
+function planningProfileWarningsV621(result,profileId){
+  if(!planningAssistantSettingsV612.enabled||!result) return [];
+  return enabledPlanningWarningsV612(result).filter(w=>
+    w.profileId===profileId &&
+    ["contract_target_hours","contract_max_hours","minijob_near_limit","minijob_limit"].includes(w.type)
+  );
+}
+
+function planningProfileMonitorHtmlV621(result,p){
+  const status=result?.contractStatusByProfile?.[p.id];
+  if(!status) return "";
+  const parts=[];
+  if(planningAssistantSettingsV612.contractMonitor&&status.enabled&&(status.target!==null||status.maximum!==null)){
+    const label=status.maximum!==null
+      ? `${formatAssistantHoursV611(status.weekHours)} / max. ${formatAssistantHoursV611(status.maximum)}`
+      : `${formatAssistantHoursV611(status.weekHours)} / Soll ${formatAssistantHoursV611(status.target)}`;
+    parts.push(`<span class="contractMonitorBadgeV621 ${status.contractLevel}" title="Vertragsstunden">${label}</span>`);
+  }
+  if(planningAssistantSettingsV612.minijobMonitor&&status.monthlyEarnings!==null){
+    const amount=Number(status.monthlyEarnings).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+    const limit=Number(status.minijobLimit).toLocaleString("de-DE",{minimumFractionDigits:0,maximumFractionDigits:2});
+    parts.push(`<span class="minijobMonitorBadgeV621 ${status.minijobLevel}" title="Geplanter Monatsverdienst">${amount} / ${limit} €</span>`);
+  }
+  const warnings=planningProfileWarningsV621(result,p.id);
+  if(warnings.length){
+    const level=warnings.some(w=>w.severity==="critical")?"critical":"warning";
+    parts.push(`<button type="button" class="planProfileWarningBtnV621 ${level}" data-assistant-key="${result.kind}_${result.weekStart}" data-profile-id="${p.id}" title="Vertrags- und Minijob-Hinweise anzeigen">${level==="critical"?"!":"⚠"}</button>`);
+  }
+  return parts.length?`<div class="profileMonitorRowV621">${parts.join("")}</div>`:"";
+}
+
+function openPlanningProfileDialogV621(result,profileId){
+  const warnings=planningProfileWarningsV621(result,profileId);
+  if(!warnings.length) return;
+  closePlanningWarningDialogV611();
+  const person=profileById(profileId)||{};
+  const overlay=document.createElement("div");
+  overlay.id="planningWarningDialogV611";
+  overlay.className="planningWarningOverlayV611";
+  overlay.innerHTML=`<div class="planningWarningDialogV611" role="dialog" aria-modal="true" aria-label="Vertrags- und Minijob-Hinweise">
+    <div class="planningWarningDialogHeadV611">
+      <div><small>Vertrags- und Minijob-Monitor</small><h3>${escapeHtml(`${person.first_name||""} ${person.last_name||""}`.trim()||"Mitarbeiter")}</h3></div>
+      <button type="button" class="planningWarningCloseV611" aria-label="Schließen">×</button>
+    </div>
+    <div class="planningWarningListV611">${warnings.map(w=>{
+      const critical=w.severity==="critical";
+      return `<section class="planningWarningItemV611 ${critical?"critical":"notice"}">
+        <h4>${critical?"!":"⚠"} ${escapeHtml(planningWarningTitleV611(w))}</h4>
+        <p>${escapeHtml(planningWarningDetailsV611(w)).replace(/\n/g,"<br>")}</p>
+      </section>`;
+    }).join("")}</div>
+    <div class="planningWarningFootV611">Nur Hinweis – die Restaurantleitung entscheidet.</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector(".planningWarningCloseV611").onclick=closePlanningWarningDialogV611;
+  overlay.addEventListener("click",e=>{if(e.target===overlay) closePlanningWarningDialogV611()});
+  overlay.querySelector(".planningWarningCloseV611")?.focus();
 }
 
 function closePlanningWarningDialogV611(){
@@ -2301,7 +2510,7 @@ function openPlanningWarningDialogV611(result,profileId,workDate){
       <button type="button" class="planningWarningCloseV611" aria-label="Schließen">×</button>
     </div>
     <div class="planningWarningListV611">${warnings.map(w=>{
-      const critical=w.type==="overlap"||w.type==="duplicate_records";
+      const critical=["overlap","duplicate_records","contract_max_hours","minijob_limit"].includes(w.type);
       return `<section class="planningWarningItemV611 ${critical?"critical":"notice"}">
         <h4>${critical?"!":"⚠"} ${escapeHtml(planningWarningTitleV611(w))}</h4>
         <p>${escapeHtml(planningWarningDetailsV611(w)).replace(/\n/g,"<br>")}</p>
@@ -2319,6 +2528,15 @@ function setupPlanningAssistantDisplayV611(targetId,result){
   const root=$(targetId);
   if(!root) return;
   root.onclick=e=>{
+    const profileBtn=e.target.closest?.(".planProfileWarningBtnV621");
+    if(profileBtn&&root.contains(profileBtn)){
+      e.preventDefault();
+      e.stopPropagation();
+      const key=profileBtn.dataset.assistantKey;
+      const current=planningAssistantCacheV610[key]||result;
+      openPlanningProfileDialogV621(current,profileBtn.dataset.profileId);
+      return;
+    }
     const btn=e.target.closest?.(".planWarningBtnV611");
     if(!btn||!root.contains(btn)) return;
     e.preventDefault();
@@ -2343,10 +2561,14 @@ async function loadPlanFiltered(title,week,departments,targetId){
   if(!(await ensureEmployeeCanSeeWeek(kind,week,targetId,`Dienstplan ${title}`))) return;
   const from=week,to=addDaysISO(week,6);
   const assistantFrom=addDaysISO(from,-1),assistantTo=addDaysISO(to,1);
-  const[{data:schedules},{data:infos},{data:events}]=await Promise.all([
+  const assistantMonth=monthISO(parseISODateLocal(addDaysISO(week,3)));
+  const monthFrom=firstOfMonthISO(assistantMonth);
+  const monthTo=`${assistantMonth}-${pad2(lastDayOfMonth(assistantMonth))}`;
+  const[{data:schedules},{data:infos},{data:events},{data:monthlySchedules}]=await Promise.all([
     sb.from("schedules").select("id,profile_id,work_date,status,start_time,end_time").gte("work_date",assistantFrom).lte("work_date",assistantTo),
     sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
-    sb.from("events").select("*").gte("event_date",from).lte("event_date",to)
+    sb.from("events").select("*").gte("event_date",from).lte("event_date",to),
+    sb.from("schedules").select("id,profile_id,work_date,status,start_time,end_time").gte("work_date",monthFrom).lte("work_date",monthTo)
   ]);
 
   if(planningAssistantLoadTokenV613[targetId]!==requestToken) return;
@@ -2375,8 +2597,10 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const assistantResult=buildPlanningAssistantEngineV610({
     weekStart:week,
     schedules:schedules||[],
+    monthlySchedules:monthlySchedules||[],
     people:assistantPeople,
-    kind
+    kind,
+    monthKey:assistantMonth
   });
   storePlanningAssistantResultV610(assistantResult);
 
@@ -2409,7 +2633,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
       mobile += dayRows.map(({p,item})=>`
         <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}${editablePlan ? " mobileShiftEditable" : ""}"
              ${editablePlan ? `role="button" tabindex="0" data-touch-profile="${p.id}" data-touch-date="${iso}" data-touch-id="${item?.id||""}" data-touch-value="${escapeHtml(cellValue(item))}" data-touch-kind="${kind}"` : ""}>
-          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small></div>
+          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small>${isManagement()?planningProfileMonitorHtmlV621(assistantResult,p):""}</div>
           <div class="mobileShiftValueV611"><strong>${escapeHtml(cellValue(item)) || (editablePlan ? "Antippen" : "")}</strong>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.mobileWarnings?assistantWarningButtonV611(assistantResult,p.id,iso,true):""}</div>
         </div>
       `).join("");
@@ -2451,7 +2675,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   html+='</tr></thead><tbody>';
 
   people.forEach(p=>{
-    html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td><div class="assistantPersonCellV611"><div>${renderPersonCell(p, people)} ${ownShiftBadge(p)}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.weekHours?`<span class="assistantWeekHoursV611" title="Arbeitsstunden in dieser Woche">${formatAssistantHoursV611(assistantResult.weeklyHoursByProfile[p.id]||0)}</span>`:""}</div></td>`;
+    html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td><div class="assistantPersonCellV611"><div>${renderPersonCell(p, people)} ${ownShiftBadge(p)}${isManagement()?planningProfileMonitorHtmlV621(assistantResult,p):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.weekHours?`<span class="assistantWeekHoursV611" title="Arbeitsstunden in dieser Woche">${formatAssistantHoursV611(assistantResult.weeklyHoursByProfile[p.id]||0)}</span>`:""}</div></td>`;
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
       const val=cellValue(item);
@@ -4853,11 +5077,14 @@ function staffPlanningProfileV620(p){
   const data=p?.personnel_data||{};
   const target=Number(data.weeklyHours);
   const maximum=Number(data.maxWeeklyHours);
+  const rate=Number(p?.hourly_rate);
   return {
     target:Number.isFinite(target)&&target>0?target:null,
     maximum:Number.isFinite(maximum)&&maximum>0?maximum:null,
     enabled:data.hoursCheckEnabled===true,
-    note:String(data.planningNotes||"").trim()
+    note:String(data.planningNotes||"").trim(),
+    contractType:String(p?.contract_type||"").toLowerCase(),
+    hourlyRate:Number.isFinite(rate)&&rate>0?rate:null
   };
 }
 
@@ -6076,7 +6303,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6201`;
+  return `${base}?stempeluhr=1&v=6210`;
 }
 
 function normalizeIpValue(ip){
