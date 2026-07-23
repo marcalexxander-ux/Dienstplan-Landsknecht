@@ -6076,7 +6076,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6200`;
+  return `${base}?stempeluhr=1&v=6201`;
 }
 
 function normalizeIpValue(ip){
