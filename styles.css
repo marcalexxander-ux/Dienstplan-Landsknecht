@@ -6263,3 +6263,168 @@ button[disabled]{
     grid-template-columns:1fr!important;
   }
 }
+
+
+/* v6.2.2 – Stundenkonto und Monatsübersicht */
+.hoursAccountNoticeV622{
+  margin:12px 0;
+  padding:12px 14px;
+  border:1px solid #dbe6df;
+  border-radius:13px;
+  background:#f7faf8;
+  color:#4e6057;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.hoursAccountSummaryV622{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:10px;
+  margin:14px 0;
+}
+
+.hoursAccountSummaryV622>div{
+  min-width:0;
+  padding:12px;
+  border:1px solid #dbe6df;
+  border-radius:13px;
+  background:#fff;
+}
+
+.hoursAccountSummaryV622 small{
+  display:block;
+  margin-bottom:5px;
+  color:#6b7770;
+  font-size:11px;
+  font-weight:800;
+}
+
+.hoursAccountSummaryV622 b{
+  color:#173f31;
+  font-size:15px;
+}
+
+.hoursAccountSummaryV622 b.positive,
+.hoursPlusV622{
+  color:#17633c!important;
+}
+
+.hoursAccountSummaryV622 b.negative,
+.hoursMinusV622{
+  color:#a52b24!important;
+}
+
+.hoursAccountSummaryV622 b.ok{
+  color:#36594a!important;
+}
+
+.hoursAccountTableV622{
+  min-width:1280px;
+}
+
+.hoursAccountStatusV622{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:26px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:10.5px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.hoursAccountStatusV622.neutral{
+  background:#edf0ee;
+  color:#58645e;
+}
+
+.hoursAccountStatusV622.ok{
+  background:#e7f5ed;
+  color:#21603f;
+}
+
+.hoursAccountStatusV622.positive{
+  background:#dff4e8;
+  color:#17633c;
+}
+
+.hoursAccountStatusV622.negative{
+  background:#ffebeb;
+  color:#94251f;
+}
+
+.hoursAccountMobileV622{
+  display:none;
+}
+
+.hoursAccountCardV622{
+  padding:13px;
+  border:1px solid #dce6e0;
+  border-radius:14px;
+  background:#fff;
+}
+
+.hoursAccountCardHeadV622{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:11px;
+}
+
+.hoursAccountCardHeadV622 small,
+.hoursAccountCardGridV622 small{
+  display:block;
+  color:#6a766f;
+  font-size:10.5px;
+}
+
+.hoursAccountCardGridV622{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+
+.hoursAccountCardGridV622 span{
+  padding:9px;
+  border-radius:10px;
+  background:#f7faf8;
+}
+
+.hoursAccountCardGridV622 b{
+  display:block;
+  margin-top:3px;
+  color:#25483a;
+}
+
+@media(max-width:1100px){
+  .hoursAccountSummaryV622{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
+@media(max-width:820px){
+  .hoursAccountGridV622{
+    display:none;
+  }
+
+  .hoursAccountMobileV622{
+    display:grid;
+    gap:10px;
+  }
+
+  .hoursAccountSummaryV622{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .hoursAccountPageV622 .navButtons{
+    width:100%;
+  }
+
+  .hoursAccountPageV622 .navButtons input,
+  .hoursAccountPageV622 .navButtons button{
+    flex:1 1 140px;
+  }
+}

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6210">
+  <link rel="stylesheet" href="styles.css?v=6220">
 </head>
 <body>
 <header class="topbar">
@@ -82,6 +82,7 @@
       <button data-tab="events" class="managementOnly">📅 Events</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob</button>
+      <button data-tab="hoursAccount" class="managementOnly">📊 Stundenkonto</button>
       <button data-tab="assistantSettings" class="managementOnly">⚙️ Assistent</button>
       <button id="mobileTouchLogoutBtn" type="button" class="mobileTouchLogoutBtn">↩ Abmelden</button>
     </nav>
@@ -97,6 +98,7 @@
       <button data-tab="vacation">🏝️ Urlaub</button>
       <button data-tab="staff" class="managementOnly">👥 Mitarbeiter</button>
       <button data-tab="minijobCenter" class="managementOnly">💶 Minijob-Center</button>
+      <button data-tab="hoursAccount" class="managementOnly">📊 Stundenkonto</button>
       <button data-tab="assistantSettings" class="managementOnly">⚙️ Planungsassistent</button>
       <div class="spacer"></div>
       <button id="logoutBtn" class="logout">↩ Abmelden</button>
@@ -952,6 +954,30 @@
       </section>
 
 
+      <section id="hoursAccount" class="tabPage card hidden managementOnly hoursAccountPageV622">
+        <div class="sectionHeader">
+          <div>
+            <h2>Stundenkonto und Monatsübersicht</h2>
+            <p class="subline">Sollstunden, geplante Stunden, tatsächlich erfasste Stunden und rechnerischer Monatssaldo.</p>
+          </div>
+          <div class="navButtons">
+            <input id="hoursAccountMonthV622" type="month" aria-label="Monat auswählen">
+            <button id="loadHoursAccountV622" type="button" class="secondary">Monat berechnen</button>
+            <button id="exportHoursAccountV622" type="button" class="secondary">CSV exportieren</button>
+          </div>
+        </div>
+
+        <div class="hoursAccountNoticeV622">
+          <b>Berechnungsgrundlage:</b> Monats-Soll = Wochen-Soll × 52 ÷ 12.
+          Geplant stammt aus dem Dienstplan, tatsächlich aus der Zeiterfassung.
+          Der Vormonatswert wird rechnerisch aus dem unmittelbar vorherigen Monat übernommen.
+        </div>
+
+        <div id="hoursAccountSummaryV622" class="hoursAccountSummaryV622"></div>
+        <div id="hoursAccountListV622"></div>
+      </section>
+
+
       <section id="assistantSettings" class="tabPage card hidden managementOnly assistantSettingsPageV612">
         <div class="sectionHeader">
           <div>
@@ -1215,7 +1241,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6210"></script>
-<script src="app.js?v=6210"></script>
+<script src="config.js?v=6220"></script>
+<script src="app.js?v=6220"></script>
 </body>
 </html>

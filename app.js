@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.2.1";
+const APP_VERSION="v6.2.2";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -269,6 +269,7 @@ function setActiveTab(tabId){
   }
   if(normalized==="dashboard") loadDashboardV57?.();
   if(normalized==="minijobCenter") loadMinijobCenter?.();
+  if(normalized==="hoursAccount") loadHoursAccountV622?.();
   if(normalized==="timeClock") loadTimeClock?.();
   if(normalized==="vacation"){ refreshVacationMobileTabs?.(); renderVacationRightsInfo?.(); loadVacationPlanner?.(); loadVacationAccountOverview?.(); loadVacationYearClosePreview?.(); updateVacationRequestCalc?.(); updateVacationAdminCalc?.(); }
 }
@@ -652,6 +653,7 @@ function renderAuth(){
     $("vacTo").value ||= todayISO();
     if($("eventDate")) $("eventDate").value ||= todayISO();
     if($("minijobMonth")) $("minijobMonth").value ||= monthISO();
+    if($("hoursAccountMonthV622")) $("hoursAccountMonthV622").value ||= monthISO();
     setActiveTab(new URLSearchParams(window.location.search).has("stempeluhr") ? "timeClock" : "dashboard");
     loadAll();
   }
@@ -5520,6 +5522,240 @@ function renderStaff(){
   if(staffMobileInitializedV81) renderStaffMobileListsV81();
 }
 
+
+let lastHoursAccountRowsV622=[];
+
+function previousMonthV622(month){
+  const [year,monthNumber]=String(month||monthISO()).split("-").map(Number);
+  const date=new Date(year,monthNumber-2,1);
+  return monthISO(date);
+}
+
+function monthlyTargetHoursV622(profile){
+  const plan=staffPlanningProfileV620(profile);
+  if(plan.target===null) return null;
+  return Math.round((plan.target*52/12)*100)/100;
+}
+
+function sumPlannedHoursV622(rows){
+  return (rows||[]).reduce((sum,row)=>{
+    if(row.status!=="arbeit") return sum;
+    return sum+scheduleHoursForMinijobEntry(row);
+  },0);
+}
+
+function sumActualHoursV622(rows){
+  return (rows||[]).reduce((sum,row)=>sum+Number(row.hours||0),0);
+}
+
+function hoursAccountNumberV622(value){
+  if(value===null||value===undefined||!Number.isFinite(Number(value))) return "—";
+  return Number(value).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+function hoursAccountSignedV622(value){
+  if(value===null||value===undefined||!Number.isFinite(Number(value))) return "—";
+  const number=Number(value);
+  const sign=number>0?"+":"";
+  return `${sign}${hoursAccountNumberV622(number)}`;
+}
+
+function hoursAccountStatusV622(row){
+  if(row.target===null) return {label:"Kein Soll hinterlegt",cls:"neutral"};
+  if(row.actualEntries===0) return {label:"Noch keine Ist-Zeiten",cls:"neutral"};
+  if(row.balance>2) return {label:"Plusstunden",cls:"positive"};
+  if(row.balance<-2) return {label:"Minusstunden",cls:"negative"};
+  return {label:"Im Sollbereich",cls:"ok"};
+}
+
+function hoursAccountMonthLabelV622(month){
+  const [year,monthNumber]=String(month).split("-").map(Number);
+  return new Date(year,monthNumber-1,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+}
+
+async function loadHoursAccountV622(){
+  const list=$("hoursAccountListV622");
+  const summary=$("hoursAccountSummaryV622");
+  if(!list||!isManagement()) return;
+
+  const month=$("hoursAccountMonthV622")?.value||monthISO();
+  const previous=previousMonthV622(month);
+  const from=firstOfMonthISO(month);
+  const to=`${month}-${pad2(lastDayOfMonth(month))}`;
+  const previousFrom=firstOfMonthISO(previous);
+  const previousTo=`${previous}-${pad2(lastDayOfMonth(previous))}`;
+
+  list.innerHTML='<div class="entry">Stundenkonto wird berechnet …</div>';
+  if(summary) summary.innerHTML="";
+
+  const [plannedRes,actualRes,previousActualRes]=await Promise.all([
+    sb.from("schedules").select("profile_id,work_date,status,start_time,end_time").gte("work_date",from).lte("work_date",to),
+    sb.from("time_entries").select("profile_id,work_date,hours,start_time,end_time").gte("work_date",from).lte("work_date",to),
+    sb.from("time_entries").select("profile_id,work_date,hours").gte("work_date",previousFrom).lte("work_date",previousTo)
+  ]);
+
+  const error=plannedRes.error||actualRes.error||previousActualRes.error;
+  if(error){
+    list.innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const plannedByProfile=Object.create(null);
+  const actualByProfile=Object.create(null);
+  const previousActualByProfile=Object.create(null);
+
+  (plannedRes.data||[]).forEach(row=>{
+    plannedByProfile[row.profile_id] ||= [];
+    plannedByProfile[row.profile_id].push(row);
+  });
+  (actualRes.data||[]).forEach(row=>{
+    actualByProfile[row.profile_id] ||= [];
+    actualByProfile[row.profile_id].push(row);
+  });
+  (previousActualRes.data||[]).forEach(row=>{
+    previousActualByProfile[row.profile_id] ||= [];
+    previousActualByProfile[row.profile_id].push(row);
+  });
+
+  const people=profiles
+    .filter(p=>!isRemovedProfile(p)&&p.role!=="management"&&p.role!=="admin")
+    .sort((a,b)=>
+      String(a.department||"").localeCompare(String(b.department||"")) ||
+      String(a.last_name||"").localeCompare(String(b.last_name||""))
+    );
+
+  const rows=people.map(p=>{
+    const target=monthlyTargetHoursV622(p);
+    const plannedRows=plannedByProfile[p.id]||[];
+    const actualRows=actualByProfile[p.id]||[];
+    const previousRows=previousActualByProfile[p.id]||[];
+
+    const planned=Math.round(sumPlannedHoursV622(plannedRows)*100)/100;
+    const actual=Math.round(sumActualHoursV622(actualRows)*100)/100;
+    const previousActual=Math.round(sumActualHoursV622(previousRows)*100)/100;
+    const previousTarget=target;
+    const previousTransfer=target===null||!previousRows.length ? null : Math.round((previousActual-previousTarget)*100)/100;
+    const monthDifference=target===null||!actualRows.length ? null : Math.round((actual-target)*100)/100;
+    const balance=target===null||!actualRows.length
+      ? null
+      : Math.round(((previousTransfer||0)+monthDifference)*100)/100;
+
+    return {
+      id:p.id,
+      name:`${p.first_name||""} ${p.last_name||""}`.trim()||"Ohne Namen",
+      department:displayDept(p.department),
+      contractType:contractTypeLabelV620(p.contract_type),
+      weeklyTarget:staffPlanningProfileV620(p).target,
+      target,
+      planned,
+      actual,
+      previousActual,
+      previousTransfer,
+      monthDifference,
+      balance,
+      plannedShifts:plannedRows.filter(row=>row.status==="arbeit").length,
+      actualEntries:actualRows.length
+    };
+  });
+
+  lastHoursAccountRowsV622=rows;
+  const monitored=rows.filter(row=>row.target!==null);
+  const totalTarget=monitored.reduce((sum,row)=>sum+(row.target||0),0);
+  const totalPlanned=rows.reduce((sum,row)=>sum+row.planned,0);
+  const totalActual=rows.reduce((sum,row)=>sum+row.actual,0);
+  const totalBalance=rows.reduce((sum,row)=>sum+(row.balance||0),0);
+  const withActual=rows.filter(row=>row.actualEntries>0).length;
+
+  if(summary){
+    summary.innerHTML=`
+      <div><small>Monat</small><b>${escapeHtml(hoursAccountMonthLabelV622(month))}</b></div>
+      <div><small>Soll gesamt</small><b>${hoursAccountNumberV622(totalTarget)} h</b></div>
+      <div><small>Geplant gesamt</small><b>${hoursAccountNumberV622(totalPlanned)} h</b></div>
+      <div><small>Ist gesamt</small><b>${hoursAccountNumberV622(totalActual)} h</b></div>
+      <div><small>Saldo mit Vormonat</small><b class="${totalBalance>2?"positive":totalBalance<-2?"negative":"ok"}">${hoursAccountSignedV622(totalBalance)} h</b></div>
+      <div><small>Ist-Zeiten vorhanden</small><b>${withActual} / ${rows.length}</b></div>`;
+  }
+
+  let html=`<div class="grid hoursAccountGridV622"><table class="hoursAccountTableV622">
+    <thead><tr>
+      <th>Mitarbeiter</th>
+      <th>Vertrag</th>
+      <th>Monats-Soll</th>
+      <th>Geplant</th>
+      <th>Ist</th>
+      <th>Differenz Monat</th>
+      <th>Übertrag Vormonat</th>
+      <th>Kontostand</th>
+      <th>Status</th>
+    </tr></thead><tbody>`;
+
+  rows.forEach(row=>{
+    const status=hoursAccountStatusV622(row);
+    html+=`<tr>
+      <td><b>${escapeHtml(row.name)}</b><br><small>${escapeHtml(row.department)}</small></td>
+      <td>${escapeHtml(row.contractType)}${row.weeklyTarget!==null?`<br><small>${hoursAccountNumberV622(row.weeklyTarget)} h/Woche</small>`:""}</td>
+      <td>${row.target===null?"—":`${hoursAccountNumberV622(row.target)} h`}</td>
+      <td><b>${hoursAccountNumberV622(row.planned)} h</b><br><small>${row.plannedShifts} Schichten</small></td>
+      <td><b>${hoursAccountNumberV622(row.actual)} h</b><br><small>${row.actualEntries} Einträge</small></td>
+      <td class="${row.monthDifference>2?"hoursPlusV622":row.monthDifference<-2?"hoursMinusV622":""}">${hoursAccountSignedV622(row.monthDifference)}${row.monthDifference===null?"":" h"}</td>
+      <td class="${row.previousTransfer>2?"hoursPlusV622":row.previousTransfer<-2?"hoursMinusV622":""}">${hoursAccountSignedV622(row.previousTransfer)}${row.previousTransfer===null?"":" h"}</td>
+      <td class="${row.balance>2?"hoursPlusV622":row.balance<-2?"hoursMinusV622":""}"><b>${hoursAccountSignedV622(row.balance)}${row.balance===null?"":" h"}</b></td>
+      <td><span class="hoursAccountStatusV622 ${status.cls}">${escapeHtml(status.label)}</span></td>
+    </tr>`;
+  });
+
+  html+="</tbody></table></div>";
+
+  const mobile=rows.map(row=>{
+    const status=hoursAccountStatusV622(row);
+    return `<article class="hoursAccountCardV622">
+      <div class="hoursAccountCardHeadV622">
+        <div><b>${escapeHtml(row.name)}</b><small>${escapeHtml(row.department)} · ${escapeHtml(row.contractType)}</small></div>
+        <span class="hoursAccountStatusV622 ${status.cls}">${escapeHtml(status.label)}</span>
+      </div>
+      <div class="hoursAccountCardGridV622">
+        <span><small>Soll</small><b>${row.target===null?"—":`${hoursAccountNumberV622(row.target)} h`}</b></span>
+        <span><small>Geplant</small><b>${hoursAccountNumberV622(row.planned)} h</b></span>
+        <span><small>Ist</small><b>${hoursAccountNumberV622(row.actual)} h</b></span>
+        <span><small>Monatsdifferenz</small><b>${hoursAccountSignedV622(row.monthDifference)}${row.monthDifference===null?"":" h"}</b></span>
+        <span><small>Vormonat</small><b>${hoursAccountSignedV622(row.previousTransfer)}${row.previousTransfer===null?"":" h"}</b></span>
+        <span><small>Kontostand</small><b>${hoursAccountSignedV622(row.balance)}${row.balance===null?"":" h"}</b></span>
+      </div>
+    </article>`;
+  }).join("");
+
+  list.innerHTML=html+`<div class="hoursAccountMobileV622">${mobile||'<div class="entry">Keine Mitarbeiter gefunden.</div>'}</div>`;
+}
+
+function exportHoursAccountV622(){
+  if(!lastHoursAccountRowsV622.length){
+    alert("Bitte zuerst einen Monat berechnen.");
+    return;
+  }
+  const month=$("hoursAccountMonthV622")?.value||monthISO();
+  const rows=[[
+    "Mitarbeiter","Bereich","Vertragsart","Soll Woche","Soll Monat",
+    "Geplant","Ist","Differenz Monat","Übertrag Vormonat","Kontostand"
+  ]];
+
+  lastHoursAccountRowsV622.forEach(row=>rows.push([
+    row.name,row.department,row.contractType,
+    row.weeklyTarget??"",row.target??"",row.planned,row.actual,
+    row.monthDifference??"",row.previousTransfer??"",row.balance??""
+  ]));
+
+  const csv=rows.map(row=>row.map(value=>`"${String(value).replaceAll('"','""')}"`).join(";")).join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download=`stundenkonto-${month}.csv`;
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+
+if($("loadHoursAccountV622")) $("loadHoursAccountV622").onclick=loadHoursAccountV622;
+if($("exportHoursAccountV622")) $("exportHoursAccountV622").onclick=exportHoursAccountV622;
+
 if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
 if($("exportMinijobCsv")) $("exportMinijobCsv").onclick=exportMinijobCsv;
 if($("loadSummary")) $("loadSummary").onclick=loadSummary;
@@ -6303,7 +6539,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6210`;
+  return `${base}?stempeluhr=1&v=6220`;
 }
 
 function normalizeIpValue(ip){
