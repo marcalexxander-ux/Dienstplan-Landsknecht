@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6220">
+  <link rel="stylesheet" href="styles.css?v=6221">
 </head>
 <body>
 <header class="topbar">
@@ -817,6 +817,21 @@
           <button id="refreshClockBtn" class="secondary" type="button">Aktualisieren</button>
         </div>
 
+        <div class="clockMobileTabsV6221 managementOnly" role="tablist" aria-label="Stempeluhr Bereiche">
+          <button type="button" class="clockMobileTabV6221 active" data-clock-mobile-target="stamp">
+            <span>🕒</span><b>Stempeln</b><small>Manuelle Stempelung</small>
+          </button>
+          <button type="button" class="clockMobileTabV6221" data-clock-mobile-target="qr">
+            <span>▦</span><b>QR-Code</b><small>Link und Ausdruck</small>
+          </button>
+          <button type="button" class="clockMobileTabV6221" data-clock-mobile-target="evaluation">
+            <span>📊</span><b>Auswertung</b><small>Zeiten berechnen</small>
+          </button>
+          <button type="button" class="clockMobileTabV6221" data-clock-mobile-target="events">
+            <span>📋</span><b>Stempelungen</b><small>Heute und Verlauf</small>
+          </button>
+        </div>
+
         <div class="clockNotice managementOnly">
           <b>Aufbauphase:</b> Dieses Modul ersetzt die alte Zeiterfassung Schritt für Schritt.
           Erstmal werden nur Stempel-Ereignisse gespeichert: Kommen, Pause starten, Pause beenden, Gehen.
@@ -832,7 +847,7 @@
 
 
         <div class="clockGrid">
-          <div class="clockPanel managementOnly">
+          <div class="clockPanel managementOnly clockMobilePanelV6221" data-clock-mobile-panel="qr">
             <h3>QR-Anmeldung</h3>
             <p>Der QR-Code öffnet die Stempeluhr-Adresse dieser App. Später können Mitarbeiter darüber direkt zur Stempeluhr gelangen.</p>
             <div class="qrBox">
@@ -845,7 +860,7 @@
             </div>
           </div>
 
-          <div class="clockPanel">
+          <div class="clockPanel clockMobilePanelV6221 active" data-clock-mobile-panel="stamp">
             <h3 id="clockStampTitle">Stempeluhr</h3>
             <div id="clockEmployeeInfo" class="clockEmployeeInfo employeeClockOnly"></div>
             <div class="formGrid compactForm managementOnly">
@@ -874,7 +889,7 @@
         </div>
 
 
-        <div class="clockPanel managementOnly">
+        <div class="clockPanel managementOnly clockMobilePanelV6221" data-clock-mobile-panel="evaluation">
           <h3>Zeiten auswerten</h3>
           <p class="subline">Auswertung aus den Stempel-Ereignissen: Kommen, Pause, Gehen. Offene oder unvollständige Stempelungen werden markiert.</p>
 
@@ -911,7 +926,7 @@
         </div>
 
 
-        <div class="clockPanel managementOnly">
+        <div class="clockPanel managementOnly clockMobilePanelV6221" data-clock-mobile-panel="events">
           <h3>Stempelungen filtern</h3>
           <div class="formGrid compactForm">
             <div>
@@ -924,12 +939,12 @@
           <p class="small">Damit bleiben „Heute gestempelt“ und „Letzte Stempel-Ereignisse“ übersichtlich.</p>
         </div>
 
-        <div class="clockPanel">
+        <div class="clockPanel clockMobilePanelV6221" data-clock-mobile-panel="events">
           <h3 id="clockTodayTitle">Heute gestempelt</h3>
           <div id="clockTodayList"></div>
         </div>
 
-        <div class="clockPanel">
+        <div class="clockPanel clockMobilePanelV6221" data-clock-mobile-panel="events">
           <h3 id="clockRecentTitle">Letzte Stempel-Ereignisse</h3>
           <div id="clockEventList"></div>
         </div>
@@ -1241,7 +1256,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6220"></script>
-<script src="app.js?v=6220"></script>
+<script src="config.js?v=6221"></script>
+<script src="app.js?v=6221"></script>
 </body>
 </html>

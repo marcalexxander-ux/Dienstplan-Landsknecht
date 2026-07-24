@@ -6539,7 +6539,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6220`;
+  return `${base}?stempeluhr=1&v=6221`;
 }
 
 function normalizeIpValue(ip){
@@ -7240,6 +7240,36 @@ function setClockEvalRange(kind){
   loadClockEvaluation();
 }
 
+
+function setClockMobilePanelV6221(target){
+  const page=$("timeClock");
+  if(!page) return;
+
+  document.querySelectorAll("#timeClock .clockMobileTabV6221").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.clockMobileTarget===target);
+  });
+  document.querySelectorAll("#timeClock .clockMobilePanelV6221").forEach(panel=>{
+    panel.classList.toggle("active",panel.dataset.clockMobilePanel===target);
+  });
+
+  try{localStorage.setItem("clockMobilePanelV6221",target)}catch(e){}
+  if(window.innerWidth<=820) window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function setupClockMobilePanelsV6221(){
+  const buttons=[...document.querySelectorAll("#timeClock .clockMobileTabV6221")];
+  if(!buttons.length) return;
+
+  buttons.forEach(btn=>{
+    btn.onclick=()=>setClockMobilePanelV6221(btn.dataset.clockMobileTarget);
+  });
+
+  let saved="stamp";
+  try{saved=localStorage.getItem("clockMobilePanelV6221")||"stamp"}catch(e){}
+  if(!buttons.some(btn=>btn.dataset.clockMobileTarget===saved)) saved="stamp";
+  setClockMobilePanelV6221(saved);
+}
+
 function setupTimeClock(){
   if($("refreshClockBtn")) $("refreshClockBtn").onclick = loadTimeClock;
   if($("clockProfile")) $("clockProfile").onchange = loadClockEvents;
@@ -7286,6 +7316,7 @@ function setupVacationYearOverview(){
   };
 }
 
+setupClockMobilePanelsV6221();
 setupTimeClock();
 setupVacationYearOverview();
 setupPlanningAssistantSettingsV612();
