@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.2.2";
+const APP_VERSION="v6.2.3";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -4945,37 +4945,91 @@ async function loadVacations(){
 
 async function loadVacationCalendar(){
   if(!session || !profiles.length) return;
-  const month=$("vacMonthSelect").value||monthISO(), from=firstOfMonthISO(month), to=month+"-"+pad2(lastDayOfMonth(month));
-  const{data,error}=await sb.from("vacation_requests").select("*").lte("date_from",to).gte("date_to",from).in("status",["beantragt","genehmigt"]);
+
+  const month=$("vacMonthSelect").value||monthISO();
+  const from=firstOfMonthISO(month);
+  const to=month+"-"+pad2(lastDayOfMonth(month));
+
+  const {data,error}=await sb.from("vacation_requests")
+    .select("*")
+    .lte("date_from",to)
+    .gte("date_to",from)
+    .in("status",["beantragt","genehmigt"]);
+
   if(error){
     $("vacCalendar").innerHTML=`<div class="entry"><b>Fehler beim Laden des Urlaubskalenders:</b><br>${escapeHtml(error.message)}</div>`;
     return;
   }
-  const byDate={};
+
+  // Pro Mitarbeiter und Tag nur ein Eintrag.
+  // Falls mehrere Datensätze existieren, hat „genehmigt“ Vorrang vor „beantragt“.
+  const byDateProfile=new Map();
+
   (data||[]).forEach(v=>{
     let d=v.date_from < from ? from : v.date_from;
-    const end=v.date_to > to ? to : v.date_to;
-    while(d<=end){
-      byDate[d] ||= [];
-      byDate[d].push(v);
+    const rangeEnd=v.date_to > to ? to : v.date_to;
+
+    while(d<=rangeEnd){
+      const key=`${d}_${v.profile_id}`;
+      const previous=byDateProfile.get(key);
+      const currentPriority=v.status==="genehmigt" ? 2 : 1;
+      const previousPriority=previous?.status==="genehmigt" ? 2 : (previous ? 1 : 0);
+
+      if(!previous || currentPriority>previousPriority){
+        byDateProfile.set(key,v);
+      }
       d=addDaysISO(d,1);
     }
   });
-  let html='<div class="grid"><table class="vacCalendarTable"><thead><tr>'+days.map(d=>`<th>${d}</th>`).join("")+'</tr></thead><tbody><tr>';
-  const total=lastDayOfMonth(month), first=weekdayMondayFirst(from);
-  for(let i=0;i<first;i++)html+='<td></td>';
+
+  const byDate={};
+  for(const [key,v] of byDateProfile.entries()){
+    const iso=key.slice(0,10);
+    byDate[iso] ||= [];
+    byDate[iso].push(v);
+  }
+
+  Object.values(byDate).forEach(list=>{
+    list.sort((a,b)=>{
+      const pa=profileById(a.profile_id)||{};
+      const pb=profileById(b.profile_id)||{};
+      return String(pa.last_name||"").localeCompare(String(pb.last_name||"")) ||
+             String(pa.first_name||"").localeCompare(String(pb.first_name||""));
+    });
+  });
+
+  let html='<div class="grid vacCalendarScrollV623"><table class="vacCalendarTable vacCalendarTableV623"><thead><tr>'+
+    days.map(d=>`<th>${d}</th>`).join("")+
+    '</tr></thead><tbody><tr>';
+
+  const total=lastDayOfMonth(month);
+  const first=weekdayMondayFirst(from);
+
+  for(let i=0;i<first;i++) html+='<td></td>';
+
   for(let day=1;day<=total;day++){
     const iso=month+"-"+pad2(day);
-    if(day>1&&weekdayMondayFirst(iso)===0)html+="</tr><tr>";
+    if(day>1&&weekdayMondayFirst(iso)===0) html+="</tr><tr>";
+
     const list=byDate[iso]||[];
-    let cell=`<div class="vacDay">${day}.${list.length?`<span class="vacCount">${list.length}</span>`:""}</div>`;
+    const uniqueCount=list.length;
+    let cell=`<div class="vacDay">${day}.${uniqueCount?`<span class="vacCount">${uniqueCount}</span>`:""}</div>`;
+
     list.forEach(v=>{
-      const p=profileById(v.profile_id);
-      cell+=`<span class="vacPerson">${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} (${escapeHtml(v.status)})</span>`;
+      const p=profileById(v.profile_id)||{};
+      const approved=v.status==="genehmigt";
+      const statusLabel=approved ? "✓ Genehmigt" : "Offen";
+      cell+=`<span class="vacPerson vacPersonV623 ${approved?"approved":"requested"}">
+        <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")}</b>
+        <small>${escapeHtml(statusLabel)}</small>
+      </span>`;
     });
-    html+=`<td>${cell}</td>`;
+
+    html+=`<td data-vac-date="${iso}">${cell}</td>`;
   }
-  for(let i=weekdayMondayFirst(to)+1;i<7;i++)html+='<td></td>';
+
+  for(let i=weekdayMondayFirst(to)+1;i<7;i++) html+='<td></td>';
+
   $("vacCalendar").innerHTML=html+"</tr></tbody></table></div>";
 }
 
@@ -6539,7 +6593,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6222`;
+  return `${base}?stempeluhr=1&v=6230`;
 }
 
 function normalizeIpValue(ip){
