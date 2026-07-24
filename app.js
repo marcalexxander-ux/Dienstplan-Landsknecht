@@ -6539,7 +6539,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6221`;
+  return `${base}?stempeluhr=1&v=6222`;
 }
 
 function normalizeIpValue(ip){

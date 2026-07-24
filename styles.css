@@ -6588,3 +6588,95 @@ button[disabled]{
     font-size:17px;
   }
 }
+
+
+/* v6.2.2 – Stempeluhr-Karteien jetzt auch auf PC und Laptop */
+@media(min-width:821px){
+  #timeClock .clockMobileTabsV6221{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin:14px 0 18px;
+  }
+
+  #timeClock .clockMobileTabV6221{
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr);
+    grid-template-rows:auto auto;
+    align-items:center;
+    gap:2px 10px;
+    min-width:0;
+    min-height:74px;
+    padding:12px 14px;
+    border:1px solid #d9e4de;
+    border-radius:15px;
+    background:#f7faf8;
+    color:#29493c;
+    text-align:left;
+  }
+
+  #timeClock .clockMobileTabV6221>span{
+    grid-row:1/3;
+    display:grid;
+    place-items:center;
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    background:#e6efe9;
+    font-size:22px;
+  }
+
+  #timeClock .clockMobileTabV6221>b{
+    overflow:hidden;
+    font-size:14px;
+    line-height:1.2;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  #timeClock .clockMobileTabV6221>small{
+    overflow:hidden;
+    color:#68766f;
+    font-size:11px;
+    line-height:1.2;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  #timeClock .clockMobileTabV6221.active{
+    border-color:#174d3a;
+    background:#174d3a;
+    color:#fff;
+    box-shadow:0 8px 20px rgba(23,77,58,.16);
+  }
+
+  #timeClock .clockMobileTabV6221.active>span{
+    background:rgba(255,255,255,.16);
+  }
+
+  #timeClock .clockMobileTabV6221.active>small{
+    color:#dcebe4;
+  }
+
+  #timeClock .clockMobilePanelV6221{
+    display:none!important;
+  }
+
+  #timeClock .clockMobilePanelV6221.active{
+    display:block!important;
+  }
+
+  #timeClock .clockGrid{
+    display:block;
+  }
+
+  #timeClock .clockPanel{
+    margin-bottom:14px;
+  }
+}
+
+@media(min-width:821px) and (max-width:1180px){
+  #timeClock .clockMobileTabsV6221{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
