@@ -7231,3 +7231,153 @@ button:disabled{
     text-align:left;
   }
 }
+
+
+/* v6.3.2 – Besetzungsvorschläge */
+.staffingSuggestionLimitV632 input{
+  width:54px!important;
+  min-width:54px!important;
+  padding:5px!important;
+  text-align:center;
+}
+
+.staffingSuggestionsActionsV632{
+  margin-top:12px;
+}
+
+.staffingSuggestionsActionsV632 button{
+  width:100%;
+}
+
+.staffingSuggestionsTargetV632{
+  display:grid;
+  gap:12px;
+  margin-top:12px;
+}
+
+.staffingSuggestionGroupV632{
+  padding:11px;
+  border:1px solid #dce6e0;
+  border-radius:12px;
+  background:#f8faf9;
+}
+
+.staffingSuggestionGroupHeadV632{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:9px;
+}
+
+.staffingSuggestionGroupHeadV632 small{
+  display:block;
+  color:#6b7771;
+  font-size:10px;
+}
+
+.staffingSuggestionGroupHeadV632>span{
+  color:#315b49;
+  font-size:10.5px;
+  font-weight:900;
+}
+
+.staffingSuggestionCardV632{
+  margin-top:8px;
+  padding:10px;
+  border:1px solid #b9dcc6;
+  border-left:5px solid #4d9b6b;
+  border-radius:11px;
+  background:#f0f8f3;
+}
+
+.staffingSuggestionCardV632.warning{
+  border-color:#e1c66e;
+  border-left-color:#d2a329;
+  background:#fff9e7;
+}
+
+.staffingSuggestionCardV632.critical{
+  border-color:#e4aaa5;
+  border-left-color:#c3453c;
+  background:#fff3f1;
+}
+
+.staffingSuggestionHeadV632{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  align-items:flex-start;
+}
+
+.staffingSuggestionHeadV632 small{
+  display:block;
+  color:#6b7771;
+  font-size:10px;
+}
+
+.staffingSuggestionHeadV632>span{
+  padding:4px 7px;
+  border-radius:999px;
+  background:#e4eee8;
+  color:#315745;
+  font-size:10px;
+  font-weight:900;
+}
+
+.staffingSuggestionStatsV632{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+  margin-top:9px;
+}
+
+.staffingSuggestionStatsV632 span{
+  padding:7px;
+  border-radius:8px;
+  background:rgba(255,255,255,.68);
+}
+
+.staffingSuggestionStatsV632 small{
+  display:block;
+  color:#6b7771;
+  font-size:9px;
+}
+
+.staffingSuggestionStatsV632 b{
+  display:block;
+  margin-top:2px;
+  font-size:10.5px;
+}
+
+.staffingSuggestionCardV632 p{
+  margin:8px 0 0;
+  color:#536159;
+  font-size:10.5px;
+  line-height:1.35;
+}
+
+.staffingSuggestionsEmptyV632{
+  padding:11px;
+  border-radius:10px;
+  background:#eef2ef;
+  color:#657169;
+  font-size:11px;
+  text-align:center;
+}
+
+@media(max-width:820px){
+  .staffingSuggestionGroupHeadV632,
+  .staffingSuggestionHeadV632{
+    display:block;
+  }
+
+  .staffingSuggestionGroupHeadV632>span,
+  .staffingSuggestionHeadV632>span{
+    display:inline-flex;
+    margin-top:6px;
+  }
+
+  .staffingSuggestionStatsV632{
+    grid-template-columns:1fr;
+  }
+}

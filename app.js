@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.3.1";
+const APP_VERSION="v6.3.2";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -18,6 +18,8 @@ const staffingNeedsDefaultsV630={
   showInPlan:true,
   checkCoverage:true,
   showOverstaffing:true,
+  suggestionsEnabled:true,
+  suggestionLimit:5,
   service:{
     0:{early:0,middle:0,late:0},1:{early:0,middle:0,late:0},2:{early:0,middle:0,late:0},
     3:{early:0,middle:0,late:0},4:{early:0,middle:0,late:0},5:{early:0,middle:0,late:0},6:{early:0,middle:0,late:0}
@@ -2010,6 +2012,9 @@ function normalizeStaffingNeedsV630(raw={}){
   next.showInPlan=raw?.showInPlan!==false;
   next.checkCoverage=raw?.checkCoverage!==false;
   next.showOverstaffing=raw?.showOverstaffing!==false;
+  next.suggestionsEnabled=raw?.suggestionsEnabled!==false;
+  const suggestionLimit=Number(raw?.suggestionLimit);
+  next.suggestionLimit=Number.isFinite(suggestionLimit)?Math.min(10,Math.max(1,Math.round(suggestionLimit))):5;
   ["service","kitchen"].forEach(kind=>{
     for(let day=0;day<7;day++){
       ["early","middle","late"].forEach(shift=>{
@@ -2119,6 +2124,156 @@ function staffingCoverageBadgeV631(coverage,compact=false){
   return `<button type="button" class="staffingCoverageBadgeV631 ${coverage.level}" data-staffing-date="${coverage.iso}" data-staffing-kind="${coverage.kind}" title="${escapeHtml(short)}">${symbol} ${escapeHtml(text)}</button>`;
 }
 
+
+function staffingSuggestedTimesV632(shift){
+  if(shift==="early") return {start:"10:00",end:"18:00",label:"10:00–18:00"};
+  if(shift==="middle") return {start:"12:00",end:"20:00",label:"12:00–20:00"};
+  return {start:"17:00",end:"23:30",label:"17:00–23:30"};
+}
+
+function staffingCandidateRestCheckV632(profileId,iso,shift,schedules){
+  const suggested=staffingSuggestedTimesV632(shift);
+  const proposed={profile_id:profileId,work_date:iso,status:"arbeit",start_time:suggested.start,end_time:suggested.end};
+  const proposedBounds=planShiftBoundsV610(proposed);
+  if(!proposedBounds) return {ok:true,minHours:null};
+
+  const employeeRows=(schedules||[])
+    .filter(row=>row.profile_id===profileId&&row.status==="arbeit"&&row.work_date!==iso)
+    .map(row=>({row,bounds:planShiftBoundsV610(row)}))
+    .filter(item=>item.bounds);
+
+  let minimum=null;
+  employeeRows.forEach(item=>{
+    let gap=null;
+    if(item.bounds.end<=proposedBounds.start){
+      gap=(proposedBounds.start-item.bounds.end)/3600000;
+    }else if(proposedBounds.end<=item.bounds.start){
+      gap=(item.bounds.start-proposedBounds.end)/3600000;
+    }
+    if(gap!==null&&(minimum===null||gap<minimum)) minimum=gap;
+  });
+
+  const required=Number(planningAssistantSettingsV612.restHours||11);
+  return {ok:minimum===null||minimum>=required,minHours:minimum,required};
+}
+
+function staffingCandidateMonthlyProjectionV632(person,assistantResult,shift){
+  const profilePlan=staffPlanningProfileV620(person);
+  if(profilePlan.contractType!=="minijob"||profilePlan.hourlyRate===null){
+    return {isMinijob:false,level:"none",amount:null,limit:null};
+  }
+  const suggested=staffingSuggestedTimesV632(shift);
+  const hours=hoursBetween(suggested.start,suggested.end,0);
+  const current=Number(assistantResult?.monthlyEarningsByProfile?.[person.id]||0);
+  const amount=Math.round((current+hours*profilePlan.hourlyRate)*100)/100;
+  const limit=Number(planningAssistantSettingsV612.minijobLimit||603);
+  const level=amount>limit?"critical":amount>=limit*(Number(planningAssistantSettingsV612.minijobWarningPercent||85)/100)?"warning":"ok";
+  return {isMinijob:true,level,amount,limit};
+}
+
+function staffingSuggestionReasonV632(candidate){
+  const reasons=[];
+  if(candidate.targetGap>0) reasons.push(`noch ${formatAssistantHoursV611(candidate.targetGap)} bis Soll`);
+  else if(candidate.weeklyTarget!==null) reasons.push("Wochensoll bereits erreicht");
+  else reasons.push("kein Wochensoll hinterlegt");
+
+  if(candidate.rest.ok) reasons.push("Ruhezeit passend");
+  else reasons.push(`Ruhezeit nur ${formatAssistantHoursV611(candidate.rest.minHours||0)}`);
+
+  if(candidate.minijob.isMinijob){
+    reasons.push(`Minijob-Prognose ${Number(candidate.minijob.amount).toLocaleString("de-DE",{minimumFractionDigits:2,maximumFractionDigits:2})} €`);
+  }
+  return reasons.join(" · ");
+}
+
+function buildStaffingSuggestionsV632({coverage,shift,people,schedules,assistantResult}){
+  if(!staffingNeedsV630.suggestionsEnabled) return [];
+  const suggested=staffingSuggestedTimesV632(shift);
+
+  return (people||[])
+    .filter(person=>{
+      const already=(schedules||[]).some(row=>row.profile_id===person.id&&row.work_date===coverage.iso);
+      return !already;
+    })
+    .map(person=>{
+      const plan=staffPlanningProfileV620(person);
+      const weekHours=Number(assistantResult?.weeklyHoursByProfile?.[person.id]||0);
+      const suggestedHours=hoursBetween(suggested.start,suggested.end,0);
+      const projectedWeek=Math.round((weekHours+suggestedHours)*100)/100;
+      const targetGap=plan.target===null?0:Math.max(0,Math.round((plan.target-weekHours)*100)/100);
+      const exceedsMaximum=plan.maximum!==null&&projectedWeek>plan.maximum;
+      const rest=staffingCandidateRestCheckV632(person.id,coverage.iso,shift,schedules);
+      const minijob=staffingCandidateMonthlyProjectionV632(person,assistantResult,shift);
+
+      let score=100;
+      if(exceedsMaximum) score-=60;
+      if(!rest.ok) score-=40;
+      if(minijob.level==="critical") score-=45;
+      else if(minijob.level==="warning") score-=15;
+      if(plan.target!==null&&weekHours<plan.target) score+=20;
+      if(plan.target!==null&&projectedWeek<=plan.target) score+=10;
+      if(plan.enabled) score+=5;
+
+      return {
+        person,plan,weekHours,projectedWeek,targetGap,exceedsMaximum,rest,minijob,
+        score,
+        level:exceedsMaximum||!rest.ok||minijob.level==="critical"?"critical":minijob.level==="warning"?"warning":"ok",
+        suggested
+      };
+    })
+    .sort((a,b)=>b.score-a.score||a.projectedWeek-b.projectedWeek||String(a.person.last_name||"").localeCompare(String(b.person.last_name||"")))
+    .slice(0,Number(staffingNeedsV630.suggestionLimit||5));
+}
+
+function staffingSuggestionHtmlV632(candidate){
+  const person=candidate.person;
+  const weeklyText=candidate.plan.target!==null
+    ? `${formatAssistantHoursV611(candidate.weekHours)} / ${formatAssistantHoursV611(candidate.plan.target)} Soll`
+    : `${formatAssistantHoursV611(candidate.weekHours)} geplant`;
+  return `<article class="staffingSuggestionCardV632 ${candidate.level}">
+    <div class="staffingSuggestionHeadV632">
+      <div><b>${escapeHtml(`${person.first_name||""} ${person.last_name||""}`.trim()||"Mitarbeiter")}</b><small>${escapeHtml(displayDept(person.department))}</small></div>
+      <span>${candidate.suggested.label}</span>
+    </div>
+    <div class="staffingSuggestionStatsV632">
+      <span><small>Woche</small><b>${escapeHtml(weeklyText)}</b></span>
+      <span><small>Nach Vorschlag</small><b>${formatAssistantHoursV611(candidate.projectedWeek)}</b></span>
+      <span><small>Einschätzung</small><b>${candidate.level==="ok"?"Gut geeignet":candidate.level==="warning"?"Mit Hinweis":"Eher ungeeignet"}</b></span>
+    </div>
+    <p>${escapeHtml(staffingSuggestionReasonV632(candidate))}</p>
+  </article>`;
+}
+
+function renderStaffingSuggestionsV632(coverage,root){
+  const target=root.querySelector(".staffingSuggestionsTargetV632");
+  if(!target) return;
+  const assistantKey=`${coverage.kind}_${weekStartISO(coverage.iso)}`;
+  const assistantResult=planningAssistantCacheV610[assistantKey];
+  const relevantPeople=plannable().filter(person=>
+    (coverage.kind==="kitchen"?KITCHEN_DEPARTMENTS:SERVICE_DEPARTMENTS).includes(person.department)
+  );
+  const schedules=assistantResult?.sourceSchedulesV631||[];
+
+  const missingRows=coverage.rows.filter(row=>row.required>row.planned);
+  if(!missingRows.length){
+    target.innerHTML='<div class="staffingSuggestionsEmptyV632">Für diesen Tag besteht keine Unterbesetzung.</div>';
+    return;
+  }
+
+  target.innerHTML=missingRows.map(row=>{
+    const suggestions=buildStaffingSuggestionsV632({
+      coverage,shift:row.shift,people:relevantPeople,schedules,assistantResult
+    });
+    return `<section class="staffingSuggestionGroupV632">
+      <div class="staffingSuggestionGroupHeadV632">
+        <div><b>${escapeHtml(staffingNeedShiftLabelsV630[row.shift])}</b><small>${row.required-row.planned} Person${row.required-row.planned===1?"":"en"} fehlen</small></div>
+        <span>Vorschlag ${escapeHtml(staffingSuggestedTimesV632(row.shift).label)}</span>
+      </div>
+      ${suggestions.length?suggestions.map(staffingSuggestionHtmlV632).join(""):'<div class="staffingSuggestionsEmptyV632">Keine freien Mitarbeiter gefunden.</div>'}
+    </section>`;
+  }).join("");
+}
+
 function openStaffingCoverageDialogV631(coverage){
   document.querySelector("#staffingCoverageDialogV631")?.remove();
   const overlay=document.createElement("div");
@@ -2144,12 +2299,27 @@ function openStaffingCoverageDialogV631(coverage){
           <span>${row.difference<0?`${Math.abs(row.difference)} fehlt${Math.abs(row.difference)===1?"":"en"}`:row.difference>0?`${row.difference} mehr`:"Passend"}</span>
         </div>`).join("")}
     </div>
+    ${staffingNeedsV630.suggestionsEnabled&&coverage.missing?`
+      <div class="staffingSuggestionsActionsV632">
+        <button type="button" class="secondary staffingSuggestionsToggleV632">Besetzungsvorschläge anzeigen</button>
+      </div>
+      <div class="staffingSuggestionsTargetV632 hidden"></div>`:""}
     <div class="planningWarningFootV611">Nur Hinweis – die App ändert keine Schicht und teilt niemanden automatisch ein.</div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector(".planningWarningCloseV611").onclick=close;
   overlay.addEventListener("click",event=>{if(event.target===overlay) close()});
+  const suggestionToggle=overlay.querySelector(".staffingSuggestionsToggleV632");
+  if(suggestionToggle){
+    suggestionToggle.onclick=()=>{
+      const target=overlay.querySelector(".staffingSuggestionsTargetV632");
+      const opening=target?.classList.contains("hidden");
+      target?.classList.toggle("hidden",!opening);
+      suggestionToggle.textContent=opening?"Besetzungsvorschläge ausblenden":"Besetzungsvorschläge anzeigen";
+      if(opening) renderStaffingSuggestionsV632(coverage,overlay);
+    };
+  }
   overlay.querySelector(".planningWarningCloseV611")?.focus();
 }
 
@@ -2199,6 +2369,8 @@ function collectStaffingNeedsFromEditorV630(){
   next.showInPlan=$("staffingNeedsShowPlanV630")?.checked!==false;
   next.checkCoverage=$("staffingCoverageEnabledV631")?.checked!==false;
   next.showOverstaffing=$("staffingOverstaffingV631")?.checked!==false;
+  next.suggestionsEnabled=$("staffingSuggestionsV632")?.checked!==false;
+  next.suggestionLimit=Math.min(10,Math.max(1,Math.round(Number($("staffingSuggestionLimitV632")?.value||5))));
   document.querySelectorAll("#staffingNeedsEditorV630 input[data-staffing-shift]").forEach(input=>{
     const kind=input.dataset.staffingKind,day=Number(input.dataset.staffingDay),shift=input.dataset.staffingShift;
     if(next[kind]?.[day]&&["early","middle","late"].includes(shift)){
@@ -2213,6 +2385,8 @@ function setupStaffingNeedsV630(){
   if($("staffingNeedsShowPlanV630")) $("staffingNeedsShowPlanV630").checked=staffingNeedsV630.showInPlan;
   if($("staffingCoverageEnabledV631")) $("staffingCoverageEnabledV631").checked=staffingNeedsV630.checkCoverage;
   if($("staffingOverstaffingV631")) $("staffingOverstaffingV631").checked=staffingNeedsV630.showOverstaffing;
+  if($("staffingSuggestionsV632")) $("staffingSuggestionsV632").checked=staffingNeedsV630.suggestionsEnabled;
+  if($("staffingSuggestionLimitV632")) $("staffingSuggestionLimitV632").value=staffingNeedsV630.suggestionLimit;
   let activeKind="service";
   document.querySelectorAll(".staffingNeedsTabV630").forEach(btn=>{
     btn.onclick=()=>{
@@ -6990,7 +7164,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6310`;
+  return `${base}?stempeluhr=1&v=6320`;
 }
 
 function normalizeIpValue(ip){

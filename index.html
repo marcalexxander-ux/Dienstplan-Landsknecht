@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6310">
+  <link rel="stylesheet" href="styles.css?v=6320">
 </head>
 <body>
 <header class="topbar">
@@ -1078,6 +1078,10 @@
               <label><input id="staffingNeedsShowPlanV630" type="checkbox"> Im Dienstplan anzeigen</label>
               <label><input id="staffingCoverageEnabledV631" type="checkbox"> Besetzung prüfen</label>
               <label><input id="staffingOverstaffingV631" type="checkbox"> Überbesetzung anzeigen</label>
+              <label><input id="staffingSuggestionsV632" type="checkbox"> Vorschläge aktivieren</label>
+              <label class="staffingSuggestionLimitV632">Max. Vorschläge
+                <input id="staffingSuggestionLimitV632" type="number" min="1" max="10" step="1">
+              </label>
             </div>
           </div>
           <div class="staffingNeedsTabsV630" role="tablist" aria-label="Bereich auswählen">
@@ -1285,7 +1289,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6310"></script>
-<script src="app.js?v=6310"></script>
+<script src="config.js?v=6320"></script>
+<script src="app.js?v=6320"></script>
 </body>
 </html>
