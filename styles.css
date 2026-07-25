@@ -6873,3 +6873,162 @@ button[disabled]{
     display:none;
   }
 }
+
+
+/* v6.2.4 – Stabilität und Feinschliff */
+*,*::before,*::after{
+  box-sizing:border-box;
+}
+
+html,body{
+  max-width:100%;
+  overflow-x:hidden;
+}
+
+img,svg,canvas{
+  max-width:100%;
+}
+
+button,input,select,textarea{
+  max-width:100%;
+}
+
+button:disabled{
+  cursor:not-allowed!important;
+  opacity:.62;
+}
+
+.buttonBusyV624{
+  position:relative;
+  pointer-events:none;
+}
+
+.buttonBusyV624::after{
+  content:"";
+  display:inline-block;
+  width:13px;
+  height:13px;
+  margin-left:8px;
+  border:2px solid currentColor;
+  border-right-color:transparent;
+  border-radius:50%;
+  vertical-align:-2px;
+  animation:uiSpinV624 .7s linear infinite;
+}
+
+@keyframes uiSpinV624{
+  to{transform:rotate(360deg)}
+}
+
+.loadingEntryV624{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:52px;
+}
+
+.loadingEntryV624::before{
+  content:"";
+  width:18px;
+  height:18px;
+  border:3px solid #cfdcd5;
+  border-top-color:#174d3a;
+  border-radius:50%;
+  animation:uiSpinV624 .75s linear infinite;
+}
+
+.uiStatusV624{
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:120000;
+  max-width:min(440px,calc(100vw - 36px));
+  padding:12px 15px;
+  border-radius:12px;
+  background:#243b32;
+  color:#fff;
+  box-shadow:0 14px 36px rgba(18,43,33,.25);
+  font-size:13px;
+  font-weight:800;
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(14px);
+  transition:opacity .18s ease,transform .18s ease;
+}
+
+.uiStatusV624.show{
+  opacity:1;
+  transform:translateY(0);
+}
+
+.uiStatusV624.success{
+  background:#17603d;
+}
+
+.uiStatusV624.error{
+  background:#a12b24;
+}
+
+.tabPage{
+  min-width:0;
+}
+
+.sectionHeader>div,
+.navButtons,
+.formGrid>*{
+  min-width:0;
+}
+
+.grid{
+  overscroll-behavior-inline:contain;
+}
+
+@media(max-width:820px){
+  .content{
+    min-width:0;
+    overflow-x:hidden;
+  }
+
+  .card{
+    max-width:100%;
+  }
+
+  .sectionHeader{
+    align-items:flex-start;
+  }
+
+  .sectionHeader .navButtons{
+    width:100%;
+  }
+
+  .sectionHeader .navButtons button,
+  .sectionHeader .navButtons input,
+  .sectionHeader .navButtons select{
+    min-height:44px;
+  }
+
+  .buttonRow button{
+    min-height:44px;
+  }
+
+  .uiStatusV624{
+    right:10px;
+    bottom:10px;
+    max-width:calc(100vw - 20px);
+  }
+
+  input,select,textarea{
+    font-size:16px;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .buttonBusyV624::after,
+  .loadingEntryV624::before{
+    animation:none;
+  }
+
+  .uiStatusV624{
+    transition:none;
+  }
+}

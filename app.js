@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.2.3";
+const APP_VERSION="v6.2.4";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -34,6 +34,78 @@ let publishedPlanCache={};
 let passwordRecoveryMode=false;
 
 function $(id){return document.getElementById(id)}
+const uiTaskLocksV624=new Set();
+let uiStatusTimerV624=null;
+
+function ensureUiStatusV624(){
+  let el=document.querySelector("#uiStatusV624");
+  if(el) return el;
+  el=document.createElement("div");
+  el.id="uiStatusV624";
+  el.className="uiStatusV624";
+  el.setAttribute("role","status");
+  el.setAttribute("aria-live","polite");
+  document.body.appendChild(el);
+  return el;
+}
+
+function showUiStatusV624(message,type="info",duration=2600){
+  const el=ensureUiStatusV624();
+  el.textContent=String(message||"");
+  el.className=`uiStatusV624 ${type} show`;
+  clearTimeout(uiStatusTimerV624);
+  if(duration>0){
+    uiStatusTimerV624=setTimeout(()=>el.classList.remove("show"),duration);
+  }
+}
+
+function setButtonBusyV624(button,busy,label="Wird geladen …"){
+  if(!button) return;
+  if(busy){
+    if(!button.dataset.originalTextV624) button.dataset.originalTextV624=button.textContent;
+    button.disabled=true;
+    button.classList.add("buttonBusyV624");
+    button.textContent=label;
+  }else{
+    button.disabled=false;
+    button.classList.remove("buttonBusyV624");
+    if(button.dataset.originalTextV624){
+      button.textContent=button.dataset.originalTextV624;
+      delete button.dataset.originalTextV624;
+    }
+  }
+}
+
+async function runUiTaskV624(key,button,task,{busyText="Wird geladen …",successText=""}={}){
+  if(uiTaskLocksV624.has(key)) return false;
+  uiTaskLocksV624.add(key);
+  setButtonBusyV624(button,true,busyText);
+  try{
+    await task();
+    if(successText) showUiStatusV624(successText,"success");
+    return true;
+  }catch(error){
+    console.error(`[v6.2.4] ${key}:`,error);
+    showUiStatusV624(`Fehler: ${error?.message||"Vorgang konnte nicht abgeschlossen werden."}`,"error",4200);
+    return false;
+  }finally{
+    uiTaskLocksV624.delete(key);
+    setButtonBusyV624(button,false);
+  }
+}
+
+function safeTargetHtmlV624(id,html){
+  const target=$(id);
+  if(target) target.innerHTML=html;
+}
+
+window.addEventListener("online",()=>showUiStatusV624("Internetverbindung wiederhergestellt.","success"));
+window.addEventListener("offline",()=>showUiStatusV624("Keine Internetverbindung. Änderungen können derzeit nicht gespeichert werden.","error",0));
+window.addEventListener("unhandledrejection",event=>{
+  console.error("Nicht behandelter App-Fehler:",event.reason);
+  showUiStatusV624("Ein Vorgang wurde nicht vollständig abgeschlossen. Bitte Ansicht aktualisieren.","error",4200);
+});
+
 function pad2(n){return String(n).padStart(2,"0")}
 function localISODate(d){return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`}
 function parseISODateLocal(iso){const[y,m,d]=iso.split("-").map(Number);return new Date(y,m-1,d)}
@@ -260,7 +332,14 @@ function setActiveTab(tabId){
   document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
   document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
   const target=$(normalized);
-  if(target) target.classList.remove("hidden");
+  if(target){
+    target.classList.remove("hidden");
+  }else{
+    normalized="dashboard";
+    $("dashboard")?.classList.remove("hidden");
+    document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab==="dashboard"));
+    showUiStatusV624("Der gewünschte Bereich ist nicht verfügbar. Startseite wurde geöffnet.","error");
+  }
   const activeTouch = document.querySelector(`#mobileTouchNav button[data-tab="${normalized}"]`);
   if(activeTouch) activeTouch.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
   if(normalized==="events") loadEvents?.();
@@ -3452,10 +3531,17 @@ function setupTouchShiftEditor(){
 }
 
 async function saveScheduleCell(inp,options={}){
+  if(!navigator.onLine){
+    showUiStatusV624("Keine Internetverbindung. Die Schicht wurde nicht gespeichert.","error",0);
+    return false;
+  }
+  if(inp?.dataset?.saveLockV624==="1") return false;
+  if(inp?.dataset) inp.dataset.saveLockV624="1";
   const profileId = inp.dataset.profile;
   const targetProfile = profileById(profileId);
   const targetKind = planKindForDepartment(targetProfile.department);
-  if(!canEditPlan(targetKind)){ alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten."); return false; }
+  try{
+    if(!canEditPlan(targetKind)){ alert("Du hast keine Berechtigung, diesen Dienstplan zu bearbeiten."); return false; }
   const workDate = inp.dataset.date;
   const rawOriginal = (inp.value || "").trim();
   const quickNormalized = normalizeQuickShiftV83(rawOriginal);
@@ -3536,6 +3622,9 @@ async function saveScheduleCell(inp,options={}){
     await loadEmployeeOwnOverview();
   }
   return true;
+  }finally{
+    if(inp?.dataset) inp.dataset.saveLockV624="";
+  }
 }
 
 $("prevMonth").onclick=()=>{const[y,m]=($("monthSelect").value||monthISO()).split("-").map(Number);$("monthSelect").value=monthISO(new Date(y,m-2,1));loadMonth()};
@@ -4872,7 +4961,12 @@ async function loadVacationPlanner(){
 }
 
 function setupVacationPlanner(){
-  if($("recalcVacationPlanner")) $("recalcVacationPlanner").onclick = loadVacationPlanner;
+  if($("recalcVacationPlanner")) $("recalcVacationPlanner").onclick = ()=>runUiTaskV624(
+    "vacation-planner",
+    $("recalcVacationPlanner"),
+    loadVacationPlanner,
+    {busyText:"Wird berechnet …",successText:"Urlaubsplaner aktualisiert"}
+  );
   if($("vacPlannerMonth")) $("vacPlannerMonth").value ||= monthISO();
   if($("prevVacPlannerMonth")) $("prevVacPlannerMonth").onclick = ()=>{
     const [y,m]=($("vacPlannerMonth").value||monthISO()).split("-").map(Number);
@@ -4943,10 +5037,13 @@ async function loadVacations(){
   }).join("")||"<p>Keine Urlaubsanträge oder Urlaube vorhanden.</p>";
 }
 
+let vacationCalendarTokenV624=0;
 async function loadVacationCalendar(){
-  if(!session || !profiles.length) return;
+  if(!session || !profiles.length || !$("vacCalendar")) return;
 
+  const requestToken=++vacationCalendarTokenV624;
   const month=$("vacMonthSelect").value||monthISO();
+  safeTargetHtmlV624("vacCalendar",'<div class="entry loadingEntryV624">Urlaubskalender wird geladen …</div>');
   const from=firstOfMonthISO(month);
   const to=month+"-"+pad2(lastDayOfMonth(month));
 
@@ -4956,8 +5053,9 @@ async function loadVacationCalendar(){
     .gte("date_to",from)
     .in("status",["beantragt","genehmigt"]);
 
+  if(requestToken!==vacationCalendarTokenV624) return;
   if(error){
-    $("vacCalendar").innerHTML=`<div class="entry"><b>Fehler beim Laden des Urlaubskalenders:</b><br>${escapeHtml(error.message)}</div>`;
+    safeTargetHtmlV624("vacCalendar",`<div class="entry"><b>Fehler beim Laden des Urlaubskalenders:</b><br>${escapeHtml(error.message)}</div>`);
     return;
   }
 
@@ -5627,7 +5725,9 @@ function hoursAccountMonthLabelV622(month){
   return new Date(year,monthNumber-1,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"});
 }
 
+let hoursAccountTokenV624=0;
 async function loadHoursAccountV622(){
+  const requestToken=++hoursAccountTokenV624;
   const list=$("hoursAccountListV622");
   const summary=$("hoursAccountSummaryV622");
   if(!list||!isManagement()) return;
@@ -5648,6 +5748,7 @@ async function loadHoursAccountV622(){
     sb.from("time_entries").select("profile_id,work_date,hours").gte("work_date",previousFrom).lte("work_date",previousTo)
   ]);
 
+  if(requestToken!==hoursAccountTokenV624) return;
   const error=plannedRes.error||actualRes.error||previousActualRes.error;
   if(error){
     list.innerHTML=`<div class="entry"><b>Fehler beim Laden:</b><br>${escapeHtml(error.message)}</div>`;
@@ -5807,10 +5908,20 @@ function exportHoursAccountV622(){
   setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
 
-if($("loadHoursAccountV622")) $("loadHoursAccountV622").onclick=loadHoursAccountV622;
+if($("loadHoursAccountV622")) $("loadHoursAccountV622").onclick=()=>runUiTaskV624(
+  "hours-account",
+  $("loadHoursAccountV622"),
+  loadHoursAccountV622,
+  {busyText:"Wird berechnet …",successText:"Stundenkonto aktualisiert"}
+);
 if($("exportHoursAccountV622")) $("exportHoursAccountV622").onclick=exportHoursAccountV622;
 
-if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=loadMinijobCenter;
+if($("loadMinijobCenter")) $("loadMinijobCenter").onclick=()=>runUiTaskV624(
+  "minijob-center",
+  $("loadMinijobCenter"),
+  loadMinijobCenter,
+  {busyText:"Wird berechnet …",successText:"Minijob-Center aktualisiert"}
+);
 if($("exportMinijobCsv")) $("exportMinijobCsv").onclick=exportMinijobCsv;
 if($("loadSummary")) $("loadSummary").onclick=loadSummary;
 if($("exportCsv")) $("exportCsv").onclick=()=>{
@@ -6593,7 +6704,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6230`;
+  return `${base}?stempeluhr=1&v=6240`;
 }
 
 function normalizeIpValue(ip){
@@ -7325,7 +7436,12 @@ function setupClockMobilePanelsV6221(){
 }
 
 function setupTimeClock(){
-  if($("refreshClockBtn")) $("refreshClockBtn").onclick = loadTimeClock;
+  if($("refreshClockBtn")) $("refreshClockBtn").onclick = ()=>runUiTaskV624(
+    "clock-refresh",
+    $("refreshClockBtn"),
+    loadTimeClock,
+    {busyText:"Aktualisiere …",successText:"Stempeluhr aktualisiert"}
+  );
   if($("clockProfile")) $("clockProfile").onchange = loadClockEvents;
   if($("clockEventsProfileFilter")) $("clockEventsProfileFilter").onchange = loadClockEvents;
   if($("clockInBtn")) $("clockInBtn").onclick = ()=>saveClockEvent("clock_in");
@@ -7341,7 +7457,12 @@ function setupTimeClock(){
       prompt("Stempeluhr-Link kopieren:", url);
     }
   };
-  if($("loadClockEvaluation")) $("loadClockEvaluation").onclick = loadClockEvaluation;
+  if($("loadClockEvaluation")) $("loadClockEvaluation").onclick = ()=>runUiTaskV624(
+    "clock-evaluation",
+    $("loadClockEvaluation"),
+    loadClockEvaluation,
+    {busyText:"Wird ausgewertet …",successText:"Zeitauswertung aktualisiert"}
+  );
   if($("exportClockEvaluationCsv")) $("exportClockEvaluationCsv").onclick = exportClockEvaluationCsv;
   if($("clockEvalToday")) $("clockEvalToday").onclick = ()=>setClockEvalRange("today");
   if($("clockEvalWeek")) $("clockEvalWeek").onclick = ()=>setClockEvalRange("week");
@@ -7369,6 +7490,20 @@ function setupVacationYearOverview(){
     loadVacationYearOverview();
   };
 }
+
+let responsiveRefreshTimerV624=null;
+window.addEventListener("resize",()=>{
+  clearTimeout(responsiveRefreshTimerV624);
+  responsiveRefreshTimerV624=setTimeout(()=>{
+    try{
+      const activeClock=document.querySelector("#timeClock .clockMobileTabV6221.active")?.dataset.clockMobileTarget||"stamp";
+      setClockMobilePanelV6221(activeClock);
+      refreshVacationMobileTabs?.();
+    }catch(error){
+      console.warn("Responsive Ansicht konnte nicht aktualisiert werden:",error);
+    }
+  },180);
+});
 
 setupClockMobilePanelsV6221();
 setupTimeClock();
