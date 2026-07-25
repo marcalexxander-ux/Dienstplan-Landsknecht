@@ -7062,3 +7062,172 @@ button:disabled{
   .staffingNeedsActionsV630{display:grid;grid-template-columns:1fr}
   .staffingNeedsActionsV630 button{width:100%}
 }
+
+
+/* v6.3.1 – Unter- und Überbesetzung */
+.staffingCoverageBadgeV631{
+  display:block;
+  width:max-content;
+  max-width:100%;
+  margin:4px auto 0;
+  padding:4px 7px;
+  border:1px solid transparent;
+  border-radius:999px;
+  font-size:9px;
+  font-weight:900;
+  line-height:1.15;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.staffingCoverageBadgeV631.ok{
+  border-color:#a8d8ba;
+  background:#e8f6ed;
+  color:#22633f;
+}
+
+.staffingCoverageBadgeV631.warning{
+  border-color:#e3bd54;
+  background:#fff5d4;
+  color:#7b5900;
+}
+
+.staffingCoverageBadgeV631.critical{
+  border-color:#df8580;
+  background:#ffe9e7;
+  color:#9b261f;
+}
+
+.staffingCoverageBadgeV631.over{
+  border-color:#b7a2dd;
+  background:#f1ebfb;
+  color:#5b3a91;
+}
+
+.mobileDayHead .staffingCoverageBadgeV631{
+  margin:4px 0 0;
+}
+
+.staffingWeekSummaryV631{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:12px 0;
+  padding:12px 14px;
+  border:1px solid #dbe6df;
+  border-left:5px solid #79b894;
+  border-radius:13px;
+  background:#f8fbf9;
+}
+
+.staffingWeekSummaryV631.warning{border-left-color:#d9a534;background:#fffaf0}
+.staffingWeekSummaryV631.critical{border-left-color:#bf3e35;background:#fff4f2}
+.staffingWeekSummaryV631.over{border-left-color:#8062b4;background:#f8f4ff}
+
+.staffingWeekSummaryV631 small{
+  display:block;
+  color:#6a7770;
+  font-size:10.5px;
+  font-weight:800;
+}
+
+.staffingWeekSummaryV631 b{
+  color:#24483a;
+}
+
+.staffingWeekSummaryStatsV631{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:6px;
+}
+
+.staffingWeekSummaryStatsV631 span{
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:900;
+}
+
+.staffingWeekSummaryStatsV631 .ok{background:#e7f5ed;color:#21603f}
+.staffingWeekSummaryStatsV631 .warning{background:#fff1c4;color:#765500}
+.staffingWeekSummaryStatsV631 .critical{background:#ffe5e2;color:#98261f}
+.staffingWeekSummaryStatsV631 .over{background:#eee6fa;color:#5a388d}
+
+.staffingCoverageDialogSummaryV631{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+  padding:11px 12px;
+  border-radius:11px;
+  background:#edf7f1;
+  color:#235a3d;
+}
+
+.staffingCoverageDialogSummaryV631.warning{background:#fff5d6;color:#765500}
+.staffingCoverageDialogSummaryV631.critical{background:#ffe9e7;color:#98261f}
+.staffingCoverageDialogSummaryV631.over{background:#f0eafb;color:#5b398f}
+
+.staffingCoverageDialogSummaryV631 span{
+  font-size:12px;
+  font-weight:700;
+}
+
+.staffingCoverageDialogRowsV631{
+  display:grid;
+  gap:8px;
+}
+
+.staffingCoverageDialogRowV631{
+  display:grid;
+  grid-template-columns:1fr auto 90px;
+  align-items:center;
+  gap:10px;
+  padding:10px 11px;
+  border:1px solid #dde7e1;
+  border-radius:11px;
+  background:#f8faf9;
+}
+
+.staffingCoverageDialogRowV631 small{
+  display:block;
+  color:#6b7771;
+  font-size:10px;
+}
+
+.staffingCoverageDialogRowV631 strong{
+  font-size:17px;
+}
+
+.staffingCoverageDialogRowV631>span{
+  text-align:right;
+  font-size:11px;
+  font-weight:900;
+}
+
+.staffingCoverageDialogRowV631.warning{border-color:#e6c86f;background:#fff9e8}
+.staffingCoverageDialogRowV631.critical{border-color:#e29a95;background:#fff2f0}
+.staffingCoverageDialogRowV631.over{border-color:#c4b3e2;background:#f7f2ff}
+.staffingCoverageDialogRowV631.ok{border-color:#b9dcc6;background:#f0f8f3}
+
+@media(max-width:820px){
+  .staffingWeekSummaryV631{
+    display:block;
+  }
+
+  .staffingWeekSummaryStatsV631{
+    justify-content:flex-start;
+    margin-top:8px;
+  }
+
+  .staffingCoverageDialogRowV631{
+    grid-template-columns:1fr auto;
+  }
+
+  .staffingCoverageDialogRowV631>span{
+    grid-column:1/-1;
+    text-align:left;
+  }
+}

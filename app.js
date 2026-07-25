@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.3.0";
+const APP_VERSION="v6.3.1";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -16,6 +16,8 @@ const staffingNeedKindsV630={service:"Service",kitchen:"Küche"};
 const staffingNeedsDefaultsV630={
   enabled:true,
   showInPlan:true,
+  checkCoverage:true,
+  showOverstaffing:true,
   service:{
     0:{early:0,middle:0,late:0},1:{early:0,middle:0,late:0},2:{early:0,middle:0,late:0},
     3:{early:0,middle:0,late:0},4:{early:0,middle:0,late:0},5:{early:0,middle:0,late:0},6:{early:0,middle:0,late:0}
@@ -2006,6 +2008,8 @@ function normalizeStaffingNeedsV630(raw={}){
   const next=cloneStaffingNeedsDefaultsV630();
   next.enabled=raw?.enabled!==false;
   next.showInPlan=raw?.showInPlan!==false;
+  next.checkCoverage=raw?.checkCoverage!==false;
+  next.showOverstaffing=raw?.showOverstaffing!==false;
   ["service","kitchen"].forEach(kind=>{
     for(let day=0;day<7;day++){
       ["early","middle","late"].forEach(shift=>{
@@ -2045,6 +2049,129 @@ function staffingNeedLabelV630(kind,iso,compact=false){
   const text=compact?`F ${need.early} · M ${need.middle} · S ${need.late}`:`Bedarf: Früh ${need.early} · Mitte ${need.middle} · Spät ${need.late}`;
   return `<div class="staffingNeedPlanBadgeV630" title="${escapeHtml(text)}">${escapeHtml(text)}</div>`;
 }
+
+function staffingShiftBucketV631(schedule){
+  if(!schedule || schedule.status!=="arbeit") return null;
+  const start=planMinutesFromTimeV610(schedule.start_time);
+  if(start===null) return null;
+  if(start<12*60) return "early";
+  if(start<16*60) return "middle";
+  return "late";
+}
+
+function staffingCoverageForDateV631(kind,iso,schedules,relevantProfileIds){
+  const need=staffingNeedForDateV630(kind,iso);
+  const actual={early:0,middle:0,late:0};
+  const relevant=new Set(relevantProfileIds||[]);
+
+  (schedules||[]).forEach(schedule=>{
+    if(schedule.work_date!==iso || !relevant.has(schedule.profile_id)) return;
+    const bucket=staffingShiftBucketV631(schedule);
+    if(bucket) actual[bucket]+=1;
+  });
+
+  const rows=["early","middle","late"].map(shift=>{
+    const required=Number(need[shift]||0);
+    const planned=Number(actual[shift]||0);
+    const difference=planned-required;
+    let level="none";
+    if(required>0){
+      if(planned<required) level=(required-planned)>=2 ? "critical" : "warning";
+      else if(planned===required) level="ok";
+      else if(staffingNeedsV630.showOverstaffing) level="over";
+      else level="ok";
+    }else if(planned>0){
+      level="neutral";
+    }
+    return {shift,required,planned,difference,level};
+  });
+
+  const configured=rows.filter(row=>row.required>0);
+  const missing=configured.reduce((sum,row)=>sum+Math.max(0,row.required-row.planned),0);
+  const extra=configured.reduce((sum,row)=>sum+Math.max(0,row.planned-row.required),0);
+  const critical=rows.some(row=>row.level==="critical");
+  const warning=rows.some(row=>row.level==="warning");
+  const over=rows.some(row=>row.level==="over");
+  const level=critical?"critical":warning?"warning":over?"over":configured.length?"ok":"none";
+
+  return {
+    kind,iso,need,actual,rows,missing,extra,level,
+    configured:configured.length>0,
+    requiredTotal:configured.reduce((sum,row)=>sum+row.required,0),
+    plannedRelevantTotal:configured.reduce((sum,row)=>sum+row.planned,0)
+  };
+}
+
+function staffingCoverageShortV631(coverage){
+  return coverage.rows
+    .filter(row=>row.required>0)
+    .map(row=>`${staffingNeedShiftLabelsV630[row.shift]} ${row.planned}/${row.required}`)
+    .join(" · ");
+}
+
+function staffingCoverageBadgeV631(coverage,compact=false){
+  if(!staffingNeedsV630.enabled || !staffingNeedsV630.showInPlan || !staffingNeedsV630.checkCoverage || !coverage?.configured) return "";
+  const short=staffingCoverageShortV631(coverage);
+  const symbol=coverage.level==="critical"?"!":coverage.level==="warning"?"⚠":coverage.level==="over"?"↑":"✓";
+  const text=compact
+    ? coverage.rows.filter(row=>row.required>0).map(row=>`${staffingNeedShiftLabelsV630[row.shift].slice(0,1)} ${row.planned}/${row.required}`).join(" · ")
+    : short;
+  return `<button type="button" class="staffingCoverageBadgeV631 ${coverage.level}" data-staffing-date="${coverage.iso}" data-staffing-kind="${coverage.kind}" title="${escapeHtml(short)}">${symbol} ${escapeHtml(text)}</button>`;
+}
+
+function openStaffingCoverageDialogV631(coverage){
+  document.querySelector("#staffingCoverageDialogV631")?.remove();
+  const overlay=document.createElement("div");
+  overlay.id="staffingCoverageDialogV631";
+  overlay.className="planningWarningOverlayV611";
+  const heading=coverage.level==="critical"?"Deutlich unterbesetzt":
+    coverage.level==="warning"?"Unterbesetzt":
+    coverage.level==="over"?"Überbesetzt":"Bedarf erfüllt";
+  overlay.innerHTML=`<div class="planningWarningDialogV611 staffingCoverageDialogV631" role="dialog" aria-modal="true" aria-label="Besetzungsübersicht">
+    <div class="planningWarningDialogHeadV611">
+      <div><small>Besetzungsassistent</small><h3>${escapeHtml(staffingNeedKindsV630[coverage.kind])} · ${fmtDate(coverage.iso)}</h3></div>
+      <button type="button" class="planningWarningCloseV611" aria-label="Schließen">×</button>
+    </div>
+    <section class="staffingCoverageDialogSummaryV631 ${coverage.level}">
+      <b>${escapeHtml(heading)}</b>
+      <span>${coverage.missing?`${coverage.missing} Person${coverage.missing===1?"":"en"} fehlen`:""}${coverage.missing&&coverage.extra?" · ":""}${coverage.extra?`${coverage.extra} Person${coverage.extra===1?"":"en"} über Bedarf`:""}${!coverage.missing&&!coverage.extra?"Planung entspricht dem hinterlegten Bedarf.":""}</span>
+    </section>
+    <div class="staffingCoverageDialogRowsV631">
+      ${coverage.rows.filter(row=>row.required>0).map(row=>`
+        <div class="staffingCoverageDialogRowV631 ${row.level}">
+          <div><b>${escapeHtml(staffingNeedShiftLabelsV630[row.shift])}</b><small>Geplant / Bedarf</small></div>
+          <strong>${row.planned} / ${row.required}</strong>
+          <span>${row.difference<0?`${Math.abs(row.difference)} fehlt${Math.abs(row.difference)===1?"":"en"}`:row.difference>0?`${row.difference} mehr`:"Passend"}</span>
+        </div>`).join("")}
+    </div>
+    <div class="planningWarningFootV611">Nur Hinweis – die App ändert keine Schicht und teilt niemanden automatisch ein.</div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector(".planningWarningCloseV611").onclick=close;
+  overlay.addEventListener("click",event=>{if(event.target===overlay) close()});
+  overlay.querySelector(".planningWarningCloseV611")?.focus();
+}
+
+function staffingWeekSummaryV631(coverages){
+  const configured=(coverages||[]).filter(item=>item.configured);
+  if(!configured.length || !staffingNeedsV630.enabled || !staffingNeedsV630.checkCoverage) return "";
+  const critical=configured.filter(item=>item.level==="critical").length;
+  const warning=configured.filter(item=>item.level==="warning").length;
+  const over=configured.filter(item=>item.level==="over").length;
+  const ok=configured.filter(item=>item.level==="ok").length;
+  const className=critical?"critical":warning?"warning":over?"over":"ok";
+  return `<div class="staffingWeekSummaryV631 ${className}">
+    <div><small>Besetzungsbedarf</small><b>${configured.length} Tage geprüft</b></div>
+    <div class="staffingWeekSummaryStatsV631">
+      ${critical?`<span class="critical">${critical} deutlich unterbesetzt</span>`:""}
+      ${warning?`<span class="warning">${warning} unterbesetzt</span>`:""}
+      ${over?`<span class="over">${over} überbesetzt</span>`:""}
+      ${ok?`<span class="ok">${ok} passend</span>`:""}
+    </div>
+  </div>`;
+}
+
 function staffingNeedInputIdV630(kind,day,shift){return `staffingNeed_${kind}_${day}_${shift}_V630`}
 function renderStaffingNeedsEditorV630(kind="service"){
   const target=$("staffingNeedsEditorV630");
@@ -2070,6 +2197,8 @@ function collectStaffingNeedsFromEditorV630(){
   const next=normalizeStaffingNeedsV630(staffingNeedsV630);
   next.enabled=$("staffingNeedsEnabledV630")?.checked!==false;
   next.showInPlan=$("staffingNeedsShowPlanV630")?.checked!==false;
+  next.checkCoverage=$("staffingCoverageEnabledV631")?.checked!==false;
+  next.showOverstaffing=$("staffingOverstaffingV631")?.checked!==false;
   document.querySelectorAll("#staffingNeedsEditorV630 input[data-staffing-shift]").forEach(input=>{
     const kind=input.dataset.staffingKind,day=Number(input.dataset.staffingDay),shift=input.dataset.staffingShift;
     if(next[kind]?.[day]&&["early","middle","late"].includes(shift)){
@@ -2082,6 +2211,8 @@ function setupStaffingNeedsV630(){
   loadStaffingNeedsV630();
   if($("staffingNeedsEnabledV630")) $("staffingNeedsEnabledV630").checked=staffingNeedsV630.enabled;
   if($("staffingNeedsShowPlanV630")) $("staffingNeedsShowPlanV630").checked=staffingNeedsV630.showInPlan;
+  if($("staffingCoverageEnabledV631")) $("staffingCoverageEnabledV631").checked=staffingNeedsV630.checkCoverage;
+  if($("staffingOverstaffingV631")) $("staffingOverstaffingV631").checked=staffingNeedsV630.showOverstaffing;
   let activeKind="service";
   document.querySelectorAll(".staffingNeedsTabV630").forEach(btn=>{
     btn.onclick=()=>{
@@ -2740,6 +2871,16 @@ function setupPlanningAssistantDisplayV611(targetId,result){
   const root=$(targetId);
   if(!root) return;
   root.onclick=e=>{
+    const staffingBtn=e.target.closest?.(".staffingCoverageBadgeV631");
+    if(staffingBtn&&root.contains(staffingBtn)){
+      e.preventDefault();
+      e.stopPropagation();
+      const date=staffingBtn.dataset.staffingDate;
+      const kind=staffingBtn.dataset.staffingKind;
+      const coverage=staffingCoverageForDateV631(kind,date,result?.sourceSchedulesV631||[],result?.sourceProfileIdsV631||[]);
+      openStaffingCoverageDialogV631(coverage);
+      return;
+    }
     const profileBtn=e.target.closest?.(".planProfileWarningBtnV621");
     if(profileBtn&&root.contains(profileBtn)){
       e.preventDefault();
@@ -2814,7 +2955,18 @@ async function loadPlanFiltered(title,week,departments,targetId){
     kind,
     monthKey:assistantMonth
   });
+  assistantResult.sourceSchedulesV631=schedules||[];
+  assistantResult.sourceProfileIdsV631=assistantPeople.map(p=>p.id);
   storePlanningAssistantResultV610(assistantResult);
+
+  const staffingProfileIdsV631=assistantPeople.map(p=>p.id);
+  const staffingCoverageByDateV631={};
+  const staffingWeekCoveragesV631=days.map((_,i)=>{
+    const iso=addDaysISO(week,i);
+    const coverage=staffingCoverageForDateV631(kind,iso,schedules||[],staffingProfileIdsV631);
+    staffingCoverageByDateV631[iso]=coverage;
+    return coverage;
+  });
 
   const editablePlan = canEditPlan(kind);
 
@@ -2837,7 +2989,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
       .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
       .filter(x=>editablePlan ? x.item : (x.item && x.item.status==="arbeit")));
 
-    mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><div><b>${d}, ${fmtDate(iso)}</b>${isManagement()?staffingNeedLabelV630(kind,iso,true):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<span class="assistantMobileDayHoursV613">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</span>`:""}</div>`;
+    mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><div><b>${d}, ${fmtDate(iso)}</b>${isManagement()?staffingCoverageBadgeV631(staffingCoverageByDateV631[iso],true):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<span class="assistantMobileDayHoursV613">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</span>`:""}</div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     (eventsByDate[iso]||[]).forEach(e=>mobile += `<div class="mobileDayEvent">${escapeHtml(eventPlanLabel(e))}</div>`);
 
@@ -2867,6 +3019,9 @@ async function loadPlanFiltered(title,week,departments,targetId){
       </div>
     </div>`;
   }
+  if(isManagement()){
+    html += staffingWeekSummaryV631(staffingWeekCoveragesV631);
+  }
   if(editablePlan){
     html += `<div class="planUndoToolbarV86" data-undo-target="${targetId}">
       <div class="planUndoButtonsV86">
@@ -2881,7 +3036,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
-    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${isManagement()?staffingNeedLabelV630(kind,iso,true):""}${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<div class="assistantDayHoursV611" title="Geplante Arbeitsstunden an diesem Tag">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</div>`:""}${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
+    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${isManagement()?staffingCoverageBadgeV631(staffingCoverageByDateV631[iso],true):""}${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<div class="assistantDayHoursV611" title="Geplante Arbeitsstunden an diesem Tag">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</div>`:""}${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
   });
 
   html+='</tr></thead><tbody>';
@@ -6835,7 +6990,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6300`;
+  return `${base}?stempeluhr=1&v=6310`;
 }
 
 function normalizeIpValue(ip){
