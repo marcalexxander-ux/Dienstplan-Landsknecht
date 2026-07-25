@@ -7032,3 +7032,33 @@ button:disabled{
     transition:none;
   }
 }
+
+/* v6.3.0 – Besetzungsbedarf hinterlegen */
+.staffingNeedsCardV630{margin:16px 0;padding:16px;border:1px solid #dbe6df;border-radius:17px;background:#fff}
+.staffingNeedsHeadV630{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.staffingNeedsHeadV630 h3{margin:0 0 5px;color:#173f31}
+.staffingNeedsHeadV630 p{margin:0;color:#68766f;font-size:13px;line-height:1.4}
+.staffingNeedsMasterV630{display:flex;flex-wrap:wrap;gap:8px}
+.staffingNeedsMasterV630 label{display:flex;align-items:center;gap:7px;min-height:38px;margin:0;padding:8px 10px;border:1px solid #dce6e0;border-radius:10px;background:#f7faf8;font-size:12px}
+.staffingNeedsMasterV630 input{width:17px;height:17px;margin:0}
+.staffingNeedsTabsV630{display:flex;gap:8px;margin:15px 0 10px}
+.staffingNeedsTabV630{min-width:130px;background:#edf3ef;color:#24483a}
+.staffingNeedsTabV630.active{background:#174d3a;color:#fff}
+.staffingNeedsTableWrapV630{overflow-x:auto;border:1px solid #dfe7e2;border-radius:13px}
+.staffingNeedsTableV630{min-width:650px;table-layout:fixed}
+.staffingNeedsTableV630 th:first-child{width:150px}
+.staffingNeedsTableV630 th,.staffingNeedsTableV630 td{padding:8px}
+.staffingNeedsTableV630 input{width:72px;min-width:0;margin:0 auto;padding:8px;text-align:center}
+.staffingNeedsActionsV630{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:12px}
+.staffingNeedsActionsV630 span{color:#246143;font-size:12px;font-weight:800}
+.staffingNeedsNoteV630{margin-top:12px;padding:10px 12px;border-radius:11px;background:#f5f8f6;color:#58665f;font-size:11.5px;line-height:1.4}
+.staffingNeedPlanBadgeV630{display:block;width:max-content;max-width:100%;margin:4px auto 0;padding:3px 6px;border:1px solid #bfd3c7;border-radius:999px;background:#eef6f1;color:#315b49;font-size:9px;font-weight:900;line-height:1.15;white-space:nowrap}
+.mobileDayHead .staffingNeedPlanBadgeV630{margin:4px 0 0}
+@media(max-width:820px){
+  .staffingNeedsHeadV630{display:block}
+  .staffingNeedsMasterV630{margin-top:12px}
+  .staffingNeedsTabsV630{display:grid;grid-template-columns:1fr 1fr}
+  .staffingNeedsTabV630{min-width:0}
+  .staffingNeedsActionsV630{display:grid;grid-template-columns:1fr}
+  .staffingNeedsActionsV630 button{width:100%}
+}

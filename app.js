@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.2.4";
+const APP_VERSION="v6.3.0";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -10,6 +10,23 @@ let sb,session,profile,profiles=[],lastSummaryRows=[],lastMinijobRows=[],dailyIn
 let lastClockEvaluationRows=[];
 let planningAssistantCacheV610={};
 const PLANNING_ASSISTANT_SETTINGS_KEY_V612="landsknecht_planning_assistant_v612";
+const STAFFING_NEEDS_KEY_V630="landsknecht_staffing_needs_v630";
+const staffingNeedShiftLabelsV630={early:"Früh",middle:"Mitte",late:"Spät"};
+const staffingNeedKindsV630={service:"Service",kitchen:"Küche"};
+const staffingNeedsDefaultsV630={
+  enabled:true,
+  showInPlan:true,
+  service:{
+    0:{early:0,middle:0,late:0},1:{early:0,middle:0,late:0},2:{early:0,middle:0,late:0},
+    3:{early:0,middle:0,late:0},4:{early:0,middle:0,late:0},5:{early:0,middle:0,late:0},6:{early:0,middle:0,late:0}
+  },
+  kitchen:{
+    0:{early:0,middle:0,late:0},1:{early:0,middle:0,late:0},2:{early:0,middle:0,late:0},
+    3:{early:0,middle:0,late:0},4:{early:0,middle:0,late:0},5:{early:0,middle:0,late:0},6:{early:0,middle:0,late:0}
+  }
+};
+let staffingNeedsV630=JSON.parse(JSON.stringify(staffingNeedsDefaultsV630));
+
 const planningAssistantEngineMemoV613=new Map();
 const planningAssistantLoadTokenV613={};
 const PLANNING_ASSISTANT_MEMO_LIMIT_V613=12;
@@ -1981,6 +1998,120 @@ function scheduleCellValueForVisibility(item){
 
 
 
+
+function cloneStaffingNeedsDefaultsV630(){
+  return JSON.parse(JSON.stringify(staffingNeedsDefaultsV630));
+}
+function normalizeStaffingNeedsV630(raw={}){
+  const next=cloneStaffingNeedsDefaultsV630();
+  next.enabled=raw?.enabled!==false;
+  next.showInPlan=raw?.showInPlan!==false;
+  ["service","kitchen"].forEach(kind=>{
+    for(let day=0;day<7;day++){
+      ["early","middle","late"].forEach(shift=>{
+        const value=Number(raw?.[kind]?.[day]?.[shift]);
+        next[kind][day][shift]=Number.isFinite(value)?Math.min(30,Math.max(0,Math.round(value))):0;
+      });
+    }
+  });
+  return next;
+}
+function loadStaffingNeedsV630(){
+  try{
+    const raw=localStorage.getItem(STAFFING_NEEDS_KEY_V630);
+    staffingNeedsV630=normalizeStaffingNeedsV630(raw?JSON.parse(raw):{});
+  }catch(error){
+    console.warn("Besetzungsbedarf konnte nicht geladen werden:",error);
+    staffingNeedsV630=cloneStaffingNeedsDefaultsV630();
+  }
+  window.staffingNeedsV630=staffingNeedsV630;
+  return staffingNeedsV630;
+}
+function saveStaffingNeedsDataV630(next){
+  staffingNeedsV630=normalizeStaffingNeedsV630(next);
+  try{localStorage.setItem(STAFFING_NEEDS_KEY_V630,JSON.stringify(staffingNeedsV630))}
+  catch(error){console.warn("Besetzungsbedarf konnte nicht gespeichert werden:",error)}
+  window.staffingNeedsV630=staffingNeedsV630;
+  return staffingNeedsV630;
+}
+function staffingNeedForDateV630(kind,iso){
+  return staffingNeedsV630?.[kind]?.[weekdayMondayFirst(iso)]||{early:0,middle:0,late:0};
+}
+function staffingNeedLabelV630(kind,iso,compact=false){
+  if(!staffingNeedsV630.enabled||!staffingNeedsV630.showInPlan) return "";
+  const need=staffingNeedForDateV630(kind,iso);
+  const total=Number(need.early||0)+Number(need.middle||0)+Number(need.late||0);
+  if(!total) return "";
+  const text=compact?`F ${need.early} · M ${need.middle} · S ${need.late}`:`Bedarf: Früh ${need.early} · Mitte ${need.middle} · Spät ${need.late}`;
+  return `<div class="staffingNeedPlanBadgeV630" title="${escapeHtml(text)}">${escapeHtml(text)}</div>`;
+}
+function staffingNeedInputIdV630(kind,day,shift){return `staffingNeed_${kind}_${day}_${shift}_V630`}
+function renderStaffingNeedsEditorV630(kind="service"){
+  const target=$("staffingNeedsEditorV630");
+  if(!target) return;
+  const validKind=kind==="kitchen"?"kitchen":"service";
+  const rows=days.map((dayLabel,day)=>{
+    const need=staffingNeedsV630[validKind][day];
+    return `<tr><th>${escapeHtml(dayLabel)}</th>${["early","middle","late"].map(shift=>`
+      <td><input id="${staffingNeedInputIdV630(validKind,day,shift)}" data-staffing-kind="${validKind}" data-staffing-day="${day}" data-staffing-shift="${shift}" type="number" min="0" max="30" step="1" inputmode="numeric" value="${Number(need[shift]||0)}" aria-label="${escapeHtml(dayLabel)} ${escapeHtml(staffingNeedShiftLabelsV630[shift])}"></td>`).join("")}
+      <td><b>${Number(need.early||0)+Number(need.middle||0)+Number(need.late||0)}</b></td></tr>`;
+  }).join("");
+  target.innerHTML=`<div class="staffingNeedsTableWrapV630"><table class="staffingNeedsTableV630"><thead><tr><th>Wochentag</th><th>Früh</th><th>Mitte</th><th>Spät</th><th>Gesamt</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  target.querySelectorAll("input[data-staffing-shift]").forEach(input=>{
+    input.oninput=()=>{
+      const row=input.closest("tr");
+      const total=[...row.querySelectorAll("input[data-staffing-shift]")].reduce((sum,el)=>sum+Math.max(0,Number(el.value||0)),0);
+      const cell=row.querySelector("td:last-child b");
+      if(cell) cell.textContent=String(total);
+    };
+  });
+}
+function collectStaffingNeedsFromEditorV630(){
+  const next=normalizeStaffingNeedsV630(staffingNeedsV630);
+  next.enabled=$("staffingNeedsEnabledV630")?.checked!==false;
+  next.showInPlan=$("staffingNeedsShowPlanV630")?.checked!==false;
+  document.querySelectorAll("#staffingNeedsEditorV630 input[data-staffing-shift]").forEach(input=>{
+    const kind=input.dataset.staffingKind,day=Number(input.dataset.staffingDay),shift=input.dataset.staffingShift;
+    if(next[kind]?.[day]&&["early","middle","late"].includes(shift)){
+      next[kind][day][shift]=Math.min(30,Math.max(0,Math.round(Number(input.value||0))));
+    }
+  });
+  return next;
+}
+function setupStaffingNeedsV630(){
+  loadStaffingNeedsV630();
+  if($("staffingNeedsEnabledV630")) $("staffingNeedsEnabledV630").checked=staffingNeedsV630.enabled;
+  if($("staffingNeedsShowPlanV630")) $("staffingNeedsShowPlanV630").checked=staffingNeedsV630.showInPlan;
+  let activeKind="service";
+  document.querySelectorAll(".staffingNeedsTabV630").forEach(btn=>{
+    btn.onclick=()=>{
+      staffingNeedsV630=collectStaffingNeedsFromEditorV630();
+      activeKind=btn.dataset.staffingKind==="kitchen"?"kitchen":"service";
+      document.querySelectorAll(".staffingNeedsTabV630").forEach(b=>b.classList.toggle("active",b===btn));
+      renderStaffingNeedsEditorV630(activeKind);
+    };
+  });
+  renderStaffingNeedsEditorV630(activeKind);
+  if($("saveStaffingNeedsV630")) $("saveStaffingNeedsV630").onclick=async()=>{
+    saveStaffingNeedsDataV630(collectStaffingNeedsFromEditorV630());
+    renderStaffingNeedsEditorV630(activeKind);
+    await Promise.all([loadPlanService(),loadPlanKitchen()]);
+    const status=$("staffingNeedsStatusV630");
+    if(status){status.textContent="✓ Besetzungsbedarf gespeichert";setTimeout(()=>status.textContent="",2600)}
+  };
+  if($("resetStaffingNeedsV630")) $("resetStaffingNeedsV630").onclick=async()=>{
+    if(!confirm(`Alle Werte für ${staffingNeedKindsV630[activeKind]} auf 0 setzen?`)) return;
+    const next=collectStaffingNeedsFromEditorV630();
+    for(let day=0;day<7;day++) next[activeKind][day]={early:0,middle:0,late:0};
+    saveStaffingNeedsDataV630(next);
+    renderStaffingNeedsEditorV630(activeKind);
+    await Promise.all([loadPlanService(),loadPlanKitchen()]);
+    const status=$("staffingNeedsStatusV630");
+    if(status){status.textContent=`${staffingNeedKindsV630[activeKind]} wurde geleert`;setTimeout(()=>status.textContent="",2600)}
+  };
+}
+loadStaffingNeedsV630();
+
 function normalizePlanningAssistantSettingsV612(raw={}){
   const next={...planningAssistantDefaultsV612,...(raw||{})};
   Object.keys(planningAssistantDefaultsV612).forEach(key=>{
@@ -2706,7 +2837,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
       .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
       .filter(x=>editablePlan ? x.item : (x.item && x.item.status==="arbeit")));
 
-    mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><b>${d}, ${fmtDate(iso)}</b>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<span class="assistantMobileDayHoursV613">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</span>`:""}</div>`;
+    mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><div><b>${d}, ${fmtDate(iso)}</b>${isManagement()?staffingNeedLabelV630(kind,iso,true):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<span class="assistantMobileDayHoursV613">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</span>`:""}</div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     (eventsByDate[iso]||[]).forEach(e=>mobile += `<div class="mobileDayEvent">${escapeHtml(eventPlanLabel(e))}</div>`);
 
@@ -2750,7 +2881,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
 
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
-    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<div class="assistantDayHoursV611" title="Geplante Arbeitsstunden an diesem Tag">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</div>`:""}${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
+    html+=`<th>${d}<br><span class="small">${fmtDate(iso)}</span>${isManagement()?staffingNeedLabelV630(kind,iso,true):""}${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<div class="assistantDayHoursV611" title="Geplante Arbeitsstunden an diesem Tag">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</div>`:""}${infoByDate[iso]?`<div class="dayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`:""}${(eventsByDate[iso]||[]).map(e=>`<div class="dayInfo eventDayInfo">${escapeHtml(eventPlanLabel(e))}</div>`).join("")}</th>`;
   });
 
   html+='</tr></thead><tbody>';
@@ -6704,7 +6835,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6240`;
+  return `${base}?stempeluhr=1&v=6300`;
 }
 
 function normalizeIpValue(ip){
@@ -7509,6 +7640,7 @@ setupClockMobilePanelsV6221();
 setupTimeClock();
 setupVacationYearOverview();
 setupPlanningAssistantSettingsV612();
+setupStaffingNeedsV630();
 setupVacationPlanner();
 setupVacationAccountOverview();
 setupVacationYearClose();

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Dienstplan Landsknecht</title>
-  <link rel="stylesheet" href="styles.css?v=6240">
+  <link rel="stylesheet" href="styles.css?v=6300">
 </head>
 <body>
 <header class="topbar">
@@ -1067,6 +1067,33 @@
           </div>
         </div>
 
+        <section class="staffingNeedsCardV630">
+          <div class="staffingNeedsHeadV630">
+            <div>
+              <h3>Besetzungsbedarf</h3>
+              <p>Hinterlege den gewünschten Mindestbedarf je Wochentag und Schichtart. Die Werte sind nur Planungsvorgaben und blockieren keine Schicht.</p>
+            </div>
+            <div class="staffingNeedsMasterV630">
+              <label><input id="staffingNeedsEnabledV630" type="checkbox"> Bedarf verwenden</label>
+              <label><input id="staffingNeedsShowPlanV630" type="checkbox"> Im Dienstplan anzeigen</label>
+            </div>
+          </div>
+          <div class="staffingNeedsTabsV630" role="tablist" aria-label="Bereich auswählen">
+            <button type="button" class="staffingNeedsTabV630 active" data-staffing-kind="service">🍽️ Service</button>
+            <button type="button" class="staffingNeedsTabV630" data-staffing-kind="kitchen">🍳 Küche</button>
+          </div>
+          <div id="staffingNeedsEditorV630"></div>
+          <div class="staffingNeedsActionsV630">
+            <button id="saveStaffingNeedsV630" type="button">Besetzungsbedarf speichern</button>
+            <button id="resetStaffingNeedsV630" type="button" class="secondary">Werte leeren</button>
+            <span id="staffingNeedsStatusV630" aria-live="polite"></span>
+          </div>
+          <div class="staffingNeedsNoteV630">
+            <b>Schichtarten für die spätere Prüfung:</b>
+            Früh = Beginn vor 12:00 Uhr · Mitte = Beginn 12:00–15:59 Uhr · Spät = Beginn ab 16:00 Uhr.
+          </div>
+        </section>
+
         <div class="assistantSettingsActionsV612">
           <button id="savePlanningAssistantSettingsV612" type="button">Einstellungen speichern</button>
           <button id="resetPlanningAssistantSettingsV612" type="button" class="secondary">Standard wiederherstellen</button>
@@ -1256,7 +1283,7 @@
   </div>
 </div>
 
-<script src="config.js?v=6240"></script>
-<script src="app.js?v=6240"></script>
+<script src="config.js?v=6300"></script>
+<script src="app.js?v=6300"></script>
 </body>
 </html>
