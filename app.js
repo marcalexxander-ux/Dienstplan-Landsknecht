@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.3.2";
+const APP_VERSION="v6.3.3";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -119,6 +119,54 @@ function safeTargetHtmlV624(id,html){
   const target=$(id);
   if(target) target.innerHTML=html;
 }
+
+const pageScrollLocksV633=new Set();
+let pageScrollPositionV633=0;
+
+function lockPageScrollV633(key,className){
+  if(!key) return;
+  if(!pageScrollLocksV633.size){
+    pageScrollPositionV633=Math.max(0,window.scrollY||window.pageYOffset||0);
+    document.body.style.position="fixed";
+    document.body.style.top=`-${pageScrollPositionV633}px`;
+    document.body.style.left="0";
+    document.body.style.right="0";
+    document.body.style.width="100%";
+  }
+  pageScrollLocksV633.add(key);
+  if(className) document.body.classList.add(className);
+}
+
+function unlockPageScrollV633(key,className){
+  if(className) document.body.classList.remove(className);
+  if(key) pageScrollLocksV633.delete(key);
+  if(pageScrollLocksV633.size) return;
+
+  const restoreY=pageScrollPositionV633;
+  document.body.style.position="";
+  document.body.style.top="";
+  document.body.style.left="";
+  document.body.style.right="";
+  document.body.style.width="";
+  requestAnimationFrame(()=>window.scrollTo(0,restoreY));
+}
+
+function centerMobileNavButtonV633(button){
+  const container=button?.parentElement;
+  if(!button||!container) return;
+  const maxLeft=Math.max(0,container.scrollWidth-container.clientWidth);
+  if(!maxLeft) return;
+  const left=Math.max(0,Math.min(maxLeft,button.offsetLeft-(container.clientWidth-button.offsetWidth)/2));
+  container.scrollTo({left,behavior:"smooth"});
+}
+
+function restorePageScrollV633(y){
+  const target=Math.max(0,Number(y)||0);
+  requestAnimationFrame(()=>{
+    if(Math.abs((window.scrollY||0)-target)>2) window.scrollTo(0,target);
+  });
+}
+
 
 window.addEventListener("online",()=>showUiStatusV624("Internetverbindung wiederhergestellt.","success"));
 window.addEventListener("offline",()=>showUiStatusV624("Keine Internetverbindung. Änderungen können derzeit nicht gespeichert werden.","error",0));
@@ -349,6 +397,12 @@ function displayDept(dept){
 function deptBadge(dept){const label=displayDept(dept);return `<span class="deptBadge dept-${sanitizeDept(label)}">${escapeHtml(label)}</span>`}
 function setActiveTab(tabId){
   let normalized = (tabId==="today" || tabId==="home") ? "dashboard" : tabId;
+  if(normalized!=="vacation" && document.body.classList.contains("vacMobileSheetOpenV76")){
+    closeVacationMobileSheetV76();
+  }
+  if(normalized!=="dashboard" && document.body.classList.contains("dashSheetOpenV70")){
+    closeDashboardSheetV70();
+  }
   if(normalized==="timeClock" && session && !isManagement() && !isClockRoute()) normalized = "dashboard";
   document.querySelectorAll(".sidebar button[data-tab], #mobileTouchNav button[data-tab]").forEach(b=>b.classList.toggle("active",b.dataset.tab===normalized));
   document.querySelectorAll(".tabPage").forEach(p=>p.classList.add("hidden"));
@@ -362,7 +416,7 @@ function setActiveTab(tabId){
     showUiStatusV624("Der gewünschte Bereich ist nicht verfügbar. Startseite wurde geöffnet.","error");
   }
   const activeTouch = document.querySelector(`#mobileTouchNav button[data-tab="${normalized}"]`);
-  if(activeTouch) activeTouch.scrollIntoView({behavior:"smooth", inline:"center", block:"nearest"});
+  if(activeTouch) centerMobileNavButtonV633(activeTouch);
   if(normalized==="events") loadEvents?.();
   if(normalized==="staff" && session && isManagement()){
     try{ initStaffMobileV81(); }catch(err){ console.error("Staff mobile module:",err); }
@@ -388,21 +442,26 @@ function setVacationPanel(target){
   try{ localStorage.setItem("vacationMobilePanel",target); }catch(e){}
 
   if(window.innerWidth<=820){
-    document.body.classList.add("vacMobileSheetOpenV76");
+    lockPageScrollV633("vacation-sheet","vacMobileSheetOpenV76");
     $("vacMobileBackdropV76")?.classList.remove("hidden");
     $("vacMobileCloseV76")?.classList.remove("hidden");
     const panel=document.querySelector(`#vacation .vacMobilePanel[data-vac-panel="${target}"]`);
-    if(panel) panel.scrollTop=0;
+    if(panel && !panel.classList.contains("vacPanelOpenedV633")){
+      panel.scrollTop=0;
+      panel.classList.add("vacPanelOpenedV633");
+    }
   }
 }
 
-function closeVacationMobileSheetV76(){
-  if(window.innerWidth>820) return;
-  document.body.classList.remove("vacMobileSheetOpenV76");
+function closeVacationMobileSheetV76(clearSelection=true){
+  unlockPageScrollV633("vacation-sheet","vacMobileSheetOpenV76");
   $("vacMobileBackdropV76")?.classList.add("hidden");
   $("vacMobileCloseV76")?.classList.add("hidden");
-  document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>btn.classList.remove("active"));
-  document.querySelectorAll("#vacation .vacMobilePanel").forEach(panel=>panel.classList.remove("vacMobileActive"));
+  document.querySelectorAll("#vacation .vacMobilePanel").forEach(panel=>panel.classList.remove("vacPanelOpenedV633"));
+  if(clearSelection){
+    document.querySelectorAll("#vacation .vacTouchBtn").forEach(btn=>btn.classList.remove("active"));
+    document.querySelectorAll("#vacation .vacMobilePanel").forEach(panel=>panel.classList.remove("vacMobileActive"));
+  }
 }
 function firstVisibleVacationTarget(){
   const buttons = Array.from(document.querySelectorAll("#vacation .vacTouchBtn"));
@@ -414,8 +473,13 @@ function refreshVacationMobileTabs(){
   if(!buttons.length) return;
 
   if(window.innerWidth<=820){
-    closeVacationMobileSheetV76();
+    // Safari ändert beim Scrollen nur die sichtbare Höhe.
+    // Eine bereits geöffnete Kartei bleibt deshalb unverändert.
     return;
+  }
+
+  if(document.body.classList.contains("vacMobileSheetOpenV76")){
+    closeVacationMobileSheetV76(false);
   }
 
   const saved = (()=>{try{return localStorage.getItem("vacationMobilePanel")||""}catch(e){return ""}})();
@@ -543,7 +607,7 @@ function printCurrent(){
     setTimeout(clearPrintMode,500);
   },100);
 }
-function openStaffNew(){setActiveTab("staff");clearStaffForm();window.scrollTo({top:0,behavior:"smooth"})}
+function openStaffNew(){setActiveTab("staff");clearStaffForm()}
 
 function shiftDisplayClass(val){
   const s=(val||"").toLowerCase().trim();
@@ -1075,7 +1139,6 @@ function setEventsTouchViewV73(view){
   if(view==="create" && $("eventFormTitleV73") && !$("editingEventId")?.value){
     $("eventFormTitleV73").textContent="Event erstellen";
   }
-  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function setupEventsTouchV73(){
@@ -1408,7 +1471,7 @@ function openDashboardSheetV70(view){
   if($("dashTouchSheetContentV70")) $("dashTouchSheetContentV70").innerHTML=data.html||dashMobileEmptyV69("Keine Daten vorhanden.");
   sheet.classList.remove("hidden");
   sheet.setAttribute("aria-hidden","false");
-  document.body.classList.add("dashSheetOpenV70");
+  lockPageScrollV633("dashboard-sheet","dashSheetOpenV70");
 
   sheet.querySelectorAll("[data-tab-jump]").forEach(btn=>{
     btn.onclick=()=>{
@@ -1425,7 +1488,7 @@ function closeDashboardSheetV70(){
   if(!sheet) return;
   sheet.classList.add("hidden");
   sheet.setAttribute("aria-hidden","true");
-  document.body.classList.remove("dashSheetOpenV70");
+  unlockPageScrollV633("dashboard-sheet","dashSheetOpenV70");
 }
 
 function setupDashboardSheetV70(){
@@ -5800,7 +5863,6 @@ function setStaffMobileViewV81(view){
   }
 
   renderStaffMobileListsV81();
-  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function hideStaffSelectedBannerV81(){
@@ -7164,7 +7226,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6320`;
+  return `${base}?stempeluhr=1&v=6330`;
 }
 
 function normalizeIpValue(ip){
@@ -7878,7 +7940,6 @@ function setClockMobilePanelV6221(target){
   });
 
   try{localStorage.setItem("clockMobilePanelV6221",target)}catch(e){}
-  if(window.innerWidth<=820) window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function setupClockMobilePanelsV6221(){
@@ -7952,18 +8013,41 @@ function setupVacationYearOverview(){
 }
 
 let responsiveRefreshTimerV624=null;
+let responsiveViewportWidthV633=Math.round(window.visualViewport?.width||window.innerWidth);
+let responsiveMobileStateV633=responsiveViewportWidthV633<=820;
+
+function refreshResponsiveLayoutV633(force=false){
+  const nextWidth=Math.round(window.visualViewport?.width||window.innerWidth);
+  const nextMobile=nextWidth<=820;
+  const widthChanged=Math.abs(nextWidth-responsiveViewportWidthV633)>=24;
+  const breakpointChanged=nextMobile!==responsiveMobileStateV633;
+
+  if(!force&&!widthChanged&&!breakpointChanged) return;
+
+  const preserveY=window.scrollY||0;
+  responsiveViewportWidthV633=nextWidth;
+  responsiveMobileStateV633=nextMobile;
+
+  try{
+    const activeClock=document.querySelector("#timeClock .clockMobileTabV6221.active")?.dataset.clockMobileTarget||"stamp";
+    setClockMobilePanelV6221(activeClock);
+    refreshVacationMobileTabs?.();
+  }catch(error){
+    console.warn("Responsive Ansicht konnte nicht aktualisiert werden:",error);
+  }
+
+  restorePageScrollV633(preserveY);
+}
+
 window.addEventListener("resize",()=>{
   clearTimeout(responsiveRefreshTimerV624);
-  responsiveRefreshTimerV624=setTimeout(()=>{
-    try{
-      const activeClock=document.querySelector("#timeClock .clockMobileTabV6221.active")?.dataset.clockMobileTarget||"stamp";
-      setClockMobilePanelV6221(activeClock);
-      refreshVacationMobileTabs?.();
-    }catch(error){
-      console.warn("Responsive Ansicht konnte nicht aktualisiert werden:",error);
-    }
-  },180);
-});
+  responsiveRefreshTimerV624=setTimeout(()=>refreshResponsiveLayoutV633(false),220);
+},{passive:true});
+
+window.addEventListener("orientationchange",()=>{
+  clearTimeout(responsiveRefreshTimerV624);
+  responsiveRefreshTimerV624=setTimeout(()=>refreshResponsiveLayoutV633(true),320);
+},{passive:true});
 
 setupClockMobilePanelsV6221();
 setupTimeClock();
