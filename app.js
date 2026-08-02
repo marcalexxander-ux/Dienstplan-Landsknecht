@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v7.0.1";
+const APP_VERSION="v7.0.2";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -972,7 +972,7 @@ function dashboardV57Card(title,value,sub,cls=""){
     <span class="valesDashStatTitleV700">${escapeHtml(title)}</span>
     <b>${escapeHtml(value)}</b>
     <small>${escapeHtml(sub||"")}</small>
-    <i class="valesDashStatArrowV700" aria-hidden="true">›</i>
+    <i class="valesDashStatArrowV700" aria-hidden="true">›</i><span class="valesDashStatHintV702">Details anzeigen</span>
   </button>`;
 }
 function dashboardV57ShiftText(s){
@@ -1487,11 +1487,21 @@ function openDashboardSheetV70(view){
   const data=dashboardMobileStateV69.views?.[view];
   const sheet=$("dashTouchSheetV70");
   if(!sheet || !data) return;
-  if($("dashTouchSheetTitleV70")) $("dashTouchSheetTitleV70").textContent=data.title||"Übersicht";
-  if($("dashTouchSheetSubtitleV70")) $("dashTouchSheetSubtitleV70").textContent=data.subtitle||"";
-  if($("dashTouchSheetContentV70")) $("dashTouchSheetContentV70").innerHTML=data.html||dashMobileEmptyV69("Keine Daten vorhanden.");
+
+  const title=$("dashTouchSheetTitleV70");
+  const subtitle=$("dashTouchSheetSubtitleV70");
+  const content=$("dashTouchSheetContentV70");
+
+  if(title) title.textContent=data.title||"Übersicht";
+  if(subtitle) subtitle.textContent=data.subtitle||"";
+  if(content){
+    content.innerHTML=data.html||dashMobileEmptyV69("Keine Daten vorhanden.");
+    content.scrollTop=0;
+  }
+
   sheet.classList.remove("hidden");
   sheet.setAttribute("aria-hidden","false");
+  document.body.classList.add("dashDetailsVisibleV702");
   lockPageScrollV633("dashboard-sheet","dashSheetOpenV70");
 
   sheet.querySelectorAll("[data-tab-jump]").forEach(btn=>{
@@ -1502,6 +1512,8 @@ function openDashboardSheetV70(view){
       if(nav) nav.click();
     };
   });
+
+  requestAnimationFrame(()=>$("dashTouchCloseV70")?.focus({preventScroll:true}));
 }
 
 function closeDashboardSheetV70(){
@@ -1509,6 +1521,7 @@ function closeDashboardSheetV70(){
   if(!sheet) return;
   sheet.classList.add("hidden");
   sheet.setAttribute("aria-hidden","true");
+  document.body.classList.remove("dashDetailsVisibleV702");
   unlockPageScrollV633("dashboard-sheet","dashSheetOpenV70");
 }
 
