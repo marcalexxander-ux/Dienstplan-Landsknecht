@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v7.0.3";
+const APP_VERSION="v7.0.4";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
