@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v7.0.5";
+const APP_VERSION="v7.0.6";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -1487,6 +1487,11 @@ function openDashboardSheetV70(view){
   const data=dashboardMobileStateV69.views?.[view];
   const sheet=$("dashTouchSheetV70");
   if(!sheet || !data) return;
+
+  if(sheet.parentElement !== document.body){
+    document.body.appendChild(sheet);
+    sheet.dataset.valesPortal="body";
+  }
 
   const title=$("dashTouchSheetTitleV70");
   const subtitle=$("dashTouchSheetSubtitleV70");

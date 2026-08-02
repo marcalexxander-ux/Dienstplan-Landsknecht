@@ -8874,3 +8874,75 @@ body.dashDetailsVisibleV702{
     color:#35dde4!important;
   }
 }
+
+
+/* ====================================================================
+   VALES v7.0.6 – Mobile Detailfenster vollständig sichtbar
+   ==================================================================== */
+
+/* Das Detailfenster wird per JavaScript direkt unter <body> eingefügt.
+   Damit kann keine Navigation oder übergeordnete Karte es überdecken. */
+.dashTouchSheetV70{
+  z-index:2147483000!important;
+  isolation:isolate!important;
+}
+
+/* Während das Detailfenster offen ist, werden Navigation und Kopfbereich
+   nicht mehr darüber eingeblendet. */
+body.dashDetailsVisibleV702 #mobileTouchNav,
+body.dashDetailsVisibleV702 #mobileMenuToggle,
+body.dashDetailsVisibleV702 .valesTopbarV700{
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+
+/* Das Fenster nutzt die reale sichtbare Höhe auf iPhone/iPad. */
+@media(max-width:820px){
+  .dashTouchSheetV70:not(.hidden){
+    display:block!important;
+    padding-top:max(8px,env(safe-area-inset-top))!important;
+  }
+
+  .dashTouchDialogV70{
+    max-height:calc(100dvh - max(8px,env(safe-area-inset-top)))!important;
+    border-radius:26px 26px 0 0!important;
+  }
+
+  .dashTouchSheetHeadV70{
+    min-height:88px!important;
+    padding-top:22px!important;
+    padding-right:78px!important;
+    padding-bottom:17px!important;
+  }
+
+  .dashTouchSheetContentV70{
+    max-height:calc(
+      100dvh
+      - max(8px,env(safe-area-inset-top))
+      - 108px
+    )!important;
+    padding-bottom:calc(24px + env(safe-area-inset-bottom))!important;
+  }
+
+  .dashTouchCloseV70{
+    top:18px!important;
+    right:16px!important;
+  }
+}
+
+/* Fallback für ältere Safari-Versionen ohne dvh-Unterstützung. */
+@supports not (height:100dvh){
+  @media(max-width:820px){
+    .dashTouchDialogV70{
+      max-height:calc(100vh - max(8px,env(safe-area-inset-top)))!important;
+    }
+
+    .dashTouchSheetContentV70{
+      max-height:calc(
+        100vh
+        - max(8px,env(safe-area-inset-top))
+        - 108px
+      )!important;
+    }
+  }
+}
