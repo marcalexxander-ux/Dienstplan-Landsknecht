@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v6.3.3";
+const APP_VERSION="v7.0.0";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -941,6 +941,16 @@ async function loadDashboardLight(){
 }
 
 
+function dashboardV700Icon(title){
+  const icons={
+    "Heute im Dienst":`<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20c0-4.2 2.8-7 7-7s7 2.8 7 7"/></svg>`,
+    "Events":`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>`,
+    "Urlaub":`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21c2-7 2-11 0-15M12 7c-3-4-7-3-9 0 4-1 6 0 9 2M12 7c3-4 7-3 9 0-4-1-6 0-9 2M12 8c-1-4 1-6 4-7 0 3-1 5-4 7"/></svg>`,
+    "Krank":`<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg>`,
+    "Offene Anträge":`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h8l4 4v14H7V3Z"/><path d="M15 3v5h5M10 12h6M10 16h6"/></svg>`
+  };
+  return icons[title]||icons["Offene Anträge"];
+}
 function dashboardV57Card(title,value,sub,cls=""){
   const map={
     "Heute im Dienst":"service",
@@ -949,9 +959,20 @@ function dashboardV57Card(title,value,sub,cls=""){
     "Offene Anträge":"requests",
     "Events":"events"
   };
+  const accent={
+    "Heute im Dienst":"cyan",
+    "Events":"violet",
+    "Urlaub":"cyan",
+    "Krank":"violet",
+    "Offene Anträge":"cyan"
+  };
   const view=map[title]||"";
-  return `<button type="button" class="dashStatV57 ${cls}" ${view?`data-dash-sheet="${view}"`:""}>
-    <span>${escapeHtml(title)}</span><b>${escapeHtml(value)}</b><small>${escapeHtml(sub||"")}</small>
+  return `<button type="button" class="dashStatV57 valesDashStatV700 ${cls} ${accent[title]||"cyan"}" ${view?`data-dash-sheet="${view}"`:""}>
+    <span class="valesDashStatIconV700">${dashboardV700Icon(title)}</span>
+    <span class="valesDashStatTitleV700">${escapeHtml(title)}</span>
+    <b>${escapeHtml(value)}</b>
+    <small>${escapeHtml(sub||"")}</small>
+    <i class="valesDashStatArrowV700" aria-hidden="true">›</i>
   </button>`;
 }
 function dashboardV57ShiftText(s){
@@ -7226,7 +7247,7 @@ function isClockRoute(){
 }
 function clockQrUrl(){
   const base = window.location.origin + window.location.pathname;
-  return `${base}?stempeluhr=1&v=6330`;
+  return `${base}?stempeluhr=1&v=7000`;
 }
 
 function normalizeIpValue(ip){

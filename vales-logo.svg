@@ -1,0 +1,18 @@
+<svg width="220" height="80" viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="g1" x1="18" y1="12" x2="70" y2="66" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#08D8E5"/>
+    <stop offset="1" stop-color="#0E4ED8"/>
+  </linearGradient>
+  <linearGradient id="g2" x1="50" y1="14" x2="84" y2="60" gradientUnits="userSpaceOnUse">
+    <stop stop-color="#7F69FF"/>
+    <stop offset="1" stop-color="#4D2FD4"/>
+  </linearGradient>
+</defs>
+<path d="M12 18C8.6 12.3 12.7 5 19.3 5H27.2C30.2 5 33 6.6 34.5 9.2L53 41.2L43.5 58.2C40.1 64.1 31.6 64.1 28.2 58.2L12 18Z" fill="url(#g1)"/>
+<path d="M42.1 41.4L61 9.2C62.5 6.6 65.3 5 68.3 5H76.4C83 5 87.1 12.3 83.7 18L60.4 57.8C57 63.6 48.6 63.6 45.2 57.8L42.1 52.5C40.1 49.1 40.1 44.8 42.1 41.4Z" fill="url(#g2)"/>
+<path d="M100 22.4L108.5 46.6L117 22.4H124.8L112.1 55H104.9L92.2 22.4H100Z" fill="white"/>
+<path d="M134.1 22.4H142.1L155.2 55H147.3L144.7 47.8H131.2L128.6 55H121L134.1 22.4ZM142.4 41.6L138 29.2L133.5 41.6H142.4Z" fill="white"/>
+<path d="M159.4 55V22.4H166.8V48.5H181.7V55H159.4Z" fill="white"/>
+<path d="M208.4 48.5V55H185.3V22.4H208V28.9H192.7V35.5H205.8V41.5H192.7V48.5H208.4Z" fill="white"/>
+</svg>

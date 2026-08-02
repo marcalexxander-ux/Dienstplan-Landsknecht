@@ -7435,3 +7435,846 @@ body{
     min-height:60vh;
   }
 }
+
+
+/* ====================================================================
+   VALES v7.0.0 – Designsystem Phase 1
+   Produkt: VALES Workforce | Testbetrieb: Restaurant Landsknecht
+   ==================================================================== */
+
+:root{
+  --vales-bg:#080e14;
+  --vales-bg-soft:#0d1620;
+  --vales-card:#101b27;
+  --vales-card-2:#132333;
+  --vales-border:rgba(157,179,199,.24);
+  --vales-primary:#00d1d8;
+  --vales-primary-soft:rgba(0,209,216,.15);
+  --vales-secondary:#3761ff;
+  --vales-accent:#8b5cf6;
+  --vales-text:#f7f9fc;
+  --vales-muted:#a9b1bd;
+  --vales-success:#22c55e;
+  --vales-warning:#f59e0b;
+  --vales-error:#ef4444;
+  --vales-radius-sm:14px;
+  --vales-radius-md:20px;
+  --vales-radius-lg:28px;
+  --vales-shadow:0 18px 55px rgba(0,0,0,.28);
+  --vales-font:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+
+body{
+  font-family:var(--vales-font);
+}
+
+.valesTopbarV700{
+  min-height:104px!important;
+  padding:18px clamp(18px,4vw,44px)!important;
+  border-bottom:1px solid rgba(130,157,180,.16)!important;
+  background:
+    radial-gradient(circle at 18% 10%,rgba(0,209,216,.08),transparent 34%),
+    linear-gradient(135deg,#071019 0%,#09131d 58%,#0b1520 100%)!important;
+  color:var(--vales-text)!important;
+  box-shadow:0 12px 36px rgba(0,0,0,.18)!important;
+}
+
+.valesBrandV700{
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+}
+
+.valesBrandV700>img{
+  width:184px!important;
+  max-width:42vw!important;
+  height:auto!important;
+  object-fit:contain!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+
+.valesBrandTextV700{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding-left:13px;
+  border-left:1px solid rgba(255,255,255,.18);
+}
+
+.valesProductNameV700{
+  color:#fff;
+  font-size:13px;
+  font-weight:850;
+  letter-spacing:.2em;
+}
+
+.valesTenantNameV700{
+  color:var(--vales-muted);
+  font-size:12px;
+  font-weight:650;
+}
+
+.valesHeaderMetaV700{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  color:var(--vales-muted);
+  font-size:12px;
+  font-weight:750;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+}
+
+.valesHeaderMetaV700 i{
+  display:block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:linear-gradient(135deg,var(--vales-primary),var(--vales-accent));
+  box-shadow:0 0 14px rgba(0,209,216,.7);
+}
+
+.valesNavIconV700{
+  display:inline-flex;
+  flex:0 0 auto;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+}
+
+.valesNavIconV700 svg{
+  width:100%;
+  height:100%;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+/* Sidebar receives the new product language without changing its logic. */
+#appView .sidebar{
+  background:
+    radial-gradient(circle at 45% 0%,rgba(0,209,216,.09),transparent 28%),
+    linear-gradient(180deg,#0b1824,#08111a 72%)!important;
+  border-right:1px solid rgba(125,154,180,.16)!important;
+}
+
+#appView .sidebar button{
+  display:flex!important;
+  align-items:center!important;
+  gap:11px!important;
+  border:1px solid transparent!important;
+  background:transparent!important;
+  color:#b9c2cf!important;
+}
+
+#appView .sidebar button.active{
+  border-color:rgba(0,209,216,.5)!important;
+  background:linear-gradient(135deg,rgba(0,209,216,.17),rgba(89,72,221,.24))!important;
+  color:#fff!important;
+  box-shadow:0 12px 26px rgba(0,0,0,.18)!important;
+}
+
+#appView .sidebar button.active .valesNavIconV700{
+  color:#24e5ed!important;
+}
+
+/* Dashboard shell */
+#dashboard.dashboardPage{
+  position:relative;
+  overflow:hidden!important;
+  border:1px solid rgba(135,164,190,.14)!important;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(0,209,216,.08),transparent 28%),
+    radial-gradient(circle at 100% 25%,rgba(76,61,217,.08),transparent 26%),
+    linear-gradient(180deg,#09131d 0%,#071019 100%)!important;
+  color:var(--vales-text)!important;
+}
+
+#dashboard.dashboardPage::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  opacity:.45;
+  background-image:
+    linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+
+#dashboardV57{
+  position:relative;
+  z-index:1;
+}
+
+.valesDashHeroV700{
+  position:relative!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:20px!important;
+  min-height:186px!important;
+  margin-bottom:22px!important;
+  padding:28px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(0,209,216,.34)!important;
+  border-radius:var(--vales-radius-lg)!important;
+  background:
+    radial-gradient(circle at 20% 20%,rgba(0,209,216,.21),transparent 33%),
+    linear-gradient(135deg,#0b3852 0%,#092945 42%,#10224a 100%)!important;
+  box-shadow:var(--vales-shadow)!important;
+}
+
+.valesDashHeroV700::after{
+  content:"";
+  position:absolute;
+  right:-80px;
+  bottom:-105px;
+  width:330px;
+  height:230px;
+  border:1px solid rgba(0,209,216,.16);
+  border-radius:50%;
+  transform:rotate(-15deg);
+  box-shadow:
+    0 0 0 22px rgba(0,209,216,.035),
+    0 0 0 44px rgba(139,92,246,.025),
+    0 0 0 66px rgba(0,209,216,.018);
+}
+
+.valesHeroIconV700{
+  position:relative;
+  z-index:2;
+  display:flex;
+  flex:0 0 76px;
+  width:76px;
+  height:76px;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(0,209,216,.33);
+  border-radius:22px;
+  background:rgba(5,25,39,.46);
+  color:var(--vales-primary);
+  box-shadow:inset 0 0 28px rgba(0,209,216,.08);
+}
+
+.valesHeroIconV700 svg{
+  width:37px;
+  height:37px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+}
+
+.valesDashHeroV700>div:nth-child(2){
+  position:relative;
+  z-index:2;
+}
+
+.valesHeroEyebrowV700{
+  display:block;
+  margin-bottom:6px;
+  color:#67e7ec;
+  font-size:11px;
+  font-weight:850;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.valesDashHeroV700 h2{
+  margin:0!important;
+  color:#fff!important;
+  font-size:clamp(38px,5vw,58px)!important;
+  line-height:1!important;
+  letter-spacing:-.04em!important;
+}
+
+.valesDashHeroV700 p{
+  margin:13px 0 0!important;
+  color:#cbd4df!important;
+  font-size:17px!important;
+}
+
+.valesHeroGlowV700{
+  position:absolute;
+  top:-80px;
+  right:-55px;
+  width:220px;
+  height:220px;
+  border-radius:50%;
+  background:rgba(67,94,255,.19);
+  filter:blur(54px);
+}
+
+/* Dashboard statistics */
+#dashboardStatsV57.dashboardStatsV57{
+  display:grid!important;
+  grid-template-columns:repeat(2,minmax(0,1fr))!important;
+  gap:16px!important;
+  margin:0!important;
+}
+
+.valesDashStatV700{
+  position:relative!important;
+  display:grid!important;
+  grid-template-columns:auto 1fr auto!important;
+  grid-template-rows:auto 1fr auto!important;
+  gap:9px 14px!important;
+  min-width:0!important;
+  min-height:205px!important;
+  padding:22px!important;
+  overflow:hidden!important;
+  border:1px solid var(--vales-border)!important;
+  border-radius:24px!important;
+  background:
+    radial-gradient(circle at 12% 0%,rgba(0,209,216,.055),transparent 38%),
+    linear-gradient(145deg,rgba(16,29,42,.98),rgba(9,18,28,.98))!important;
+  color:var(--vales-text)!important;
+  box-shadow:0 15px 40px rgba(0,0,0,.2)!important;
+  text-align:left!important;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease!important;
+}
+
+.valesDashStatV700.violet{
+  background:
+    radial-gradient(circle at 12% 0%,rgba(139,92,246,.09),transparent 38%),
+    linear-gradient(145deg,rgba(18,27,43,.98),rgba(10,18,29,.98))!important;
+}
+
+.valesDashStatV700::after{
+  content:"";
+  position:absolute;
+  right:-62px;
+  bottom:-62px;
+  width:150px;
+  height:150px;
+  border-radius:50%;
+  border:1px solid rgba(255,255,255,.04);
+  box-shadow:0 0 0 18px rgba(255,255,255,.012),0 0 0 36px rgba(255,255,255,.009);
+}
+
+.valesDashStatV700:active{
+  transform:scale(.985)!important;
+}
+
+.valesDashStatV700:hover{
+  border-color:rgba(0,209,216,.38)!important;
+  box-shadow:0 18px 45px rgba(0,0,0,.28),0 0 0 1px rgba(0,209,216,.05)!important;
+}
+
+.valesDashStatIconV700{
+  display:flex!important;
+  grid-column:1!important;
+  grid-row:1!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:48px!important;
+  height:48px!important;
+  border:1px solid rgba(0,209,216,.24)!important;
+  border-radius:15px!important;
+  background:rgba(0,209,216,.075)!important;
+  color:#23dbe3!important;
+}
+
+.valesDashStatV700.violet .valesDashStatIconV700{
+  border-color:rgba(139,92,246,.3)!important;
+  background:rgba(139,92,246,.1)!important;
+  color:#9c7cff!important;
+}
+
+.valesDashStatIconV700 svg{
+  width:25px;
+  height:25px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.valesDashStatTitleV700{
+  grid-column:2!important;
+  grid-row:1!important;
+  align-self:center!important;
+  color:#f8fafc!important;
+  font-size:18px!important;
+  font-weight:820!important;
+  line-height:1.15!important;
+}
+
+.valesDashStatV700>b{
+  grid-column:1/3!important;
+  grid-row:2!important;
+  align-self:end!important;
+  margin:5px 0 0!important;
+  color:#1ed8e1!important;
+  font-size:62px!important;
+  font-weight:760!important;
+  line-height:.9!important;
+  letter-spacing:-.055em!important;
+}
+
+.valesDashStatV700.violet>b{
+  color:#8d6dff!important;
+}
+
+.valesDashStatV700>small{
+  grid-column:1/3!important;
+  grid-row:3!important;
+  color:var(--vales-muted)!important;
+  font-size:16px!important;
+  font-weight:650!important;
+}
+
+.valesDashStatArrowV700{
+  grid-column:3!important;
+  grid-row:1!important;
+  align-self:center!important;
+  color:#516171!important;
+  font-size:26px!important;
+  font-style:normal!important;
+}
+
+.valesDashStatV700.warn{
+  border-color:rgba(239,68,68,.33)!important;
+}
+
+.valesDashStatV700.warn>b{
+  color:#ff6961!important;
+}
+
+/* Existing dashboard detail content, now in the same visual family. */
+#dashboard .dashboardColumnsV57{
+  margin-top:22px!important;
+  gap:16px!important;
+}
+
+#dashboard .dashPanelV57{
+  border:1px solid rgba(143,167,189,.18)!important;
+  border-radius:20px!important;
+  background:rgba(15,27,40,.92)!important;
+  color:var(--vales-text)!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.16)!important;
+}
+
+#dashboard .dashPanelV57 h3{
+  color:#f6f8fb!important;
+}
+
+#dashboard .dashItemV57,
+#dashboard .dashEmptyV57{
+  border-color:rgba(145,169,190,.14)!important;
+  background:rgba(255,255,255,.025)!important;
+  color:#dce3eb!important;
+}
+
+#dashboard .dashItemV57 small,
+#dashboard .dashEmptyV57{
+  color:var(--vales-muted)!important;
+}
+
+.valesDashboardFooterV700{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin-top:22px;
+  padding:14px 4px 2px;
+  color:#738292;
+  font-size:10.5px;
+  font-weight:700;
+}
+
+.valesDashboardFooterV700 i{
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:#445362;
+}
+
+.valesDashboardFooterV700 em{
+  margin-left:auto;
+  color:#596979;
+  font-style:normal;
+}
+
+/* Dashboard sheets */
+#dashboard .dashTouchDialogV70{
+  border:1px solid rgba(132,162,188,.2)!important;
+  background:linear-gradient(180deg,#101c29,#09131d)!important;
+  color:var(--vales-text)!important;
+}
+
+#dashboard .dashTouchSheetHeadV70{
+  border-color:rgba(143,168,190,.16)!important;
+}
+
+#dashboard .dashTouchSheetHeadV70 h3{
+  color:#fff!important;
+}
+
+#dashboard .dashTouchSheetHeadV70 small{
+  color:var(--vales-muted)!important;
+}
+
+#dashboard .dashTouchRowV69{
+  border-color:rgba(140,165,187,.14)!important;
+  background:rgba(255,255,255,.035)!important;
+  color:#edf2f7!important;
+}
+
+#dashboard .dashTouchRowV69 small{
+  color:var(--vales-muted)!important;
+}
+
+/* --------------------------- Smartphone ----------------------------- */
+@media(max-width:820px){
+  .valesTopbarV700{
+    min-height:122px!important;
+    padding:17px 20px 15px!important;
+  }
+
+  .valesBrandV700{
+    width:100%!important;
+    justify-content:flex-start!important;
+  }
+
+  .valesBrandV700>img{
+    width:160px!important;
+    max-width:49vw!important;
+  }
+
+  .valesBrandTextV700{
+    flex:1;
+    min-width:0;
+    padding-left:10px;
+  }
+
+  .valesProductNameV700{
+    display:none;
+  }
+
+  .valesTenantNameV700{
+    overflow:hidden;
+    color:#aab5c1;
+    font-size:11.5px;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .valesHeaderMetaV700{
+    position:absolute;
+    right:20px;
+    bottom:15px;
+    font-size:9px;
+  }
+
+  #appView{
+    background:var(--vales-bg)!important;
+  }
+
+  #appView .content{
+    padding:18px 14px 42px!important;
+    background:var(--vales-bg)!important;
+  }
+
+  #mobileMenuToggle{
+    display:none!important;
+  }
+
+  #mobileTouchNav.mobileTouchNav{
+    position:relative!important;
+    top:auto!important;
+    left:auto!important;
+    right:auto!important;
+    z-index:60!important;
+    display:flex!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-height:82px!important;
+    gap:10px!important;
+    margin:0!important;
+    padding:14px 16px!important;
+    overflow-x:auto!important;
+    border:0!important;
+    border-bottom:1px solid rgba(134,161,184,.18)!important;
+    background:
+      radial-gradient(circle at 15% 0%,rgba(0,209,216,.08),transparent 35%),
+      #0a151f!important;
+    box-shadow:0 12px 30px rgba(0,0,0,.18)!important;
+    scrollbar-width:none;
+  }
+
+  #mobileTouchNav::-webkit-scrollbar{
+    display:none;
+  }
+
+  #mobileTouchNav button{
+    display:flex!important;
+    flex:0 0 auto!important;
+    align-items:center!important;
+    justify-content:center!important;
+    gap:8px!important;
+    min-width:145px!important;
+    min-height:52px!important;
+    margin:0!important;
+    padding:11px 17px!important;
+    border:1px solid rgba(133,161,184,.26)!important;
+    border-radius:999px!important;
+    background:rgba(9,22,33,.68)!important;
+    color:#aeb9c5!important;
+    box-shadow:none!important;
+    font-size:14px!important;
+    font-weight:780!important;
+    white-space:nowrap!important;
+  }
+
+  #mobileTouchNav button.active{
+    border-color:#16d9e1!important;
+    background:
+      linear-gradient(135deg,rgba(0,209,216,.14),rgba(48,68,158,.14)),
+      rgba(7,20,30,.94)!important;
+    color:#9ff8fb!important;
+    box-shadow:0 0 0 1px rgba(0,209,216,.12),0 0 24px rgba(0,209,216,.07)!important;
+  }
+
+  #mobileTouchNav button.active .valesNavIconV700{
+    color:#22e1e9!important;
+  }
+
+  #mobileTouchNav .mobileTouchLogoutBtn{
+    border-color:rgba(239,68,68,.28)!important;
+    color:#ff9994!important;
+  }
+
+  #dashboard.dashboardPage{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+  }
+
+  #dashboardV57{
+    padding:0!important;
+  }
+
+  .valesDashHeroV700{
+    min-height:170px!important;
+    margin:0 0 18px!important;
+    padding:22px 20px!important;
+    gap:16px!important;
+    border-radius:24px!important;
+  }
+
+  .valesHeroIconV700{
+    flex-basis:58px;
+    width:58px;
+    height:58px;
+    border-radius:17px;
+  }
+
+  .valesHeroIconV700 svg{
+    width:29px;
+    height:29px;
+  }
+
+  .valesHeroEyebrowV700{
+    font-size:9px;
+  }
+
+  .valesDashHeroV700 h2{
+    font-size:44px!important;
+  }
+
+  .valesDashHeroV700 p{
+    margin-top:10px!important;
+    font-size:14px!important;
+    line-height:1.4!important;
+  }
+
+  /* On the first VALES phase, the dashboard focuses on the clear metric cards.
+     Detail views remain reachable by tapping a card. */
+  #dashboardMobileV69{
+    display:none!important;
+  }
+
+  #dashboardStatsV57.dashboardStatsV57{
+    gap:14px!important;
+    padding:0 2px!important;
+  }
+
+  .valesDashStatV700{
+    min-height:190px!important;
+    padding:18px!important;
+    gap:7px 11px!important;
+    border-radius:22px!important;
+  }
+
+  .valesDashStatIconV700{
+    width:42px!important;
+    height:42px!important;
+    border-radius:13px!important;
+  }
+
+  .valesDashStatIconV700 svg{
+    width:22px;
+    height:22px;
+  }
+
+  .valesDashStatTitleV700{
+    font-size:15px!important;
+  }
+
+  .valesDashStatV700>b{
+    font-size:54px!important;
+  }
+
+  .valesDashStatV700>small{
+    font-size:13.5px!important;
+  }
+
+  .valesDashStatArrowV700{
+    display:none!important;
+  }
+
+  #dashboardStatsV57 .valesDashStatV700:last-child:nth-child(odd){
+    grid-column:1/-1!important;
+    min-height:174px!important;
+  }
+
+  #dashboard .dashboardColumnsV57{
+    display:none!important;
+  }
+
+  .valesDashboardFooterV700{
+    flex-wrap:wrap;
+    padding:18px 4px 0;
+  }
+
+  .valesDashboardFooterV700 em{
+    width:100%;
+    margin:2px 0 0;
+  }
+}
+
+@media(max-width:420px){
+  .valesTopbarV700{
+    min-height:116px!important;
+    padding-left:16px!important;
+    padding-right:16px!important;
+  }
+
+  .valesBrandV700>img{
+    width:146px!important;
+  }
+
+  .valesHeaderMetaV700{
+    right:16px;
+  }
+
+  #appView .content{
+    padding:15px 11px 36px!important;
+  }
+
+  #mobileTouchNav.mobileTouchNav{
+    min-height:76px!important;
+    padding:12px 13px!important;
+  }
+
+  #mobileTouchNav button{
+    min-width:132px!important;
+    min-height:50px!important;
+    padding:10px 14px!important;
+    font-size:13px!important;
+  }
+
+  .valesDashHeroV700{
+    min-height:154px!important;
+    padding:19px 17px!important;
+  }
+
+  .valesHeroIconV700{
+    flex-basis:52px;
+    width:52px;
+    height:52px;
+  }
+
+  .valesDashHeroV700 h2{
+    font-size:39px!important;
+  }
+
+  .valesDashHeroV700 p{
+    font-size:13px!important;
+  }
+
+  #dashboardStatsV57.dashboardStatsV57{
+    gap:11px!important;
+  }
+
+  .valesDashStatV700{
+    min-height:172px!important;
+    padding:15px!important;
+    border-radius:19px!important;
+  }
+
+  .valesDashStatIconV700{
+    width:38px!important;
+    height:38px!important;
+  }
+
+  .valesDashStatTitleV700{
+    font-size:13px!important;
+  }
+
+  .valesDashStatV700>b{
+    font-size:48px!important;
+  }
+
+  .valesDashStatV700>small{
+    font-size:12px!important;
+  }
+}
+
+/* ----------------------------- Desktop ------------------------------ */
+@media(min-width:821px){
+  #dashboard.dashboardPage{
+    padding:24px!important;
+    border-radius:24px!important;
+  }
+
+  #dashboardStatsV57.dashboardStatsV57{
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  }
+
+  .valesDashStatV700{
+    min-height:188px!important;
+    padding:18px!important;
+  }
+
+  .valesDashStatTitleV700{
+    font-size:14px!important;
+  }
+
+  .valesDashStatV700>b{
+    font-size:49px!important;
+  }
+
+  .valesDashStatV700>small{
+    font-size:12px!important;
+  }
+
+  #dashboardMobileV69{
+    display:none!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .valesDashStatV700{
+    transition:none!important;
+  }
+}
