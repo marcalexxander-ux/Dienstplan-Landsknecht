@@ -1,6 +1,6 @@
 let pendingStaffInvites=[];
 document.body.classList.add("loggedOut");
-const APP_VERSION="v7.0.4";
+const APP_VERSION="v7.0.5";
 const removedStaffIds=new Set();
 const MAX_EMPLOYEES=20;
 const days=["Mo","Di","Mi","Do","Fr","Sa","So"];
@@ -3188,11 +3188,22 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const assistantMonth=monthISO(parseISODateLocal(addDaysISO(week,3)));
   const monthFrom=firstOfMonthISO(assistantMonth);
   const monthTo=`${assistantMonth}-${pad2(lastDayOfMonth(assistantMonth))}`;
-  const[{data:schedules},{data:infos},{data:events},{data:monthlySchedules}]=await Promise.all([
+  const[
+    {data:schedules},
+    {data:infos},
+    {data:events},
+    {data:monthlySchedules},
+    {data:approvedVacations}
+  ]=await Promise.all([
     sb.from("schedules").select("id,profile_id,work_date,status,start_time,end_time").gte("work_date",assistantFrom).lte("work_date",assistantTo),
     sb.from("daily_infos").select("*").gte("info_date",from).lte("info_date",to),
     sb.from("events").select("*").gte("event_date",from).lte("event_date",to),
-    sb.from("schedules").select("id,profile_id,work_date,status,start_time,end_time").gte("work_date",monthFrom).lte("work_date",monthTo)
+    sb.from("schedules").select("id,profile_id,work_date,status,start_time,end_time").gte("work_date",monthFrom).lte("work_date",monthTo),
+    sb.from("vacation_requests")
+      .select("id,profile_id,date_from,date_to,status")
+      .eq("status","genehmigt")
+      .lte("date_from",to)
+      .gte("date_to",from)
   ]);
 
   if(planningAssistantLoadTokenV613[targetId]!==requestToken) return;
@@ -3200,6 +3211,26 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const byKey={};
   (schedules||[]).filter(s=>s.work_date>=from&&s.work_date<=to)
     .forEach(s=>byKey[`${s.profile_id}_${s.work_date}`]=s);
+
+  // Genehmigter Urlaub ist die führende Abwesenheitsquelle.
+  // Er wird im Dienstplan sichtbar gemacht, ohne automatisch Schedule-Zeilen
+  // zu erzeugen oder bestehende Einträge zu verändern.
+  const vacationByKey={};
+  (approvedVacations||[]).forEach(v=>{
+    if(!v?.profile_id || !v?.date_from || !v?.date_to) return;
+    let cursor=String(v.date_from)<from ? from : String(v.date_from);
+    const end=String(v.date_to)>to ? to : String(v.date_to);
+    while(cursor<=end){
+      vacationByKey[`${v.profile_id}_${cursor}`]=v;
+      cursor=addDaysISO(cursor,1);
+    }
+  });
+
+  // Eine eventuell noch vorhandene Arbeitsschicht während genehmigten Urlaubs
+  // darf die Besetzungsrechnung nicht fälschlich erhöhen.
+  const effectiveSchedulesForPlan=(schedules||[]).filter(s=>
+    !(s.status==="arbeit" && vacationByKey[`${s.profile_id}_${s.work_date}`])
+  );
 
   const infoByDate={};
   (infos||[]).forEach(i=>infoByDate[i.info_date]=i.info_text);
@@ -3220,13 +3251,13 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const assistantPeople=people.slice();
   const assistantResult=buildPlanningAssistantEngineV610({
     weekStart:week,
-    schedules:schedules||[],
+    schedules:effectiveSchedulesForPlan,
     monthlySchedules:monthlySchedules||[],
     people:assistantPeople,
     kind,
     monthKey:assistantMonth
   });
-  assistantResult.sourceSchedulesV631=schedules||[];
+  assistantResult.sourceSchedulesV631=effectiveSchedulesForPlan;
   assistantResult.sourceProfileIdsV631=assistantPeople.map(p=>p.id);
   storePlanningAssistantResultV610(assistantResult);
 
@@ -3234,7 +3265,7 @@ async function loadPlanFiltered(title,week,departments,targetId){
   const staffingCoverageByDateV631={};
   const staffingWeekCoveragesV631=days.map((_,i)=>{
     const iso=addDaysISO(week,i);
-    const coverage=staffingCoverageForDateV631(kind,iso,schedules||[],staffingProfileIdsV631);
+    const coverage=staffingCoverageForDateV631(kind,iso,effectiveSchedulesForPlan,staffingProfileIdsV631);
     staffingCoverageByDateV631[iso]=coverage;
     return coverage;
   });
@@ -3245,11 +3276,13 @@ async function loadPlanFiltered(title,week,departments,targetId){
     people = people.filter(p => days.some((_,i)=>{
       const iso=addDaysISO(week,i);
       const item=byKey[`${p.id}_${iso}`];
-      return item && item.status === "arbeit";
+      const vacation=vacationByKey[`${p.id}_${iso}`];
+      return vacation || (item && item.status === "arbeit");
     }));
   }
 
-  function cellValue(item){
+  function cellValue(item,profileId,iso){
+    if(vacationByKey[`${profileId}_${iso}`]) return "Urlaub";
     return scheduleCellValueForVisibility(item);
   }
 
@@ -3257,21 +3290,41 @@ async function loadPlanFiltered(title,week,departments,targetId){
   days.forEach((d,i)=>{
     const iso=addDaysISO(week,i);
     const dayRows=sortOwnShiftFirst(people
-      .map(p=>({p,item:byKey[`${p.id}_${iso}`]}))
-      .filter(x=>editablePlan ? x.item : (x.item && x.item.status==="arbeit")));
+      .map(p=>({
+        p,
+        item:byKey[`${p.id}_${iso}`],
+        vacation:vacationByKey[`${p.id}_${iso}`]
+      }))
+      .filter(x=>editablePlan ? true : (x.vacation || (x.item && x.item.status==="arbeit"))));
 
     mobile += `<div class="mobileDayCard"><div class="mobileDayHead"><div><b>${d}, ${fmtDate(iso)}</b>${isManagement()?staffingCoverageBadgeV631(staffingCoverageByDateV631[iso],true):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.dayHours?`<span class="assistantMobileDayHoursV613">Σ ${formatAssistantHoursV611(assistantResult.dailyHoursByDate[iso]||0)}</span>`:""}</div>`;
     if(infoByDate[iso]) mobile += `<div class="mobileDayInfo">📢 ${escapeHtml(infoByDate[iso])}</div>`;
     (eventsByDate[iso]||[]).forEach(e=>mobile += `<div class="mobileDayEvent">${escapeHtml(eventPlanLabel(e))}</div>`);
 
     if(dayRows.length){
-      mobile += dayRows.map(({p,item})=>`
-        <div class="mobileShiftRow ${shiftClass(cellValue(item))}${ownShiftClass(p)}${editablePlan ? " mobileShiftEditable" : ""}"
-             ${editablePlan ? `role="button" tabindex="0" data-touch-profile="${p.id}" data-touch-date="${iso}" data-touch-id="${item?.id||""}" data-touch-value="${escapeHtml(cellValue(item))}" data-touch-kind="${kind}"` : ""}>
-          <div><b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br><small>${escapeHtml(p.department||"")}</small>${isManagement()?planningProfileMonitorHtmlV621(assistantResult,p):""}</div>
-          <div class="mobileShiftValueV611"><strong>${escapeHtml(cellValue(item)) || (editablePlan ? "Antippen" : "")}</strong>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.mobileWarnings?assistantWarningButtonV611(assistantResult,p.id,iso,true):""}</div>
-        </div>
-      `).join("");
+      mobile += dayRows.map(({p,item,vacation})=>{
+        const val=cellValue(item,p.id,iso);
+        const vacationConflict=!!(vacation && item && item.status==="arbeit");
+        const canTouch=editablePlan && !vacation;
+        const vacationPeriod=vacation
+          ? `${fmtDate(vacation.date_from)} – ${fmtDate(vacation.date_to)}`
+          : "";
+        return `
+        <div class="mobileShiftRow ${shiftClass(val)}${ownShiftClass(p)}${canTouch ? " mobileShiftEditable" : ""}${vacation ? " approvedVacationRowV705" : ""}${vacationConflict ? " vacationScheduleConflictV705" : ""}"
+             ${canTouch ? `role="button" tabindex="0" data-touch-profile="${p.id}" data-touch-date="${iso}" data-touch-id="${item?.id||""}" data-touch-value="${escapeHtml(val)}" data-touch-kind="${kind}"` : ""}>
+          <div>
+            <b>${escapeHtml(p.first_name||"")} ${escapeHtml(p.last_name||"")} ${ownShiftBadge(p)}</b><br>
+            <small>${escapeHtml(p.department||"")}${vacationPeriod ? ` · ${escapeHtml(vacationPeriod)}` : ""}</small>
+            ${vacationConflict ? `<small class="vacationConflictTextV705">⚠ Schicht vorhanden – genehmigter Urlaub hat Vorrang</small>` : ""}
+            ${isManagement()?planningProfileMonitorHtmlV621(assistantResult,p):""}
+          </div>
+          <div class="mobileShiftValueV611">
+            <strong>${escapeHtml(val) || (editablePlan ? "Antippen" : "")}</strong>
+            ${vacation ? `<small class="approvedVacationBadgeV705">genehmigt</small>` : ""}
+            ${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.mobileWarnings?assistantWarningButtonV611(assistantResult,p.id,iso,true):""}
+          </div>
+        </div>`;
+      }).join("");
     }else{
       mobile += `<div class="mobileEmpty">${isManagement() ? "Keine Einträge." : "Keine Arbeitsschichten."}</div>`;
     }
@@ -3316,12 +3369,26 @@ async function loadPlanFiltered(title,week,departments,targetId){
     html+=`<tr class="${ownShiftClass(p)}" ${isManagement()?`draggable="true" data-profile-id="${p.id}"`:""}><td><div class="assistantPersonCellV611"><div>${renderPersonCell(p, people)} ${ownShiftBadge(p)}${isManagement()?planningProfileMonitorHtmlV621(assistantResult,p):""}</div>${isManagement()&&planningAssistantSettingsV612.enabled&&planningAssistantSettingsV612.weekHours?`<span class="assistantWeekHoursV611" title="Arbeitsstunden in dieser Woche">${formatAssistantHoursV611(assistantResult.weeklyHoursByProfile[p.id]||0)}</span>`:""}</div></td>`;
     days.forEach((_,i)=>{
       const iso=addDaysISO(week,i),item=byKey[`${p.id}_${iso}`];
-      const val=cellValue(item);
+      const vacation=vacationByKey[`${p.id}_${iso}`];
+      const val=cellValue(item,p.id,iso);
+      const vacationConflict=!!(vacation && item && item.status==="arbeit");
       const assistantWarnings=isManagement()?planningWarningsForCellV611(assistantResult,p.id,iso):[];
       const assistantLevel=planningWarningLevelV611(assistantWarnings);
-      html+=editablePlan
-        ? `<td class="${shiftClass(val)} ${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}"><input class="${shiftDisplayClass(val)} quickPlanCellV83" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="" autocomplete="off" spellcheck="false">${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`
-        : `<td class="${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}">${val ? shiftPill(val) : ""}${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`;
+
+      if(vacation){
+        const period=`${fmtDate(vacation.date_from)} – ${fmtDate(vacation.date_to)}`;
+        html+=`<td class="vac approvedVacationCellWrapV705 ${vacationConflict?"vacationScheduleConflictV705":""}">
+          <div class="approvedVacationCellV705" title="Genehmigter Urlaub: ${escapeHtml(period)}">
+            <b>Urlaub</b>
+            <small>genehmigt</small>
+            ${vacationConflict?`<em>⚠ Schicht vorhanden</em>`:""}
+          </div>
+        </td>`;
+      }else{
+        html+=editablePlan
+          ? `<td class="${shiftClass(val)} ${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}"><input class="${shiftDisplayClass(val)} quickPlanCellV83" data-profile="${p.id}" data-date="${iso}" data-id="${item?.id||""}" value="${escapeHtml(val)}" placeholder="" autocomplete="off" spellcheck="false">${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`
+          : `<td class="${assistantWarnings.length?`assistantCellWarningV611 ${assistantLevel}`:""}">${val ? shiftPill(val) : ""}${assistantWarningButtonV611(assistantResult,p.id,iso)}</td>`;
+      }
     });
     html+="</tr>";
   });
